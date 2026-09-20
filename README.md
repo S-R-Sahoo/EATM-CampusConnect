@@ -159,20 +159,6 @@ VITE_FIREBASE_APP_ID=your_app_id
 > **Note on Zero-Config Sandbox Mode**:  
 > If you have not created a Firebase project yet, **the application will automatically run in Sandbox Persistence Mode** with realistic seed data preloaded! All features (posting, liking, messaging, connecting, registering, uploading) function out of the box. Once you add your live `.env` credentials, it connects seamlessly to your live Firebase backend.
 
----
-
-## 🧪 Demo Personas & Test Credentials
-
-You can test all 3 portals instantly using the **Demo Switcher Bar** located at the top of the interface, or sign in manually with these credentials:
-
-| Role | Name | Email | Password | Access Area |
-| :--- | :--- | :--- | :--- | :--- |
-| **Student** | Soumyaranjan Sahoo (CSE 3rd Year) | `soumya.sahoo@eatm.in` | `Password@123` | `/student/dashboard` |
-| **Faculty** | Dr. B. K. Mohapatra (HOD CSE) | `hod.cse@eatm.in` | `Password@123` | `/faculty/dashboard` |
-| **Admin** | Prof. S. K. Rath (Dean Student Affairs) | `admin.dean@eatm.in` | `Password@123` | `/admin/dashboard` |
-
----
-
 ## 💻 Running the Application Locally
 
 1. **Clone or navigate to the workspace directory**:
