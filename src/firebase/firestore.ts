@@ -150,6 +150,38 @@ export async function fetchPostComments(postId: string): Promise<Comment[]> {
   return allComments.filter(c => c.postId === postId);
 }
 
+export async function votePoll(postId: string, optionId: string, userId: string): Promise<Post | null> {
+  const posts = getLocalData<Post[]>('posts', SEED_POSTS);
+  const post = posts.find(p => p.id === postId);
+  if (!post || !post.poll) return null;
+
+  post.poll.options = post.poll.options.map(opt => {
+    const votes = opt.votes || [];
+    if (opt.id === optionId) {
+      if (votes.includes(userId)) {
+        return { ...opt, votes: votes.filter(id => id !== userId) };
+      } else {
+        return { ...opt, votes: [...votes, userId] };
+      }
+    } else {
+      return { ...opt, votes: votes.filter(id => id !== userId) };
+    }
+  });
+
+  setLocalData('posts', [...posts]);
+
+  if (isFirebaseConfigured() && db) {
+    try {
+      const postRef = doc(db, 'posts', postId);
+      await updateDoc(postRef, { poll: post.poll });
+    } catch (err) {
+      console.warn('Firestore votePoll error:', err);
+    }
+  }
+
+  return post;
+}
+
 // ---------------------------------------------
 // USERS & PROFILES
 // ---------------------------------------------

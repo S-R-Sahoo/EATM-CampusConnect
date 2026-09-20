@@ -65,6 +65,10 @@ export interface Post {
   commentsCount: number;
   sharesCount: number;
   savedBy?: string[];
+  poll?: {
+    question: string;
+    options: { id: string; text: string; votes: string[] }[];
+  };
   createdAt: string;
 }
 

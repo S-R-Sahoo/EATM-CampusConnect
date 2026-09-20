@@ -1,12 +1,12 @@
 import React from 'react';
 
 export const Skeleton: React.FC<{ className?: string }> = ({ className = '' }) => {
-  return <div className={`animate-pulse bg-gray-200/80 rounded-xl ${className}`} />;
+  return <div className={`animate-pulse bg-gray-200/80 dark:bg-[#1c3224] rounded-xl ${className}`} />;
 };
 
 export const PostCardSkeleton: React.FC = () => {
   return (
-    <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm space-y-4">
+    <div className="bg-white dark:bg-[#111d15] rounded-2xl p-6 border border-gray-100 dark:border-[#1e3325] shadow-sm space-y-4">
       <div className="flex items-center gap-3">
         <Skeleton className="w-11 h-11 rounded-full" />
         <div className="space-y-2 flex-1">

@@ -272,6 +272,15 @@ export const SEED_POSTS: Post[] = [
     mediaUrl: 'https://images.unsplash.com/photo-1531482615713-2afd69097998?w=1200&auto=format&fit=crop&q=80',
     mediaType: 'image',
     visibility: 'campus',
+    poll: {
+      question: 'Which tech stack are you most excited to learn this semester at EATM?',
+      options: [
+        { id: 'opt_1', text: 'Full-Stack React & Node.js', votes: ['user_rakesh', 'user_priya'] },
+        { id: 'opt_2', text: 'AI / Machine Learning & Python', votes: ['user_rohit', 'user_ananya'] },
+        { id: 'opt_3', text: 'Cloud & DevOps (Docker/AWS)', votes: ['user_arjun'] },
+        { id: 'opt_4', text: 'Mobile App Dev (Flutter/React Native)', votes: [] }
+      ]
+    },
     likes: ['user_soumya', 'user_rohit', 'user_arjun'],
     likesCount: 34,
     commentsCount: 7,
