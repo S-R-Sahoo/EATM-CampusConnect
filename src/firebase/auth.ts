@@ -9,6 +9,7 @@ import {
 import { auth, googleProvider, isFirebaseConfigured } from './config';
 import { UserProfile, UserRole } from '../types';
 import { fetchUserById, updateUserProfile, fetchUsers } from './firestore';
+import { DEFAULT_ENGINEER_AVATAR } from '../constants/assets';
 
 export async function loginWithEmail(email: string, pass: string): Promise<UserProfile> {
   if (isFirebaseConfigured() && auth) {
@@ -78,7 +79,7 @@ export async function registerWithEmail(
     employeeId: userData.employeeId,
     designation: userData.designation,
     phone: userData.phone,
-    photoURL: userData.photoURL || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=400&auto=format&fit=crop&q=80',
+    photoURL: userData.photoURL || (userData.role === 'student' ? DEFAULT_ENGINEER_AVATAR : 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=400&auto=format&fit=crop&q=80'),
     coverURL: 'https://images.unsplash.com/photo-1562774053-701939374585?w=1600&auto=format&fit=crop&q=80',
     bio: `${userData.role === 'student' ? 'Student' : 'Faculty'} at Einstein Academy of Technology and Management (EATM).`,
     skills: userData.role === 'student' ? ['Problem Solving', 'Engineering'] : ['Mentorship', 'Teaching'],

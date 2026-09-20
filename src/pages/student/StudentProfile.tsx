@@ -12,6 +12,7 @@ import {
   Camera, Upload, Image as ImageIcon, Loader2,
   User, Cpu, Compass, Trophy, BookOpen
 } from 'lucide-react';
+import { DEFAULT_ENGINEER_AVATAR } from '../../constants/assets';
 
 const DEPARTMENT_OPTIONS = [
   { label: 'Computer Science & Engineering (CSE)', value: 'CSE' },
@@ -96,6 +97,10 @@ export const StudentProfile: React.FC = () => {
 
   if (!user) return null;
 
+  const effectivePhoto = (user.photoURL && !user.photoURL.includes('photo-1534528741775-53994a69daeb'))
+    ? user.photoURL
+    : DEFAULT_ENGINEER_AVATAR;
+
   const handleOpenEdit = () => {
     setDisplayName(user.displayName || '');
     setDepartment(user.department || 'CSE');
@@ -105,7 +110,7 @@ export const StudentProfile: React.FC = () => {
     setBio(user.bio || '');
     setSkillsStr(user.skills?.join(', ') || '');
     setInterestsStr(user.interests?.join(', ') || '');
-    setPhotoURL(user.photoURL || '');
+    setPhotoURL(effectivePhoto);
     setCoverURL(user.coverURL || '');
     setEditModalOpen(true);
   };
@@ -255,7 +260,7 @@ export const StudentProfile: React.FC = () => {
               />
               <div className="w-28 h-28 sm:w-36 sm:h-36 rounded-full ring-4 ring-white dark:ring-[#111d15] shadow-xl overflow-hidden bg-white dark:bg-[#16251c] flex items-center justify-center relative">
                 <img
-                  src={user.photoURL || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80'}
+                  src={effectivePhoto}
                   alt={user.displayName}
                   className="w-full h-full object-cover"
                 />
@@ -566,7 +571,7 @@ export const StudentProfile: React.FC = () => {
               <div className="flex items-center gap-4">
                 <div className="w-16 h-16 rounded-full ring-2 ring-emerald-600/30 overflow-hidden bg-gray-200 dark:bg-gray-800 shrink-0 relative">
                   <img
-                    src={photoURL || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80'}
+                    src={photoURL || DEFAULT_ENGINEER_AVATAR}
                     alt="Preview"
                     className="w-full h-full object-cover"
                   />

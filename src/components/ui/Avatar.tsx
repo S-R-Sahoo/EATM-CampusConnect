@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { DEFAULT_ENGINEER_AVATAR } from '../../constants/assets';
 
 interface AvatarProps {
   src?: string;
@@ -33,30 +34,26 @@ export const Avatar: React.FC<AvatarProps> = ({
     xl: 'w-5 h-5 bottom-1 right-1 ring-4 ring-white',
   };
 
-  const getInitials = (n: string) => {
-    if (!n) return 'U';
-    const parts = n.trim().split(' ');
-    if (parts.length >= 2) {
-      return (parts[0][0] + parts[1][0]).toUpperCase();
-    }
-    return n.slice(0, 2).toUpperCase();
-  };
+  // Resolve image source with official engineer student avatar as default
+  const effectiveSrc = (src && !src.includes('photo-1534528741775-53994a69daeb')) 
+    ? src 
+    : DEFAULT_ENGINEER_AVATAR;
 
   return (
     <div className={`relative inline-block shrink-0 ${className}`}>
-      {src && !imgError ? (
+      {!imgError ? (
         <img
-          src={src}
+          src={effectiveSrc}
           alt={name}
           onError={() => setImgError(true)}
           className={`rounded-full object-cover shadow-sm ring-1 ring-gray-200/80 ${sizeStyles[size]}`}
         />
       ) : (
-        <div
-          className={`rounded-full flex items-center justify-center bg-gradient-to-br from-[#0b4627] to-[#146841] text-white shadow-sm ring-1 ring-emerald-800 ${sizeStyles[size]}`}
-        >
-          {getInitials(name)}
-        </div>
+        <img
+          src={DEFAULT_ENGINEER_AVATAR}
+          alt={name}
+          className={`rounded-full object-cover shadow-sm ring-1 ring-gray-200/80 ${sizeStyles[size]}`}
+        />
       )}
 
       {online !== undefined && (

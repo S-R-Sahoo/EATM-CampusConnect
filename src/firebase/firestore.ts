@@ -14,6 +14,7 @@ import {
   SEED_NOTIFICATIONS, SEED_CONVERSATIONS, SEED_MESSAGES, 
   SEED_REPORTS, SEED_ASSIGNMENTS 
 } from './seedData';
+import { DEFAULT_ENGINEER_AVATAR } from '../constants/assets';
 
 // Local storage key for persistent demo state
 const STORAGE_PREFIX = 'eatm_campus_';
@@ -153,22 +154,36 @@ export async function fetchPostComments(postId: string): Promise<Comment[]> {
 // USERS & PROFILES
 // ---------------------------------------------
 export async function fetchUsers(): Promise<UserProfile[]> {
+  let list: UserProfile[] = [];
   if (isFirebaseConfigured() && db) {
     try {
       const snap = await getDocs(collection(db, 'users'));
       if (!snap.empty) {
-        return snap.docs.map(d => ({ id: d.id, ...d.data() } as UserProfile));
+        list = snap.docs.map(d => ({ id: d.id, ...d.data() } as UserProfile));
       }
     } catch (err) {
       console.warn('Firestore fetchUsers error:', err);
     }
   }
-  return getLocalData<UserProfile[]>('users', SEED_USERS);
+  if (list.length === 0) {
+    list = getLocalData<UserProfile[]>('users', SEED_USERS);
+  }
+
+  return list.map(u => {
+    if (u.role === 'student' && (!u.photoURL || u.photoURL.includes('photo-1534528741775-53994a69daeb'))) {
+      return { ...u, photoURL: DEFAULT_ENGINEER_AVATAR };
+    }
+    return u;
+  });
 }
 
 export async function fetchUserById(userId: string): Promise<UserProfile | null> {
   const users = await fetchUsers();
-  return users.find(u => u.id === userId || u.uid === userId) || null;
+  const found = users.find(u => u.id === userId || u.uid === userId) || null;
+  if (found && found.role === 'student' && (!found.photoURL || found.photoURL.includes('photo-1534528741775-53994a69daeb'))) {
+    return { ...found, photoURL: DEFAULT_ENGINEER_AVATAR };
+  }
+  return found;
 }
 
 export async function updateUserProfile(userId: string, data: Partial<UserProfile>): Promise<UserProfile> {

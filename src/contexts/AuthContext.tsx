@@ -4,6 +4,7 @@ import { loginWithEmail, registerWithEmail, loginWithGoogle as authGoogle, logou
 import { fetchUsers, updateUserProfile as firestoreUpdateProfile } from '../firebase/firestore';
 import { auth, isFirebaseConfigured } from '../firebase/config';
 import { onAuthStateChanged } from 'firebase/auth';
+import { DEFAULT_ENGINEER_AVATAR } from '../constants/assets';
 
 interface AuthContextType {
   user: UserProfile | null;
@@ -33,11 +34,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const storedUser = localStorage.getItem('eatm_current_user');
         if (storedUser) {
           const parsed = JSON.parse(storedUser);
+          if (parsed.role === 'student' && (!parsed.photoURL || parsed.photoURL.includes('photo-1534528741775-53994a69daeb'))) {
+            parsed.photoURL = DEFAULT_ENGINEER_AVATAR;
+            localStorage.setItem('eatm_current_user', JSON.stringify(parsed));
+          }
           setUser(parsed);
         } else {
           // Default start with Soumyaranjan Sahoo (Student persona) for instant preview
           const users = await fetchUsers();
           const defaultStudent = users.find(u => u.id === 'user_soumya') || users[0];
+          if (defaultStudent.role === 'student' && (!defaultStudent.photoURL || defaultStudent.photoURL.includes('photo-1534528741775-53994a69daeb'))) {
+            defaultStudent.photoURL = DEFAULT_ENGINEER_AVATAR;
+          }
           setUser(defaultStudent);
           localStorage.setItem('eatm_current_user', JSON.stringify(defaultStudent));
         }
@@ -117,6 +125,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       let targetUser = users.find(u => u.role === role);
       if (role === 'student') {
         targetUser = users.find(u => u.id === 'user_soumya') || targetUser;
+        if (targetUser && (!targetUser.photoURL || targetUser.photoURL.includes('photo-1534528741775-53994a69daeb'))) {
+          targetUser.photoURL = DEFAULT_ENGINEER_AVATAR;
+        }
       } else if (role === 'faculty') {
         targetUser = users.find(u => u.id === 'faculty_mohapatra') || targetUser;
       } else if (role === 'admin') {

@@ -3,6 +3,7 @@ import {
   StudyMaterial, Opportunity, Announcement, NotificationItem, 
   Conversation, Message, Report, Assignment 
 } from '../types';
+import { DEFAULT_ENGINEER_AVATAR } from '../constants/assets';
 
 export const SEED_USERS: UserProfile[] = [
   {
@@ -16,7 +17,7 @@ export const SEED_USERS: UserProfile[] = [
     semester: '6th',
     rollNumber: 'EATM23CSE001',
     phone: '+91 98765 43210',
-    photoURL: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80',
+    photoURL: DEFAULT_ENGINEER_AVATAR,
     coverURL: 'https://images.unsplash.com/photo-1562774053-701939374585?w=1600&auto=format&fit=crop&q=80',
     bio: 'Passionate about building innovative solutions and love to learn new technologies. EATM Hackathon 2024 Winner.',
     skills: ['C++', 'Java', 'Python', 'React', 'Web Dev', 'UI/UX', 'Node.js', 'Firebase'],
