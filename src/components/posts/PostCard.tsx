@@ -6,6 +6,7 @@ import { toggleLikePost, votePoll } from '../../firebase/firestore';
 import { Avatar } from '../ui/Avatar';
 import { CommentSection } from './CommentSection';
 import { ReportModal } from '../common/ReportModal';
+import { ShareModal } from './ShareModal';
 import { 
   Heart, MessageSquare, Share2, Bookmark, 
   MoreHorizontal, Flag, BarChart2, CheckCircle2,
@@ -24,10 +25,12 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onPostDeleted }) => {
   const [likesCount, setLikesCount] = useState(post.likesCount || 0);
   const [isLiked, setIsLiked] = useState(user ? post.likes?.includes(user.id) : false);
   const [commentsCount, setCommentsCount] = useState(post.commentsCount || 0);
+  const [sharesCount, setSharesCount] = useState(post.sharesCount || 0);
   const [showComments, setShowComments] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
+  const [shareModalOpen, setShareModalOpen] = useState(false);
 
   // Poll state
   const [pollData, setPollData] = useState(post.poll);
@@ -87,8 +90,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onPostDeleted }) => {
   };
 
   const handleShare = () => {
-    navigator.clipboard?.writeText(window.location.href);
-    success('Post link copied to clipboard!', 'Shared');
+    setShareModalOpen(true);
   };
 
   const handleSave = () => {
@@ -104,7 +106,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onPostDeleted }) => {
   const hasVotedAny = pollData?.options.some(opt => opt.votes?.includes(user?.id || ''));
 
   return (
-    <div className="bg-white dark:bg-[#111d15] rounded-2xl border border-gray-200/80 dark:border-[#1e3325] p-5 shadow-card transition-all hover:border-gray-300/80 dark:hover:border-[#2b4935]">
+    <div id={`post-${post.id}`} className="bg-white dark:bg-[#111d15] rounded-2xl border border-gray-200/80 dark:border-[#1e3325] p-5 shadow-card transition-all hover:border-gray-300/80 dark:hover:border-[#2b4935]">
       {/* Post Author Header */}
       <div className="flex items-start justify-between gap-3 mb-3">
         <div className="flex items-center gap-3">
@@ -266,9 +268,10 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onPostDeleted }) => {
           <button
             onClick={handleShare}
             className="flex items-center gap-1.5 font-semibold hover:text-blue-600 dark:hover:text-blue-400 transition"
+            title="Share post"
           >
             <Share2 className="w-4 h-4" />
-            <span className="hidden sm:inline">Share</span>
+            <span>{sharesCount > 0 ? sharesCount : 'Share'}</span>
           </button>
         </div>
 
@@ -298,6 +301,14 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onPostDeleted }) => {
         targetType="post"
         targetId={post.id}
         targetContent={post.content.slice(0, 100)}
+      />
+
+      {/* Share Modal */}
+      <ShareModal
+        isOpen={shareModalOpen}
+        onClose={() => setShareModalOpen(false)}
+        post={post}
+        onShared={(newCount) => setSharesCount(newCount)}
       />
     </div>
   );

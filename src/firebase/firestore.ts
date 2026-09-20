@@ -182,6 +182,26 @@ export async function votePoll(postId: string, optionId: string, userId: string)
   return post;
 }
 
+export async function incrementPostShare(postId: string): Promise<number> {
+  const posts = getLocalData<Post[]>('posts', SEED_POSTS);
+  const post = posts.find(p => p.id === postId);
+  if (!post) return 0;
+
+  post.sharesCount = (post.sharesCount || 0) + 1;
+  setLocalData('posts', [...posts]);
+
+  if (isFirebaseConfigured() && db) {
+    try {
+      const postRef = doc(db, 'posts', postId);
+      await updateDoc(postRef, { sharesCount: post.sharesCount });
+    } catch (err) {
+      console.warn('Firestore incrementPostShare error:', err);
+    }
+  }
+
+  return post.sharesCount;
+}
+
 // ---------------------------------------------
 // USERS & PROFILES
 // ---------------------------------------------
