@@ -6,6 +6,7 @@ import {
   Calendar, BookOpen, Briefcase, Bell, 
   User, Settings, LogOut, Shield, FileText, CheckSquare, Award
 } from 'lucide-react';
+import { EATM_EMBLEM } from '../../constants/assets';
 
 interface SidebarProps {
   onCloseMobile?: () => void;
@@ -67,7 +68,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
     <aside className="w-64 bg-white border-r border-gray-200/80 flex flex-col h-full select-none">
       {/* Brand Header */}
       <div className="p-4 border-b border-gray-100 flex items-center gap-2.5">
-        <img src="/eatm-emblem.png" alt="EATM Logo" className="w-10 h-10 object-contain shrink-0" />
+        <img src={EATM_EMBLEM} alt="EATM Logo" className="w-10 h-10 object-contain shrink-0" />
         <div className="flex flex-col">
           <span className="font-extrabold text-[#0b4627] text-base leading-tight tracking-tight">
             EATM

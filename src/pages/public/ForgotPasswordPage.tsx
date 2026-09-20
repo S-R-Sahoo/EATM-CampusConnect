@@ -5,6 +5,7 @@ import { useToast } from '../../contexts/ToastContext';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { Mail, ArrowLeft, CheckCircle2 } from 'lucide-react';
+import { EATM_EMBLEM } from '../../constants/assets';
 
 export const ForgotPasswordPage: React.FC = () => {
   const { success, error } = useToast();
@@ -35,7 +36,7 @@ export const ForgotPasswordPage: React.FC = () => {
       <div className="max-w-md w-full bg-white rounded-3xl p-8 border border-gray-200/80 shadow-card">
         <div className="text-center mb-6">
           <Link to="/" className="inline-flex items-center gap-2.5 mb-4">
-            <img src="/eatm-emblem.png" alt="EATM Logo" className="w-10 h-10 object-contain" />
+            <img src={EATM_EMBLEM} alt="EATM Logo" className="w-10 h-10 object-contain" />
             <span className="font-black text-[#0b4627] text-lg">EATM CampusConnect</span>
           </Link>
           <h2 className="text-2xl font-black text-gray-900">Reset Your Password</h2>

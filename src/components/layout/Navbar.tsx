@@ -7,6 +7,7 @@ import {
   User, Settings, ChevronDown, Check, Shield, BookOpen 
 } from 'lucide-react';
 import { fetchNotifications } from '../../firebase/firestore';
+import { EATM_EMBLEM } from '../../constants/assets';
 
 interface NavbarProps {
   onToggleMobileMenu?: () => void;
@@ -55,7 +56,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileMenu, onOpenSearch
             <Menu className="w-5 h-5" />
           </button>
           <Link to="/" className="flex items-center gap-2">
-            <img src="/eatm-emblem.png" alt="EATM Logo" className="w-8 h-8 object-contain shrink-0" />
+            <img src={EATM_EMBLEM} alt="EATM Logo" className="w-8 h-8 object-contain shrink-0" />
             <div className="flex flex-col">
               <span className="font-bold text-[#0b4627] text-sm leading-tight">EATM</span>
               <span className="text-[10px] text-gray-500 leading-tight">CampusConnect</span>

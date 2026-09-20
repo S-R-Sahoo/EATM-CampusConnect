@@ -5,6 +5,7 @@ import { useToast } from '../../contexts/ToastContext';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { Eye, EyeOff, Mail, Lock, Sparkles, UserCheck, ShieldCheck, GraduationCap } from 'lucide-react';
+import { EATM_EMBLEM, EATM_OFFICIAL_LOGO } from '../../constants/assets';
 
 export const LoginPage: React.FC = () => {
   const { login, loginWithGoogle, switchDemoPersona } = useAuth();
@@ -75,7 +76,7 @@ export const LoginPage: React.FC = () => {
         <div className="relative z-10 flex flex-col justify-between p-12 text-white w-full">
           <Link to="/" className="flex items-center gap-3">
             <div className="bg-white p-1.5 rounded-2xl shadow-sm shrink-0">
-              <img src="/eatm-emblem.png" alt="EATM Logo" className="w-10 h-10 object-contain" />
+              <img src={EATM_EMBLEM} alt="EATM Logo" className="w-10 h-10 object-contain" />
             </div>
             <div>
               <h2 className="font-extrabold text-xl tracking-tight leading-none">EATM</h2>
@@ -105,7 +106,7 @@ export const LoginPage: React.FC = () => {
         <div className="max-w-md w-full">
           {/* Mobile Brand Link */}
           <div className="lg:hidden flex items-center gap-2 mb-6">
-            <img src="/eatm-official-logo.png" alt="EATM Logo" className="h-8 w-auto object-contain" />
+            <img src={EATM_OFFICIAL_LOGO} alt="EATM Logo" className="h-8 w-auto object-contain" />
           </div>
 
           <div className="mb-6">

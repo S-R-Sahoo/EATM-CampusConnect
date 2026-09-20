@@ -6,12 +6,13 @@ import {
   ChevronLeft, ChevronRight, ArrowRight, ShieldCheck, Heart, Sparkles
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
+import { EATM_OFFICIAL_LOGO, EATM_EMBLEM } from '../../constants/assets';
 
 // Authentic 12 sliding banners from official https://www.eatm.in/
 const HERO_SLIDES = [
   {
     id: 1,
-    image: '/slides/slide-1.jpg',
+    image: './slides/slide-1.jpg',
     fallbackImage: 'https://www.eatm.in/wp-content/uploads/2026/04/photo_2026-04-15_15-57-22.jpg',
     category: 'ANNUAL CULTURAL FEST',
     tagline: 'Where Music, Rhythm & Celebration Ignite Campus Life',
@@ -20,7 +21,7 @@ const HERO_SLIDES = [
   },
   {
     id: 2,
-    image: '/slides/slide-2.png',
+    image: './slides/slide-2.png',
     fallbackImage: 'https://www.eatm.in/wp-content/uploads/2026/02/ChatGPT-Image-Feb-13-2026-06_49_06-PM.png',
     category: 'ACADEMIC EXCELLENCE',
     tagline: 'Empowering Future Tech Leaders & Visionary Engineers',
@@ -29,7 +30,7 @@ const HERO_SLIDES = [
   },
   {
     id: 3,
-    image: '/slides/slide-3.jpg',
+    image: './slides/slide-3.jpg',
     fallbackImage: 'https://www.eatm.in/wp-content/uploads/2026/04/IMG_4780-scaled.jpg',
     category: 'GRADUATION & CONVOCATION',
     tagline: 'Honoring Proud Milestones & Launching Global Careers',
@@ -38,7 +39,7 @@ const HERO_SLIDES = [
   },
   {
     id: 4,
-    image: '/slides/slide-4.jpeg',
+    image: './slides/slide-4.jpeg',
     fallbackImage: 'https://www.eatm.in/wp-content/uploads/2026/03/WhatsApp-Image-2026-02-26-at-10.51.17-AM-scaled.jpeg',
     category: 'STUDENT COMMUNITY',
     tagline: 'Where Friendships Flourish & Big Ideas Come to Life',
@@ -47,7 +48,7 @@ const HERO_SLIDES = [
   },
   {
     id: 5,
-    image: '/slides/slide-5.jpg',
+    image: './slides/slide-5.jpg',
     fallbackImage: 'https://www.eatm.in/wp-content/uploads/2026/02/HOME-PAGE-scaled.jpg',
     category: 'CAMPUS INFRASTRUCTURE',
     tagline: '25 Acres of Serene Greenery & Modern Architecture',
@@ -56,7 +57,7 @@ const HERO_SLIDES = [
   },
   {
     id: 6,
-    image: '/slides/slide-6.jpeg',
+    image: './slides/slide-6.jpeg',
     fallbackImage: 'https://www.eatm.in/wp-content/uploads/2026/04/4.jpeg',
     category: 'NATIONAL CONCLAVES',
     tagline: 'Direct Dialogue with Industry Pioneers & Researchers',
@@ -65,7 +66,7 @@ const HERO_SLIDES = [
   },
   {
     id: 7,
-    image: '/slides/slide-7.jpeg',
+    image: './slides/slide-7.jpeg',
     fallbackImage: 'https://www.eatm.in/wp-content/uploads/2026/04/WhatsApp-Image-2026-04-16-at-2.06.22-PM.jpeg',
     category: 'ATHLETICS & SPORTS',
     tagline: 'Championing Strength, Team Spirit & Winning Athletic Drive',
@@ -74,7 +75,7 @@ const HERO_SLIDES = [
   },
   {
     id: 8,
-    image: '/slides/slide-8.jpeg',
+    image: './slides/slide-8.jpeg',
     fallbackImage: 'https://www.eatm.in/wp-content/uploads/2026/04/2026-04-16-at-2.06.22-PM.jpeg',
     category: 'INNOVATION & PROJECT EXPO',
     tagline: 'Transforming Student Inventions from Blueprints to Reality',
@@ -83,7 +84,7 @@ const HERO_SLIDES = [
   },
   {
     id: 9,
-    image: '/slides/slide-9.jpeg',
+    image: './slides/slide-9.jpeg',
     fallbackImage: 'https://www.eatm.in/wp-content/uploads/2026/04/WhatsApp-Image-2026-04-16-at-2.06.24-PM.jpeg',
     category: 'PERFORMING ARTS',
     tagline: 'A Dedicated Stage for Every Creative Talent & Passion',
@@ -92,7 +93,7 @@ const HERO_SLIDES = [
   },
   {
     id: 10,
-    image: '/slides/slide-10.jpeg',
+    image: './slides/slide-10.jpeg',
     fallbackImage: 'https://www.eatm.in/wp-content/uploads/2026/04/2026-04-16-at-2.06.24-PM.jpeg',
     category: 'ACADEMIC HONORS',
     tagline: 'Recognizing Academic Brilliance, Merit & University Rankers',
@@ -101,7 +102,7 @@ const HERO_SLIDES = [
   },
   {
     id: 11,
-    image: '/slides/slide-11.jpeg',
+    image: './slides/slide-11.jpeg',
     fallbackImage: 'https://www.eatm.in/wp-content/uploads/2026/04/WhatsApp-Image-2026-04-16-at-2.06.25-PM.jpeg',
     category: 'CAMPUS PLACEMENTS',
     tagline: 'Your Direct Gateway to Fortune 500 MNCs & High-Growth Careers',
@@ -110,7 +111,7 @@ const HERO_SLIDES = [
   },
   {
     id: 12,
-    image: '/slides/slide-12.jpeg',
+    image: './slides/slide-12.jpeg',
     fallbackImage: 'https://www.eatm.in/wp-content/uploads/2026/04/3.jpeg',
     category: 'ADVANCED LABORATORIES',
     tagline: 'Hands-On Experimentation in Advanced Computing & AI Labs',
@@ -165,7 +166,7 @@ export const LandingPage: React.FC = () => {
       <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-gray-200/80">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 py-3 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-3">
-            <img src="/eatm-official-logo.png" alt="Einstein Academy of Technology and Management" className="h-9 sm:h-11 w-auto object-contain" />
+            <img src={EATM_OFFICIAL_LOGO} alt="Einstein Academy of Technology and Management" className="h-9 sm:h-11 w-auto object-contain" />
             <div className="h-6 w-px bg-gray-200 hidden sm:block" />
             <span className="text-[11px] font-extrabold text-[#0b4627] hidden sm:inline-block bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
               CampusConnect
@@ -442,7 +443,7 @@ export const LandingPage: React.FC = () => {
           <div className="absolute inset-0 bg-gradient-to-r from-[#062615]/95 via-[#0b4627]/80 to-transparent flex items-center p-8 sm:p-14">
             <div className="max-w-md">
               <div className="flex items-center gap-2 mb-3">
-                <img src="/eatm-emblem.png" alt="EATM Logo" className="w-9 h-9 rounded-full bg-white p-0.5" />
+                <img src={EATM_EMBLEM} alt="EATM Logo" className="w-9 h-9 rounded-full bg-white p-0.5" />
                 <span className="font-bold text-xs tracking-wider uppercase text-emerald-300">
                   Einstein Academy of Technology and Management
                 </span>
@@ -477,7 +478,7 @@ export const LandingPage: React.FC = () => {
           <div className="space-y-3">
             <div className="flex items-center gap-3">
               <div className="bg-white p-1 rounded-xl shrink-0">
-                <img src="/eatm-emblem.png" alt="EATM Logo" className="w-9 h-9 object-contain" />
+                <img src={EATM_EMBLEM} alt="EATM Logo" className="w-9 h-9 object-contain" />
               </div>
               <div className="flex flex-col">
                 <span className="font-bold text-white text-base leading-tight">EATM</span>

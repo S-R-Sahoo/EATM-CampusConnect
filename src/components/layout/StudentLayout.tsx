@@ -5,6 +5,7 @@ import { Sidebar } from './Sidebar';
 import { Navbar } from './Navbar';
 import { MobileBottomNav } from './MobileBottomNav';
 import { GlobalSearchModal } from '../common/GlobalSearchModal';
+import { EATM_EMBLEM } from '../../constants/assets';
 
 export const StudentLayout: React.FC = () => {
   const { user, isLoading } = useAuth();
@@ -15,7 +16,7 @@ export const StudentLayout: React.FC = () => {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#f8faf9]">
         <div className="flex flex-col items-center gap-3">
-          <img src="/eatm-emblem.png" alt="EATM" className="w-12 h-12 object-contain animate-pulse" />
+          <img src={EATM_EMBLEM} alt="EATM" className="w-12 h-12 object-contain animate-pulse" />
           <p className="text-xs font-semibold text-[#0b4627] tracking-wider">Loading EATM CampusConnect...</p>
         </div>
       </div>
