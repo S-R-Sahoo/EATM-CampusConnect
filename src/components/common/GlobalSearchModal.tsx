@@ -87,9 +87,9 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({ isOpen, on
   return (
     <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-start justify-center pt-20 p-4">
       <div className="fixed inset-0" onClick={onClose} />
-      <div className="relative w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden z-10 animate-in fade-in zoom-in-95">
+      <div className="relative w-full max-w-2xl bg-white dark:bg-[#111d15] rounded-2xl shadow-2xl border border-gray-100 dark:border-[#1e3325] text-gray-900 dark:text-gray-100 overflow-hidden z-10 animate-in fade-in zoom-in-95">
         {/* Search Bar Input */}
-        <div className="flex items-center px-4 py-3.5 border-b border-gray-200">
+        <div className="flex items-center px-4 py-3.5 border-b border-gray-200 dark:border-[#1e3325]">
           <Search className="w-5 h-5 text-gray-400 shrink-0" />
           <input
             ref={inputRef}
@@ -97,16 +97,16 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({ isOpen, on
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search students, faculty, clubs, events, posts..."
-            className="w-full pl-3 pr-4 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none bg-transparent"
+            className="w-full pl-3 pr-4 text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none bg-transparent"
           />
           {query && (
-            <button onClick={() => setQuery('')} className="p-1 text-gray-400 hover:text-gray-600 rounded">
+            <button onClick={() => setQuery('')} className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded">
               <X className="w-4 h-4" />
             </button>
           )}
           <button
             onClick={onClose}
-            className="ml-2 text-xs font-semibold px-2 py-1 text-gray-500 hover:bg-gray-100 rounded"
+            className="ml-2 text-xs font-semibold px-2 py-1 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-[#182b20] rounded"
           >
             ESC
           </button>
@@ -116,13 +116,13 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({ isOpen, on
         <div className="max-h-[60vh] overflow-y-auto p-4 space-y-4">
           {!q ? (
             <div className="py-10 text-center text-gray-400">
-              <Search className="w-10 h-10 mx-auto text-gray-300 mb-2" />
-              <p className="text-sm font-medium text-gray-600">Type to search across the entire EATM campus</p>
+              <Search className="w-10 h-10 mx-auto text-gray-300 dark:text-gray-600 mb-2" />
+              <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Type to search across the entire EATM campus</p>
               <p className="text-xs text-gray-400 mt-1">Discover peers, clubs, hackathons, and announcements</p>
             </div>
           ) : totalResults === 0 ? (
             <div className="py-8 text-center text-gray-400">
-              <p className="text-sm text-gray-600">No campus results found for "{query}"</p>
+              <p className="text-sm text-gray-600 dark:text-gray-300">No campus results found for "{query}"</p>
             </div>
           ) : (
             <>
@@ -130,14 +130,14 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({ isOpen, on
               {filteredUsers.length > 0 && (
                 <div>
                   <h4 className="text-[11px] font-bold text-gray-400 uppercase tracking-wider px-2 mb-2 flex items-center gap-1.5">
-                    <User className="w-3.5 h-3.5 text-emerald-600" /> People ({filteredUsers.length})
+                    <User className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> People ({filteredUsers.length})
                   </h4>
                   <div className="space-y-1">
                     {filteredUsers.map(u => (
                       <div
                         key={u.id}
                         onClick={() => handleSelect(`/student/discover`)}
-                        className="flex items-center justify-between p-2.5 rounded-xl hover:bg-emerald-50/60 cursor-pointer transition group"
+                        className="flex items-center justify-between p-2.5 rounded-xl hover:bg-emerald-50/60 dark:hover:bg-[#182b20] cursor-pointer transition group"
                       >
                         <div className="flex items-center gap-3">
                           <img src={u.photoURL} alt={u.displayName} className="w-8 h-8 rounded-full object-cover" />

@@ -4,8 +4,12 @@
 
 @layer base {
   body {
-    @apply bg-[#f8faf9] text-gray-800 antialiased;
+    @apply bg-[#f8faf9] text-gray-800 antialiased transition-colors duration-150;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  .dark body {
+    @apply bg-[#0a120d] text-gray-100;
   }
 }
 
@@ -19,18 +23,36 @@
   background: #f1f5f3;
 }
 
+.dark ::-webkit-scrollbar-track {
+  background: #0d1712;
+}
+
 ::-webkit-scrollbar-thumb {
   background: #c3e4d1;
   border-radius: 9999px;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #1e3325;
 }
 
 ::-webkit-scrollbar-thumb:hover {
   background: #0b4627;
 }
 
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #2e523d;
+}
+
 /* Glassmorphism helpers */
 .glass-panel {
   background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.dark .glass-panel {
+  background: rgba(17, 29, 21, 0.85);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
 }

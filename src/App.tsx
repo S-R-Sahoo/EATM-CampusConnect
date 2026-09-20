@@ -2,6 +2,7 @@ import React from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { ToastProvider } from './contexts/ToastContext';
+import { ThemeProvider } from './contexts/ThemeContext';
 
 // Layouts
 import { StudentLayout } from './components/layout/StudentLayout';
@@ -42,8 +43,9 @@ import { AdminReports } from './pages/admin/AdminReports';
 export const App: React.FC = () => {
   return (
     <HashRouter>
-      <ToastProvider>
-        <AuthProvider>
+      <ThemeProvider>
+        <ToastProvider>
+          <AuthProvider>
           <Routes>
             {/* Public Routes */}
             <Route path="/" element={<LandingPage />} />
@@ -103,7 +105,8 @@ export const App: React.FC = () => {
           </Routes>
         </AuthProvider>
       </ToastProvider>
-    </HashRouter>
+    </ThemeProvider>
+  </HashRouter>
   );
 };
 

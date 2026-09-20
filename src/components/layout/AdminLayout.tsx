@@ -18,7 +18,7 @@ export const AdminLayout: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#f8faf9] flex flex-col font-sans">
+    <div className="min-h-screen bg-[#f8faf9] dark:bg-[#0a120d] text-gray-800 dark:text-gray-100 flex flex-col font-sans transition-colors duration-150">
       <Navbar
         onToggleMobileMenu={() => setMobileMenuOpen(!mobileMenuOpen)}
         onOpenSearch={() => setSearchModalOpen(true)}
@@ -32,7 +32,7 @@ export const AdminLayout: React.FC = () => {
         {mobileMenuOpen && (
           <div className="fixed inset-0 z-50 lg:hidden">
             <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setMobileMenuOpen(false)} />
-            <div className="fixed inset-y-0 left-0 w-72 bg-white z-50 shadow-2xl animate-in slide-in-from-left duration-200">
+            <div className="fixed inset-y-0 left-0 w-72 bg-white dark:bg-[#111d15] z-50 shadow-2xl animate-in slide-in-from-left duration-200">
               <Sidebar onCloseMobile={() => setMobileMenuOpen(false)} />
             </div>
           </div>

@@ -65,15 +65,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
     : studentLinks;
 
   return (
-    <aside className="w-64 bg-white border-r border-gray-200/80 flex flex-col h-full select-none">
+    <aside className="w-64 bg-white dark:bg-[#111d15] border-r border-gray-200/80 dark:border-[#1e3326] flex flex-col h-full select-none transition-colors duration-150">
       {/* Brand Header */}
-      <div className="p-4 border-b border-gray-100 flex items-center gap-2.5">
+      <div className="p-4 border-b border-gray-100 dark:border-[#1e3326] flex items-center gap-2.5">
         <img src={EATM_EMBLEM} alt="EATM Logo" className="w-10 h-10 object-contain shrink-0" />
         <div className="flex flex-col">
-          <span className="font-extrabold text-[#0b4627] text-base leading-tight tracking-tight">
+          <span className="font-extrabold text-[#0b4627] dark:text-emerald-400 text-base leading-tight tracking-tight">
             EATM
           </span>
-          <span className="text-xs font-semibold text-gray-500 tracking-wider">
+          <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 tracking-wider">
             CampusConnect
           </span>
         </div>
@@ -91,14 +91,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
               className={({ isActive }) =>
                 `flex items-center gap-3.5 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all duration-150 group ${
                   isActive
-                    ? 'bg-[#0b4627] text-white shadow-sm'
-                    : 'text-gray-600 hover:text-[#0b4627] hover:bg-emerald-50/70'
+                    ? 'bg-[#0b4627] dark:bg-emerald-700 text-white shadow-sm'
+                    : 'text-gray-600 dark:text-gray-300 hover:text-[#0b4627] dark:hover:text-emerald-300 hover:bg-emerald-50/70 dark:hover:bg-[#16251c]'
                 }`
               }
             >
               {({ isActive }) => (
                 <>
-                  <Icon className={`w-4 h-4 transition-colors ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-[#0b4627]'}`} />
+                  <Icon className={`w-4 h-4 transition-colors ${isActive ? 'text-white' : 'text-gray-400 dark:text-gray-500 group-hover:text-[#0b4627] dark:group-hover:text-emerald-400'}`} />
                   <span className="truncate">{link.label}</span>
                 </>
               )}
@@ -108,10 +108,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
       </nav>
 
       {/* Bottom Logout */}
-      <div className="p-3 border-t border-gray-100">
+      <div className="p-3 border-t border-gray-100 dark:border-[#1e3326]">
         <button
           onClick={handleLogout}
-          className="w-full flex items-center gap-3.5 px-4 py-2.5 rounded-xl text-xs font-semibold text-red-600 hover:bg-red-50 transition duration-150"
+          className="w-full flex items-center gap-3.5 px-4 py-2.5 rounded-xl text-xs font-semibold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition duration-150"
         >
           <LogOut className="w-4 h-4" />
           <span>Logout</span>
