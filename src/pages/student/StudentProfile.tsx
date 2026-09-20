@@ -5,9 +5,8 @@ import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
 import { Input } from '../../components/ui/Input';
 import { 
-  Edit3, MapPin, Mail, Phone, Calendar, 
-  Award, Briefcase, Code, Sparkles, CheckCircle, 
-  ExternalLink, Globe, GraduationCap, Building2, IdCard, ShieldCheck 
+  Edit3, Calendar, Award, Code, Sparkles, CheckCircle, 
+  ExternalLink, GraduationCap, Building2, IdCard 
 } from 'lucide-react';
 
 export const StudentProfile: React.FC = () => {
@@ -163,24 +162,6 @@ export const StudentProfile: React.FC = () => {
                 <Building2 className="w-4 h-4 text-[#0b4627] dark:text-emerald-400 shrink-0" />
                 <span>College: <strong className="font-extrabold">Einstein Academy of Technology & Management (EATM)</strong></span>
               </div>
-            </div>
-
-            {/* Meta Info: Email, Phone, Location */}
-            <div className="flex flex-wrap items-center gap-4 text-xs text-gray-500 dark:text-gray-400 pt-1">
-              <span className="flex items-center gap-1.5">
-                <Mail className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500 shrink-0" />
-                <span>{user.email}</span>
-              </span>
-              {user.phone && (
-                <span className="flex items-center gap-1.5">
-                  <Phone className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500 shrink-0" />
-                  <span>{user.phone}</span>
-                </span>
-              )}
-              <span className="flex items-center gap-1.5">
-                <MapPin className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500 shrink-0" />
-                <span>Baniatangi, Bhubaneswar, Odisha</span>
-              </span>
             </div>
           </div>
 
