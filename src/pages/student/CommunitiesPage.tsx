@@ -6,7 +6,7 @@ import { Community } from '../../types';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
 import { Input } from '../../components/ui/Input';
-import { Search, Plus, Users, Award, Check, Sparkles } from 'lucide-react';
+import { Search, Plus, Users, Award, Check } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
 export const CommunitiesPage: React.FC = () => {

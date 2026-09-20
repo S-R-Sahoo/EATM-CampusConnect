@@ -5,7 +5,7 @@ import { fetchUsers, fetchConnections, sendConnectionRequest } from '../../fireb
 import { UserProfile, Connection } from '../../types';
 import { Avatar } from '../../components/ui/Avatar';
 import { Tabs } from '../../components/ui/Tabs';
-import { Search, UserPlus, Check, Clock, Sparkles } from 'lucide-react';
+import { Search, UserPlus, Check, Clock } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
 export const DiscoverPeople: React.FC = () => {
@@ -79,7 +79,7 @@ export const DiscoverPeople: React.FC = () => {
       <div className="bg-white rounded-2xl border border-gray-200/80 p-6 shadow-card space-y-4">
         <div>
           <h1 className="text-xl sm:text-2xl font-black text-gray-900 flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-emerald-600" />
+            <UserPlus className="w-5 h-5 text-emerald-600" />
             <span>Discover People</span>
           </h1>
           <p className="text-xs sm:text-sm text-gray-500 mt-0.5">

@@ -4,7 +4,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
-import { Eye, EyeOff, Mail, Lock, Sparkles, UserCheck, ShieldCheck, GraduationCap } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, UserCheck, ShieldCheck, GraduationCap } from 'lucide-react';
 import { EATM_EMBLEM, EATM_OFFICIAL_LOGO } from '../../constants/assets';
 
 export const LoginPage: React.FC = () => {
@@ -119,7 +119,7 @@ export const LoginPage: React.FC = () => {
           {/* Quick Demo Switcher Pill Box */}
           <div className="p-3.5 rounded-2xl bg-emerald-50/70 border border-emerald-200/70 mb-6">
             <div className="flex items-center gap-1.5 text-xs font-bold text-[#0b4627] mb-2">
-              <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+              <UserCheck className="w-3.5 h-3.5 text-[#0b4627]" />
               <span>Instant Test Sign-In (Demo Personas):</span>
             </div>
             <div className="grid grid-cols-3 gap-2">

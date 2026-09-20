@@ -9,7 +9,7 @@ import { Modal } from '../../components/ui/Modal';
 import { Input } from '../../components/ui/Input';
 import { 
   Briefcase, MapPin, DollarSign, Calendar, 
-  Bookmark, CheckCircle2, ArrowUpRight, Sparkles 
+  Bookmark, CheckCircle2, ArrowUpRight 
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 

@@ -5,7 +5,7 @@ import { fetchEvents, toggleEventRegistration } from '../../firebase/firestore';
 import { CampusEvent } from '../../types';
 import { Tabs } from '../../components/ui/Tabs';
 import { Button } from '../../components/ui/Button';
-import { Calendar, MapPin, Clock, Users, Check, Sparkles, AlertCircle } from 'lucide-react';
+import { Calendar, MapPin, Clock, Users, Check, AlertCircle } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
 export const EventsPage: React.FC = () => {

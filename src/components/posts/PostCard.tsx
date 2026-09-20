@@ -8,7 +8,7 @@ import { CommentSection } from './CommentSection';
 import { ReportModal } from '../common/ReportModal';
 import { 
   Heart, MessageSquare, Share2, Bookmark, 
-  MoreHorizontal, Flag, Trash2, Check, Sparkles 
+  MoreHorizontal, Flag, Trash2, Check 
 } from 'lucide-react';
 
 interface PostCardProps {

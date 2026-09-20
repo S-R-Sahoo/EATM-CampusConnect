@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { 
   Users, Award, Briefcase, Bell, 
   GraduationCap, BookOpen, Building2, TrendingUp, 
-  ChevronLeft, ChevronRight, ArrowRight, ShieldCheck, Heart, Sparkles
+  ChevronLeft, ChevronRight, ArrowRight, ShieldCheck, Heart, Compass
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { EATM_OFFICIAL_LOGO, EATM_EMBLEM } from '../../constants/assets';
@@ -239,7 +239,7 @@ export const LandingPage: React.FC = () => {
                 <div className="max-w-3xl">
                   {/* Category Pill & Counter */}
                   <div className="inline-flex items-center gap-2.5 px-3.5 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-emerald-200 text-xs font-bold mb-4 shadow-sm">
-                    <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                    <Compass className="w-3.5 h-3.5 text-emerald-300" />
                     <span className="tracking-wider uppercase">{slide.category}</span>
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
                     <span className="text-white/80 font-mono text-[11px]">

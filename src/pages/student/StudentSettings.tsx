@@ -6,7 +6,7 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { 
   Settings, Shield, Bell, Lock, Palette, 
-  Check, Sun, Moon, Monitor, Sparkles, CheckCircle2 
+  Check, Sun, Moon, Monitor, RefreshCw, CheckCircle2 
 } from 'lucide-react';
 
 export const StudentSettings: React.FC = () => {
@@ -220,7 +220,7 @@ export const StudentSettings: React.FC = () => {
 
             {/* Quick Feature Explanation Banner */}
             <div className="p-4 rounded-2xl bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-200/80 dark:border-emerald-800/40 flex items-start gap-3">
-              <Sparkles className="w-5 h-5 text-[#0b4627] dark:text-emerald-400 shrink-0 mt-0.5" />
+              <RefreshCw className="w-5 h-5 text-[#0b4627] dark:text-emerald-400 shrink-0 mt-0.5" />
               <div className="text-xs text-emerald-900 dark:text-emerald-200">
                 <p className="font-bold">Real-Time System Synchronization Active</p>
                 <p className="text-[11px] text-emerald-800/90 dark:text-emerald-300/80 mt-0.5 leading-relaxed">

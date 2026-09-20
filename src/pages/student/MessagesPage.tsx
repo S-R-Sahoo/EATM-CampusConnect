@@ -8,7 +8,7 @@ import { Conversation, Message, UserProfile } from '../../types';
 import { Avatar } from '../../components/ui/Avatar';
 import { 
   Search, Send, Paperclip, Smile, Phone, Video, 
-  MoreVertical, CheckCheck, Check, Image as ImageIcon, Sparkles 
+  MoreVertical, CheckCheck, Check, Image as ImageIcon 
 } from 'lucide-react';
 
 export const MessagesPage: React.FC = () => {

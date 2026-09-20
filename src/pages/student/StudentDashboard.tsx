@@ -6,7 +6,7 @@ import { CreatePostCard } from '../../components/posts/CreatePostCard';
 import { PostCard } from '../../components/posts/PostCard';
 import { RightSidebar } from '../../components/layout/RightSidebar';
 import { PostCardSkeleton } from '../../components/ui/Skeleton';
-import { Calendar, MessageSquare, Briefcase, Bell, Sparkles } from 'lucide-react';
+import { Calendar, MessageSquare, Briefcase, Bell, Radio } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export const StudentDashboard: React.FC = () => {
@@ -38,7 +38,7 @@ export const StudentDashboard: React.FC = () => {
           <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-700/20 rounded-full blur-3xl pointer-events-none" />
           <div className="relative z-10 max-w-xl">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-emerald-200 text-xs font-semibold mb-3">
-              <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+              <Radio className="w-3.5 h-3.5 text-emerald-300" />
               <span>Campus Community Feed</span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-black tracking-tight">

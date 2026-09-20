@@ -7,9 +7,10 @@ import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
 import { uploadFile } from '../../firebase/storage';
 import { 
-  Edit3, Calendar, Award, Code, Sparkles, CheckCircle, 
+  Edit3, Calendar, Award, Code, CheckCircle, 
   ExternalLink, GraduationCap, Building2, IdCard, 
-  Camera, Upload, Image as ImageIcon, Loader2
+  Camera, Upload, Image as ImageIcon, Loader2,
+  User, Cpu, Compass, Trophy, BookOpen
 } from 'lucide-react';
 
 const DEPARTMENT_OPTIONS = [
@@ -373,7 +374,7 @@ export const StudentProfile: React.FC = () => {
           {/* About Me */}
           <div className="bg-white dark:bg-[#111d15] rounded-2xl border border-gray-200/80 dark:border-[#1e3325] p-6 shadow-card transition-colors duration-150">
             <h3 className="font-bold text-sm text-gray-900 dark:text-gray-100 uppercase tracking-wider mb-3 flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-[#0b4627] dark:text-emerald-400" />
+              <User className="w-4 h-4 text-[#0b4627] dark:text-emerald-400" />
               <span>About Me</span>
             </h3>
             <p className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed">
@@ -383,7 +384,10 @@ export const StudentProfile: React.FC = () => {
 
           {/* Skills */}
           <div className="bg-white dark:bg-[#111d15] rounded-2xl border border-gray-200/80 dark:border-[#1e3325] p-6 shadow-card transition-colors duration-150">
-            <h3 className="font-bold text-sm text-gray-900 dark:text-gray-100 uppercase tracking-wider mb-3">Skills & Technologies</h3>
+            <h3 className="font-bold text-sm text-gray-900 dark:text-gray-100 uppercase tracking-wider mb-3 flex items-center gap-2">
+              <Cpu className="w-4 h-4 text-[#0b4627] dark:text-emerald-400" />
+              <span>Skills & Technologies</span>
+            </h3>
             <div className="flex flex-wrap gap-1.5">
               {user.skills && user.skills.length > 0 ? (
                 user.skills.map(skill => (
@@ -402,7 +406,10 @@ export const StudentProfile: React.FC = () => {
 
           {/* Interests */}
           <div className="bg-white dark:bg-[#111d15] rounded-2xl border border-gray-200/80 dark:border-[#1e3325] p-6 shadow-card transition-colors duration-150">
-            <h3 className="font-bold text-sm text-gray-900 dark:text-gray-100 uppercase tracking-wider mb-3">Interests & Hobbies</h3>
+            <h3 className="font-bold text-sm text-gray-900 dark:text-gray-100 uppercase tracking-wider mb-3 flex items-center gap-2">
+              <Compass className="w-4 h-4 text-[#0b4627] dark:text-emerald-400" />
+              <span>Interests & Hobbies</span>
+            </h3>
             <div className="flex flex-wrap gap-1.5">
               {user.interests && user.interests.length > 0 ? (
                 user.interests.map(int => (
@@ -471,7 +478,7 @@ export const StudentProfile: React.FC = () => {
                 user.achievements.map((ach, idx) => (
                   <div key={idx} className="flex items-start gap-3 p-3.5 rounded-xl border border-gray-100 dark:border-[#1e3325] bg-amber-50/30 dark:bg-amber-950/20">
                     <div className="p-2 rounded-lg bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 shrink-0">
-                      <Sparkles className="w-4 h-4" />
+                      <Trophy className="w-4 h-4" />
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
@@ -673,7 +680,7 @@ export const StudentProfile: React.FC = () => {
           {/* Section 3: Bio, Skills & Interests */}
           <div className="bg-gray-50/70 dark:bg-[#16251c]/60 p-4 rounded-2xl border border-gray-200/70 dark:border-[#1e3325] space-y-3">
             <div className="flex items-center gap-2 text-xs font-bold text-[#0b4627] dark:text-emerald-400 uppercase tracking-wider">
-              <Sparkles className="w-4 h-4" />
+              <BookOpen className="w-4 h-4" />
               <span>Bio & Specializations</span>
             </div>
 
