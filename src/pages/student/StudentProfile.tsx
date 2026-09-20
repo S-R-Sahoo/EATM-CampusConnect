@@ -9,7 +9,7 @@ import { uploadFile } from '../../firebase/storage';
 import { 
   Edit3, Calendar, Award, Code, Sparkles, CheckCircle, 
   ExternalLink, GraduationCap, Building2, IdCard, 
-  Camera, Upload, Image as ImageIcon, Loader2, Link as LinkIcon
+  Camera, Upload, Image as ImageIcon, Loader2
 } from 'lucide-react';
 
 const DEPARTMENT_OPTIONS = [
@@ -86,8 +86,6 @@ export const StudentProfile: React.FC = () => {
   const [uploadingCover, setUploadingCover] = useState(false);
   const [photoProgress, setPhotoProgress] = useState(0);
   const [coverProgress, setCoverProgress] = useState(0);
-  const [showPhotoUrlInput, setShowPhotoUrlInput] = useState(false);
-  const [showCoverUrlInput, setShowCoverUrlInput] = useState(false);
 
   // File input refs
   const avatarFileRef = useRef<HTMLInputElement>(null);
@@ -108,8 +106,6 @@ export const StudentProfile: React.FC = () => {
     setInterestsStr(user.interests?.join(', ') || '');
     setPhotoURL(user.photoURL || '');
     setCoverURL(user.coverURL || '');
-    setShowPhotoUrlInput(false);
-    setShowCoverUrlInput(false);
     setEditModalOpen(true);
   };
 
@@ -584,43 +580,22 @@ export const StudentProfile: React.FC = () => {
                     accept="image/*"
                     className="hidden"
                   />
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => modalAvatarFileRef.current?.click()}
-                      disabled={uploadingPhoto}
-                      icon={<Upload className="w-3.5 h-3.5 text-[#0b4627] dark:text-emerald-400" />}
-                      className="text-xs"
-                    >
-                      {uploadingPhoto ? `Uploading... ${photoProgress}%` : 'Upload New Photo'}
-                    </Button>
-                    <button
-                      type="button"
-                      onClick={() => setShowPhotoUrlInput(!showPhotoUrlInput)}
-                      className="text-xs text-gray-500 hover:text-[#0b4627] dark:hover:text-emerald-400 font-medium flex items-center gap-1"
-                    >
-                      <LinkIcon className="w-3 h-3" />
-                      <span>{showPhotoUrlInput ? 'Hide URL' : 'Paste Image URL'}</span>
-                    </button>
-                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => modalAvatarFileRef.current?.click()}
+                    disabled={uploadingPhoto}
+                    icon={<Upload className="w-3.5 h-3.5 text-[#0b4627] dark:text-emerald-400" />}
+                    className="text-xs font-semibold"
+                  >
+                    {uploadingPhoto ? `Uploading... ${photoProgress}%` : 'Upload New Photo'}
+                  </Button>
                   <p className="text-[11px] text-gray-400 dark:text-gray-400">
                     PNG, JPG, or WebP (square photo recommended).
                   </p>
                 </div>
               </div>
-
-              {showPhotoUrlInput && (
-                <div className="mt-2.5">
-                  <Input
-                    placeholder="https://..."
-                    value={photoURL}
-                    onChange={(e) => setPhotoURL(e.target.value)}
-                    className="text-xs"
-                  />
-                </div>
-              )}
             </div>
 
             {/* Cover Banner Uploader */}
@@ -643,7 +618,7 @@ export const StudentProfile: React.FC = () => {
                   )}
                 </div>
 
-                <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
                   <input
                     type="file"
                     ref={modalCoverFileRef}
@@ -660,19 +635,10 @@ export const StudentProfile: React.FC = () => {
                     onClick={() => modalCoverFileRef.current?.click()}
                     disabled={uploadingCover}
                     icon={<ImageIcon className="w-3.5 h-3.5 text-[#0b4627] dark:text-emerald-400" />}
-                    className="text-xs"
+                    className="text-xs font-semibold"
                   >
                     {uploadingCover ? `Uploading... ${coverProgress}%` : 'Upload Banner Image'}
                   </Button>
-
-                  <button
-                    type="button"
-                    onClick={() => setShowCoverUrlInput(!showCoverUrlInput)}
-                    className="text-xs text-gray-500 hover:text-[#0b4627] dark:hover:text-emerald-400 font-medium flex items-center gap-1"
-                  >
-                    <LinkIcon className="w-3 h-3" />
-                    <span>{showCoverUrlInput ? 'Hide URL' : 'Paste Cover URL'}</span>
-                  </button>
                 </div>
 
                 {/* Preset Campus Covers */}
@@ -700,17 +666,6 @@ export const StudentProfile: React.FC = () => {
                     ))}
                   </div>
                 </div>
-
-                {showCoverUrlInput && (
-                  <div className="mt-2">
-                    <Input
-                      placeholder="https://..."
-                      value={coverURL}
-                      onChange={(e) => setCoverURL(e.target.value)}
-                      className="text-xs"
-                    />
-                  </div>
-                )}
               </div>
             </div>
           </div>
