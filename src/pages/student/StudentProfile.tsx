@@ -1,17 +1,70 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
 import { Input } from '../../components/ui/Input';
+import { Select } from '../../components/ui/Select';
+import { uploadFile } from '../../firebase/storage';
 import { 
   Edit3, Calendar, Award, Code, Sparkles, CheckCircle, 
-  ExternalLink, GraduationCap, Building2, IdCard 
+  ExternalLink, GraduationCap, Building2, IdCard, 
+  Camera, Upload, Image as ImageIcon, Loader2, Link as LinkIcon
 } from 'lucide-react';
+
+const DEPARTMENT_OPTIONS = [
+  { label: 'Computer Science & Engineering (CSE)', value: 'CSE' },
+  { label: 'CSE - Artificial Intelligence & Machine Learning (AIML)', value: 'CSE-AIML' },
+  { label: 'CSE - Data Science (CSE-DS)', value: 'CSE-DS' },
+  { label: 'Electronics & Communication Engineering (ECE)', value: 'ECE' },
+  { label: 'Electrical & Electronics Engineering (EEE)', value: 'EEE' },
+  { label: 'Mechanical Engineering (ME)', value: 'Mechanical' },
+  { label: 'Civil Engineering (CE)', value: 'Civil' },
+  { label: 'Master of Business Administration (MBA)', value: 'MBA' },
+  { label: 'Master of Computer Applications (MCA)', value: 'MCA' },
+  { label: 'Diploma in Engineering (Polytechnic)', value: 'Diploma' }
+];
+
+const YEAR_OPTIONS = [
+  { label: '1st Year (Fresher)', value: '1st Year' },
+  { label: '2nd Year (Sophomore)', value: '2nd Year' },
+  { label: '3rd Year (Junior)', value: '3rd Year' },
+  { label: '4th Year (Senior)', value: '4th Year' }
+];
+
+const SEMESTER_OPTIONS = [
+  { label: '1st Semester', value: '1st' },
+  { label: '2nd Semester', value: '2nd' },
+  { label: '3rd Semester', value: '3rd' },
+  { label: '4th Semester', value: '4th' },
+  { label: '5th Semester', value: '5th' },
+  { label: '6th Semester', value: '6th' },
+  { label: '7th Semester', value: '7th' },
+  { label: '8th Semester', value: '8th' }
+];
+
+const OFFICIAL_COVER_PRESETS = [
+  {
+    name: 'Academic Campus',
+    url: 'https://images.unsplash.com/photo-1562774053-701939374585?w=1600&auto=format&fit=crop&q=80'
+  },
+  {
+    name: 'Innovation Tech Lab',
+    url: 'https://images.unsplash.com/photo-1581092918056-0c4c3acd3789?w=1600&auto=format&fit=crop&q=80'
+  },
+  {
+    name: 'Central Digital Library',
+    url: 'https://images.unsplash.com/photo-1521587760476-6c12a4b040da?w=1600&auto=format&fit=crop&q=80'
+  },
+  {
+    name: 'Campus Lawns & Greenery',
+    url: 'https://images.unsplash.com/photo-1541339907198-e08756dedf3f?w=1600&auto=format&fit=crop&q=80'
+  }
+];
 
 export const StudentProfile: React.FC = () => {
   const { user, updateUser } = useAuth();
-  const { success } = useToast();
+  const { success, error: toastError } = useToast();
 
   const [editModalOpen, setEditModalOpen] = useState(false);
 
@@ -19,6 +72,7 @@ export const StudentProfile: React.FC = () => {
   const [displayName, setDisplayName] = useState(user?.displayName || '');
   const [department, setDepartment] = useState(user?.department || 'CSE');
   const [year, setYear] = useState(user?.year || '3rd Year');
+  const [semester, setSemester] = useState(user?.semester || '6th');
   const [rollNumber, setRollNumber] = useState(user?.rollNumber || 'EATM23CSE001');
   const [bio, setBio] = useState(user?.bio || '');
   const [skillsStr, setSkillsStr] = useState(user?.skills?.join(', ') || '');
@@ -27,19 +81,88 @@ export const StudentProfile: React.FC = () => {
   const [coverURL, setCoverURL] = useState(user?.coverURL || '');
   const [saving, setSaving] = useState(false);
 
+  // Upload state
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [uploadingCover, setUploadingCover] = useState(false);
+  const [photoProgress, setPhotoProgress] = useState(0);
+  const [coverProgress, setCoverProgress] = useState(0);
+  const [showPhotoUrlInput, setShowPhotoUrlInput] = useState(false);
+  const [showCoverUrlInput, setShowCoverUrlInput] = useState(false);
+
+  // File input refs
+  const avatarFileRef = useRef<HTMLInputElement>(null);
+  const coverFileRef = useRef<HTMLInputElement>(null);
+  const modalAvatarFileRef = useRef<HTMLInputElement>(null);
+  const modalCoverFileRef = useRef<HTMLInputElement>(null);
+
   if (!user) return null;
 
   const handleOpenEdit = () => {
     setDisplayName(user.displayName || '');
     setDepartment(user.department || 'CSE');
     setYear(user.year || '3rd Year');
+    setSemester(user.semester || '6th');
     setRollNumber(user.rollNumber || 'EATM23CSE001');
     setBio(user.bio || '');
     setSkillsStr(user.skills?.join(', ') || '');
     setInterestsStr(user.interests?.join(', ') || '');
     setPhotoURL(user.photoURL || '');
     setCoverURL(user.coverURL || '');
+    setShowPhotoUrlInput(false);
+    setShowCoverUrlInput(false);
     setEditModalOpen(true);
+  };
+
+  const handleAvatarUpload = async (file: File, isModal = false) => {
+    if (!file) return;
+    setUploadingPhoto(true);
+    setPhotoProgress(0);
+    try {
+      const url = await uploadFile(
+        `profiles/${user.id}/avatar_${Date.now()}_${file.name}`,
+        file,
+        (p) => setPhotoProgress(p)
+      );
+      setPhotoURL(url);
+      if (!isModal) {
+        await updateUser({ photoURL: url });
+        success('Profile photo updated successfully!', 'Photo Updated');
+      } else {
+        success('Photo uploaded and ready to save!', 'Upload Complete');
+      }
+    } catch (err) {
+      console.error(err);
+      toastError('Failed to upload profile photo');
+    } finally {
+      setUploadingPhoto(false);
+      setPhotoProgress(0);
+    }
+  };
+
+  const handleCoverUpload = async (file: File, isModal = false) => {
+    if (!file) return;
+    setUploadingCover(true);
+    setCoverProgress(0);
+    try {
+      const url = await uploadFile(
+        `profiles/${user.id}/cover_${Date.now()}_${file.name}`,
+        file,
+        (p) => setCoverProgress(p)
+      );
+      setCoverURL(url);
+      if (!isModal) {
+        await updateUser({ coverURL: url });
+        success('Cover banner updated successfully!', 'Cover Updated');
+      } else {
+        success('Cover image uploaded and ready to save!', 'Upload Complete');
+      }
+    } catch (err) {
+      console.error(err);
+      toastError('Failed to upload cover banner');
+    } finally {
+      setUploadingCover(false);
+      setCoverProgress(0);
+    }
   };
 
   const handleSaveProfile = async (e: React.FormEvent) => {
@@ -50,6 +173,7 @@ export const StudentProfile: React.FC = () => {
         displayName,
         department,
         year,
+        semester,
         rollNumber,
         bio,
         skills: skillsStr.split(',').map(s => s.trim()).filter(Boolean),
@@ -57,7 +181,7 @@ export const StudentProfile: React.FC = () => {
         photoURL,
         coverURL
       });
-      success('Student profile & academic credentials updated!', 'Changes Saved');
+      success('Official student credentials and profile saved!', 'Changes Saved');
       setEditModalOpen(false);
     } finally {
       setSaving(false);
@@ -69,19 +193,51 @@ export const StudentProfile: React.FC = () => {
       {/* Profile Cover & Main Identity Card */}
       <div className="bg-white dark:bg-[#111d15] rounded-3xl border border-gray-200/80 dark:border-[#1e3325] shadow-card overflow-hidden transition-colors duration-150">
         {/* Cover Photo Banner */}
-        <div className="h-44 sm:h-56 md:h-64 relative bg-emerald-950 overflow-hidden">
+        <div className="h-44 sm:h-56 md:h-64 relative bg-emerald-950 overflow-hidden group">
           <img
             src={user.coverURL || 'https://images.unsplash.com/photo-1562774053-701939374585?w=1600&auto=format&fit=crop&q=80'}
             alt="Campus Cover"
             className="w-full h-full object-cover"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
           
           {/* Top Right Campus Identity Tag on Cover */}
-          <div className="absolute top-3 sm:top-4 right-3 sm:right-4 z-10 flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/40 backdrop-blur-md border border-white/20 text-white text-[11px] font-semibold">
+          <div className="absolute top-3 sm:top-4 right-3 sm:right-4 z-10 flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/50 backdrop-blur-md border border-white/20 text-white text-[11px] font-semibold">
             <Building2 className="w-3.5 h-3.5 text-emerald-400" />
             <span className="hidden sm:inline">EATM Digital Campus</span>
             <span className="sm:hidden">EATM</span>
+          </div>
+
+          {/* Quick Change Cover Action Button */}
+          <div className="absolute bottom-3 sm:bottom-4 right-3 sm:right-4 z-10">
+            <input
+              type="file"
+              ref={coverFileRef}
+              onChange={(e) => {
+                if (e.target.files?.[0]) handleCoverUpload(e.target.files[0], false);
+              }}
+              accept="image/*"
+              className="hidden"
+            />
+            <button
+              type="button"
+              onClick={() => coverFileRef.current?.click()}
+              disabled={uploadingCover}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-black/60 hover:bg-black/80 backdrop-blur-md border border-white/20 text-white text-xs font-semibold transition-all shadow-md active:scale-95 disabled:opacity-50"
+            >
+              {uploadingCover ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-400" />
+                  <span>Uploading... {coverProgress}%</span>
+                </>
+              ) : (
+                <>
+                  <Camera className="w-3.5 h-3.5 text-emerald-400" />
+                  <span className="hidden sm:inline">Change Cover</span>
+                  <span className="sm:hidden">Cover</span>
+                </>
+              )}
+            </button>
           </div>
         </div>
 
@@ -89,15 +245,42 @@ export const StudentProfile: React.FC = () => {
         <div className="px-5 sm:px-8 pb-6 sm:pb-8 pt-0">
           {/* Row 1: Floating Avatar & Edit Profile Button */}
           <div className="flex items-end justify-between -mt-14 sm:-mt-20 mb-4 sm:mb-5">
-            {/* Avatar with Thick Border */}
-            <div className="relative">
-              <div className="w-28 h-28 sm:w-36 sm:h-36 rounded-full ring-4 ring-white dark:ring-[#111d15] shadow-xl overflow-hidden bg-white dark:bg-[#16251c] flex items-center justify-center">
+            {/* Avatar with Thick Border & Quick Upload Button */}
+            <div className="relative group">
+              <input
+                type="file"
+                ref={avatarFileRef}
+                onChange={(e) => {
+                  if (e.target.files?.[0]) handleAvatarUpload(e.target.files[0], false);
+                }}
+                accept="image/*"
+                className="hidden"
+              />
+              <div className="w-28 h-28 sm:w-36 sm:h-36 rounded-full ring-4 ring-white dark:ring-[#111d15] shadow-xl overflow-hidden bg-white dark:bg-[#16251c] flex items-center justify-center relative">
                 <img
                   src={user.photoURL || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80'}
                   alt={user.displayName}
                   className="w-full h-full object-cover"
                 />
+                {uploadingPhoto && (
+                  <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center text-white text-[10px] font-bold">
+                    <Loader2 className="w-5 h-5 animate-spin text-emerald-400 mb-1" />
+                    <span>{photoProgress}%</span>
+                  </div>
+                )}
               </div>
+
+              {/* Direct Camera Action on Avatar */}
+              <button
+                type="button"
+                onClick={() => avatarFileRef.current?.click()}
+                disabled={uploadingPhoto}
+                title="Upload Profile Photo"
+                className="absolute top-1 right-1 p-2 rounded-full bg-emerald-700 hover:bg-emerald-800 text-white shadow-lg border-2 border-white dark:border-[#111d15] transition-all hover:scale-105 active:scale-95 disabled:opacity-50"
+              >
+                <Camera className="w-3.5 h-3.5" />
+              </button>
+
               {user.verified && (
                 <div 
                   className="absolute bottom-1 right-1 p-1 sm:p-1.5 rounded-full bg-white dark:bg-[#111d15] shadow-md border border-gray-100 dark:border-[#1e3325]"
@@ -304,7 +487,7 @@ export const StudentProfile: React.FC = () => {
                   </div>
                 ))
               ) : (
-                <p className="text-xs text-gray-500">No achievements recorded yet.</p>
+                <p className="text-xs text-gray-500">No honors or achievements added yet.</p>
               )}
             </div>
           </div>
@@ -313,90 +496,267 @@ export const StudentProfile: React.FC = () => {
 
       {/* Edit Profile Modal */}
       <Modal isOpen={editModalOpen} onClose={() => setEditModalOpen(false)} title="Edit Student Profile">
-        <form onSubmit={handleSaveProfile} className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <Input
-              label="Full Name"
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-              placeholder="Your full name"
-              required
-            />
-            <Input
-              label="Roll Number"
-              value={rollNumber}
-              onChange={(e) => setRollNumber(e.target.value)}
-              placeholder="e.g. EATM23CSE001"
-              required
-            />
-          </div>
+        <form onSubmit={handleSaveProfile} className="space-y-5 max-h-[78vh] overflow-y-auto pr-1">
+          {/* Section 1: Academic Identity */}
+          <div className="bg-gray-50/70 dark:bg-[#16251c]/60 p-4 rounded-2xl border border-gray-200/70 dark:border-[#1e3325] space-y-3.5">
+            <div className="flex items-center gap-2 text-xs font-bold text-[#0b4627] dark:text-emerald-400 uppercase tracking-wider">
+              <GraduationCap className="w-4 h-4" />
+              <span>Official Academic Credentials</span>
+            </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <Input
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Input
+                label="Full Name"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                placeholder="Student Full Name"
+                required
+              />
+              <Input
+                label="Official Roll Number"
+                value={rollNumber}
+                onChange={(e) => setRollNumber(e.target.value)}
+                placeholder="e.g. EATM23CSE001"
+                required
+              />
+            </div>
+
+            <Select
               label="Branch / Department"
+              options={DEPARTMENT_OPTIONS}
               value={department}
               onChange={(e) => setDepartment(e.target.value)}
-              placeholder="e.g. CSE, ECE, EEE, Mech, Civil"
               required
             />
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Select
+                label="Year of Study"
+                options={YEAR_OPTIONS}
+                value={year}
+                onChange={(e) => setYear(e.target.value)}
+                required
+              />
+              <Select
+                label="Semester"
+                options={SEMESTER_OPTIONS}
+                value={semester}
+                onChange={(e) => setSemester(e.target.value)}
+              />
+            </div>
+          </div>
+
+          {/* Section 2: Profile Photo & Cover Media */}
+          <div className="bg-gray-50/70 dark:bg-[#16251c]/60 p-4 rounded-2xl border border-gray-200/70 dark:border-[#1e3325] space-y-4">
+            <div className="flex items-center justify-between text-xs font-bold text-[#0b4627] dark:text-emerald-400 uppercase tracking-wider">
+              <span className="flex items-center gap-2">
+                <Camera className="w-4 h-4" />
+                <span>Profile Photo & Cover Banner</span>
+              </span>
+            </div>
+
+            {/* Profile Photo Uploader */}
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-2">
+                Student Profile Photo
+              </label>
+              <div className="flex items-center gap-4">
+                <div className="w-16 h-16 rounded-full ring-2 ring-emerald-600/30 overflow-hidden bg-gray-200 dark:bg-gray-800 shrink-0 relative">
+                  <img
+                    src={photoURL || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80'}
+                    alt="Preview"
+                    className="w-full h-full object-cover"
+                  />
+                  {uploadingPhoto && (
+                    <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                      <Loader2 className="w-5 h-5 text-emerald-400 animate-spin" />
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex-1 space-y-1.5">
+                  <input
+                    type="file"
+                    ref={modalAvatarFileRef}
+                    onChange={(e) => {
+                      if (e.target.files?.[0]) handleAvatarUpload(e.target.files[0], true);
+                    }}
+                    accept="image/*"
+                    className="hidden"
+                  />
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => modalAvatarFileRef.current?.click()}
+                      disabled={uploadingPhoto}
+                      icon={<Upload className="w-3.5 h-3.5 text-[#0b4627] dark:text-emerald-400" />}
+                      className="text-xs"
+                    >
+                      {uploadingPhoto ? `Uploading... ${photoProgress}%` : 'Upload New Photo'}
+                    </Button>
+                    <button
+                      type="button"
+                      onClick={() => setShowPhotoUrlInput(!showPhotoUrlInput)}
+                      className="text-xs text-gray-500 hover:text-[#0b4627] dark:hover:text-emerald-400 font-medium flex items-center gap-1"
+                    >
+                      <LinkIcon className="w-3 h-3" />
+                      <span>{showPhotoUrlInput ? 'Hide URL' : 'Paste Image URL'}</span>
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-gray-400 dark:text-gray-400">
+                    PNG, JPG, or WebP (square photo recommended).
+                  </p>
+                </div>
+              </div>
+
+              {showPhotoUrlInput && (
+                <div className="mt-2.5">
+                  <Input
+                    placeholder="https://..."
+                    value={photoURL}
+                    onChange={(e) => setPhotoURL(e.target.value)}
+                    className="text-xs"
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Cover Banner Uploader */}
+            <div className="pt-2 border-t border-gray-200/60 dark:border-[#1e3325]">
+              <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-2">
+                Campus Cover Banner
+              </label>
+              <div className="space-y-2.5">
+                <div className="h-24 w-full rounded-xl overflow-hidden relative bg-emerald-950 border border-gray-200 dark:border-[#1e3325]">
+                  <img
+                    src={coverURL || 'https://images.unsplash.com/photo-1562774053-701939374585?w=1600&auto=format&fit=crop&q=80'}
+                    alt="Cover Preview"
+                    className="w-full h-full object-cover"
+                  />
+                  {uploadingCover && (
+                    <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-white text-xs font-bold gap-2">
+                      <Loader2 className="w-4 h-4 text-emerald-400 animate-spin" />
+                      <span>Uploading banner... {coverProgress}%</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <input
+                    type="file"
+                    ref={modalCoverFileRef}
+                    onChange={(e) => {
+                      if (e.target.files?.[0]) handleCoverUpload(e.target.files[0], true);
+                    }}
+                    accept="image/*"
+                    className="hidden"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => modalCoverFileRef.current?.click()}
+                    disabled={uploadingCover}
+                    icon={<ImageIcon className="w-3.5 h-3.5 text-[#0b4627] dark:text-emerald-400" />}
+                    className="text-xs"
+                  >
+                    {uploadingCover ? `Uploading... ${coverProgress}%` : 'Upload Banner Image'}
+                  </Button>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowCoverUrlInput(!showCoverUrlInput)}
+                    className="text-xs text-gray-500 hover:text-[#0b4627] dark:hover:text-emerald-400 font-medium flex items-center gap-1"
+                  >
+                    <LinkIcon className="w-3 h-3" />
+                    <span>{showCoverUrlInput ? 'Hide URL' : 'Paste Cover URL'}</span>
+                  </button>
+                </div>
+
+                {/* Preset Campus Covers */}
+                <div className="space-y-1.5 pt-1">
+                  <span className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider block">
+                    Official EATM Campus Presets:
+                  </span>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    {OFFICIAL_COVER_PRESETS.map((preset) => (
+                      <button
+                        key={preset.name}
+                        type="button"
+                        onClick={() => setCoverURL(preset.url)}
+                        className={`group text-left rounded-lg overflow-hidden border p-1 transition-all ${
+                          coverURL === preset.url
+                            ? 'border-emerald-600 ring-2 ring-emerald-500/30 bg-emerald-50/50 dark:bg-emerald-950/30'
+                            : 'border-gray-200 dark:border-[#1e3325] hover:border-emerald-400'
+                        }`}
+                      >
+                        <div className="h-10 w-full rounded overflow-hidden mb-1">
+                          <img src={preset.url} alt={preset.name} className="w-full h-full object-cover group-hover:scale-105 transition" />
+                        </div>
+                        <p className="text-[10px] font-bold text-gray-700 dark:text-gray-300 truncate">{preset.name}</p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {showCoverUrlInput && (
+                  <div className="mt-2">
+                    <Input
+                      placeholder="https://..."
+                      value={coverURL}
+                      onChange={(e) => setCoverURL(e.target.value)}
+                      className="text-xs"
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Section 3: Bio, Skills & Interests */}
+          <div className="bg-gray-50/70 dark:bg-[#16251c]/60 p-4 rounded-2xl border border-gray-200/70 dark:border-[#1e3325] space-y-3">
+            <div className="flex items-center gap-2 text-xs font-bold text-[#0b4627] dark:text-emerald-400 uppercase tracking-wider">
+              <Sparkles className="w-4 h-4" />
+              <span>Bio & Specializations</span>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-1">
+                About Me / Bio
+              </label>
+              <textarea
+                value={bio}
+                onChange={(e) => setBio(e.target.value)}
+                rows={3}
+                className="w-full p-3 text-xs border border-gray-200 dark:border-[#1e3325] bg-white dark:bg-[#16251c] text-gray-900 dark:text-gray-100 rounded-xl focus:ring-2 focus:ring-[#0b4627] dark:focus:ring-emerald-500 outline-none resize-none transition"
+                placeholder="Tell peers about your academic interests, projects, and goals..."
+              />
+            </div>
+
             <Input
-              label="Year of Study"
-              value={year}
-              onChange={(e) => setYear(e.target.value)}
-              placeholder="e.g. 3rd Year, 4th Year"
-              required
+              label="Skills & Technologies (comma separated)"
+              value={skillsStr}
+              onChange={(e) => setSkillsStr(e.target.value)}
+              placeholder="e.g. C++, Java, Python, React, Data Structures"
+            />
+
+            <Input
+              label="Interests & Societies (comma separated)"
+              value={interestsStr}
+              onChange={(e) => setInterestsStr(e.target.value)}
+              placeholder="e.g. Coding Club, Robotics, Photography, Cricket"
             />
           </div>
 
-          <Input
-            label="Profile Photo URL"
-            type="url"
-            value={photoURL}
-            onChange={(e) => setPhotoURL(e.target.value)}
-            placeholder="https://..."
-          />
-
-          <Input
-            label="Cover Image URL"
-            type="url"
-            value={coverURL}
-            onChange={(e) => setCoverURL(e.target.value)}
-            placeholder="https://..."
-          />
-
-          <div>
-            <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-1">
-              About Me / Bio
-            </label>
-            <textarea
-              value={bio}
-              onChange={(e) => setBio(e.target.value)}
-              rows={3}
-              className="w-full p-3 text-xs border border-gray-200 dark:border-[#1e3325] bg-white dark:bg-[#16251c] text-gray-900 dark:text-gray-100 rounded-xl focus:ring-2 focus:ring-[#0b4627] dark:focus:ring-emerald-500 outline-none resize-none transition"
-              placeholder="Tell others about your interests, branch, and goals..."
-            />
-          </div>
-
-          <Input
-            label="Skills (comma separated)"
-            value={skillsStr}
-            onChange={(e) => setSkillsStr(e.target.value)}
-            placeholder="e.g. C++, Java, Python, React, Web Dev, UI/UX"
-          />
-
-          <Input
-            label="Interests (comma separated)"
-            value={interestsStr}
-            onChange={(e) => setInterestsStr(e.target.value)}
-            placeholder="e.g. Coding, Gaming, Photography, Travel"
-          />
-
+          {/* Action Buttons */}
           <div className="flex justify-end gap-2 pt-3 border-t border-gray-100 dark:border-[#1e3325]">
             <Button type="button" variant="outline" size="sm" onClick={() => setEditModalOpen(false)}>
               Cancel
             </Button>
             <Button type="submit" variant="primary" size="sm" isLoading={saving}>
-              Save Profile
+              Save Changes
             </Button>
           </div>
         </form>
