@@ -33,21 +33,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       try {
         const storedUser = localStorage.getItem('eatm_current_user');
         if (storedUser) {
-          const parsed = JSON.parse(storedUser);
-          if (parsed.role === 'student' && (!parsed.photoURL || parsed.photoURL.includes('photo-1534528741775-53994a69daeb'))) {
-            parsed.photoURL = DEFAULT_ENGINEER_AVATAR;
-            localStorage.setItem('eatm_current_user', JSON.stringify(parsed));
+          try {
+            const parsed = JSON.parse(storedUser);
+            if (parsed && parsed.id) {
+              if (parsed.role === 'student' && (!parsed.photoURL || parsed.photoURL.includes('photo-1534528741775-53994a69daeb'))) {
+                parsed.photoURL = DEFAULT_ENGINEER_AVATAR;
+              }
+              setUser(parsed);
+            }
+          } catch {
+            localStorage.removeItem('eatm_current_user');
           }
-          setUser(parsed);
-        } else {
-          // Default start with Soumyaranjan Sahoo (Student persona) for instant preview
-          const users = await fetchUsers();
-          const defaultStudent = users.find(u => u.id === 'user_soumya') || users[0];
-          if (defaultStudent.role === 'student' && (!defaultStudent.photoURL || defaultStudent.photoURL.includes('photo-1534528741775-53994a69daeb'))) {
-            defaultStudent.photoURL = DEFAULT_ENGINEER_AVATAR;
-          }
-          setUser(defaultStudent);
-          localStorage.setItem('eatm_current_user', JSON.stringify(defaultStudent));
         }
 
         const syncSessionUser = async (authUser: any) => {
@@ -65,11 +61,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 displayName: fallbackName,
                 role: 'student',
                 department: 'Computer Science & Engineering',
+                rollNumber: 'EATM' + new Date().getFullYear().toString().slice(-2) + 'CSE' + Math.floor(100 + Math.random() * 900),
+                year: '2nd Year',
+                semester: '4th Semester',
                 photoURL: meta.avatar_url || meta.picture || DEFAULT_ENGINEER_AVATAR,
                 coverURL: 'https://images.unsplash.com/photo-1562774053-701939374585?w=1600&auto=format&fit=crop&q=80',
                 bio: 'Student at Einstein Academy of Technology and Management (EATM).',
-                skills: ['Engineering', 'Problem Solving'],
-                interests: ['Academics', 'Campus Life'],
+                skills: ['Computer Science', 'Engineering', 'Problem Solving'],
+                interests: ['Academics', 'Campus Life', 'Innovation'],
                 stats: {
                   connections: 0,
                   posts: 0,
@@ -88,10 +87,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             setUser(profile);
             localStorage.setItem('eatm_current_user', JSON.stringify(profile));
 
-            // If returning from an OAuth callback with code or tokens, route directly to dashboard
+            // Force immediate route to official student dashboard after authentication
             const search = window.location.search;
             const hash = window.location.hash;
-            if (search.includes('code=') || hash.includes('access_token=') || hash.includes('/login')) {
+            if (search.includes('code=') || hash.includes('access_token=') || hash.includes('/login') || hash.includes('/register') || hash === '' || hash === '#/' || !hash) {
               window.location.hash = '#/student/dashboard';
             }
           } catch (syncErr) {

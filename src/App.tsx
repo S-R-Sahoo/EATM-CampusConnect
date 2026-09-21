@@ -1,6 +1,6 @@
 import React from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider } from './contexts/AuthContext';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ToastProvider } from './contexts/ToastContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 
@@ -41,23 +41,36 @@ import { AdminDashboard } from './pages/admin/AdminDashboard';
 import { AdminUserManagement } from './pages/admin/AdminUserManagement';
 import { AdminReports } from './pages/admin/AdminReports';
 
-export const App: React.FC = () => {
-  return (
-    <HashRouter>
-      <ThemeProvider>
-        <ToastProvider>
-          <AuthProvider>
-          <Routes>
-            {/* Public Routes */}
-            <Route path="/" element={<LandingPage />} />
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/register" element={<RegisterPage />} />
-            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-            <Route path="/access-denied" element={<AccessDenied />} />
+const AppRoutes: React.FC = () => {
+  const { user, isLoading } = useAuth();
 
-            {/* Direct Post Share Routes (both clean /post/:id and legacy /post-:id) */}
-            <Route path="/post/:id" element={<PostDetailPage />} />
-            <Route path="/post-:id" element={<PostDetailPage />} />
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-[#f8faf9] dark:bg-[#0a120d]">
+        <div className="w-10 h-10 border-4 border-[#0b4627] border-t-transparent rounded-full animate-spin mb-4" />
+        <p className="text-xs font-semibold text-[#0b4627] tracking-wider uppercase">Loading EATM CampusConnect...</p>
+      </div>
+    );
+  }
+
+  const getDashboardPath = () => {
+    if (user?.role === 'faculty') return '/faculty/dashboard';
+    if (user?.role === 'admin') return '/admin/dashboard';
+    return '/student/dashboard';
+  };
+
+  return (
+    <Routes>
+      {/* Public Routes: Authenticated users are routed straight to their official dashboard! */}
+      <Route path="/" element={user ? <Navigate to={getDashboardPath()} replace /> : <LandingPage />} />
+      <Route path="/login" element={user ? <Navigate to={getDashboardPath()} replace /> : <LoginPage />} />
+      <Route path="/register" element={user ? <Navigate to={getDashboardPath()} replace /> : <RegisterPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/access-denied" element={<AccessDenied />} />
+
+      {/* Direct Post Share Routes (both clean /post/:id and legacy /post-:id) */}
+      <Route path="/post/:id" element={<PostDetailPage />} />
+      <Route path="/post-:id" element={<PostDetailPage />} />
 
             {/* Student Routes */}
             <Route path="/student" element={<StudentLayout />}>
@@ -111,13 +124,23 @@ export const App: React.FC = () => {
               <Route path="post-:id" element={<PostDetailPage />} />
             </Route>
 
-            {/* 404 Fallback */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </AuthProvider>
-      </ToastProvider>
-    </ThemeProvider>
-  </HashRouter>
+      {/* 404 Fallback */}
+      <Route path="*" element={<NotFound />} />
+    </Routes>
+  );
+};
+
+export const App: React.FC = () => {
+  return (
+    <HashRouter>
+      <ThemeProvider>
+        <ToastProvider>
+          <AuthProvider>
+            <AppRoutes />
+          </AuthProvider>
+        </ToastProvider>
+      </ThemeProvider>
+    </HashRouter>
   );
 };
 
