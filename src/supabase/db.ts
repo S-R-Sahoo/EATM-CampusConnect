@@ -98,9 +98,12 @@ export async function createPost(postData: Omit<Post, 'id' | 'createdAt' | 'like
       const { data, error } = await supabase.from('posts').insert([newPost]).select().single();
       if (!error && data) {
         newPost.id = data.id;
+        console.log('✅ Post successfully stored in Supabase DB:', data.id);
+      } else if (error) {
+        console.error('❌ Supabase createPost error:', error.message, error);
       }
-    } catch (err) {
-      console.warn('Supabase createPost error, using local fallback:', err);
+    } catch (err: any) {
+      console.error('❌ Supabase createPost exception:', err?.message || err);
     }
   }
 

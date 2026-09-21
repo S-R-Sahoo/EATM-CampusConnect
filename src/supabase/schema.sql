@@ -7,16 +7,17 @@
 -- 1. Create Public Storage Bucket for Campus Uploads
 insert into storage.buckets (id, name, public)
 values ('campus-uploads', 'campus-uploads', true)
-on conflict (id) do nothing;
+on conflict (id) do update set public = true;
 
--- Allow public read access to campus uploads
-create policy "Public Access to campus-uploads"
-on storage.objects for select
-using (bucket_id = 'campus-uploads');
+-- Drop previous policies if they exist
+drop policy if exists "Public Access to campus-uploads" on storage.objects;
+drop policy if exists "Allow Uploads to campus-uploads" on storage.objects;
+drop policy if exists "Allow all operations on campus-uploads" on storage.objects;
 
--- Allow authenticated and guest uploads to campus-uploads
-create policy "Allow Uploads to campus-uploads"
-on storage.objects for insert
+-- Allow all operations (select, insert, update, delete) on campus-uploads
+create policy "Allow all operations on campus-uploads"
+on storage.objects for all
+using (bucket_id = 'campus-uploads')
 with check (bucket_id = 'campus-uploads');
 
 -- 2. Users Table

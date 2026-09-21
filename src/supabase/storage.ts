@@ -31,7 +31,10 @@ export async function uploadFile(
   if (isSupabaseConfigured() && supabase) {
     try {
       if (onProgress) onProgress(25);
-      const cleanPath = path.replace(/^\/+/, '');
+      const cleanPath = path
+        .replace(/^\/+/, '')
+        .replace(/[^a-zA-Z0-9_\-./]/g, '_');
+
       const { data, error } = await supabase.storage
         .from('campus-uploads')
         .upload(cleanPath, file, {
@@ -42,7 +45,7 @@ export async function uploadFile(
       if (onProgress) onProgress(75);
 
       if (error) {
-        console.warn('Supabase storage upload error, using local fallback:', error);
+        console.error('❌ Supabase storage upload error:', error.message, error);
         return readAsDataUrlFallback();
       }
 
@@ -51,10 +54,11 @@ export async function uploadFile(
           .from('campus-uploads')
           .getPublicUrl(data.path);
         if (onProgress) onProgress(100);
+        console.log('✅ File uploaded to Supabase Storage:', urlData.publicUrl);
         return urlData.publicUrl;
       }
-    } catch (err) {
-      console.warn('Supabase upload exception, using fallback:', err);
+    } catch (err: any) {
+      console.error('❌ Supabase upload exception:', err?.message || err);
       return readAsDataUrlFallback();
     }
   }
