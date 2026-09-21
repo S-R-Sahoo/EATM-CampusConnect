@@ -328,7 +328,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onPostDeleted }) => {
 
       {/* Post Text Content */}
       {post.content && (
-        <p className="text-sm text-gray-800 dark:text-gray-200 leading-relaxed whitespace-pre-line mb-3">
+        <p className="text-sm sm:text-base text-gray-900 dark:text-gray-100 font-normal leading-relaxed whitespace-pre-line mb-3.5">
           {post.content}
         </p>
       )}

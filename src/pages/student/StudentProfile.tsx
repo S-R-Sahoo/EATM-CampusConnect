@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { Button } from '../../components/ui/Button';
@@ -6,11 +6,14 @@ import { Modal } from '../../components/ui/Modal';
 import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
 import { uploadFile } from '../../supabase/storage';
+import { fetchPosts } from '../../supabase/db';
+import { Post } from '../../types';
+import { PostCard } from '../../components/posts/PostCard';
 import { 
   Edit3, Calendar, Award, Code, CheckCircle, 
   ExternalLink, GraduationCap, Building2, IdCard, 
   Camera, Upload, Image as ImageIcon, Loader2,
-  User, Cpu, Compass, Trophy, BookOpen
+  User, Cpu, Compass, Trophy, BookOpen, Radio
 } from 'lucide-react';
 import { DEFAULT_ENGINEER_AVATAR } from '../../constants/assets';
 
@@ -94,6 +97,27 @@ export const StudentProfile: React.FC = () => {
   const coverFileRef = useRef<HTMLInputElement>(null);
   const modalAvatarFileRef = useRef<HTMLInputElement>(null);
   const modalCoverFileRef = useRef<HTMLInputElement>(null);
+
+  // User posts state
+  const [userPosts, setUserPosts] = useState<Post[]>([]);
+  const [loadingPosts, setLoadingPosts] = useState(true);
+
+  const loadUserPosts = async () => {
+    if (!user) return;
+    try {
+      const allPosts = await fetchPosts();
+      const myPosts = allPosts.filter(p => p.authorId === user.id || (user.uid && p.authorId === user.uid));
+      setUserPosts(myPosts);
+    } catch (e) {
+      console.error('Failed to load user posts:', e);
+    } finally {
+      setLoadingPosts(false);
+    }
+  };
+
+  useEffect(() => {
+    loadUserPosts();
+  }, [user?.id, user?.uid]);
 
   if (!user) return null;
 
@@ -357,7 +381,7 @@ export const StudentProfile: React.FC = () => {
               <div className="text-xs font-semibold text-gray-500 dark:text-gray-400">Connections</div>
             </div>
             <div>
-              <div className="text-xl font-black text-gray-900 dark:text-gray-100">{user.stats?.posts || 24}</div>
+              <div className="text-xl font-black text-gray-900 dark:text-gray-100">{userPosts.length > 0 ? userPosts.length : (user.stats?.posts || 0)}</div>
               <div className="text-xs font-semibold text-gray-500 dark:text-gray-400">Posts</div>
             </div>
             <div>
@@ -498,6 +522,31 @@ export const StudentProfile: React.FC = () => {
                 <p className="text-xs text-gray-500">No honors or achievements added yet.</p>
               )}
             </div>
+          </div>
+
+          {/* My Campus Posts */}
+          <div className="bg-white dark:bg-[#111d15] rounded-2xl border border-gray-200/80 dark:border-[#1e3325] p-6 shadow-card transition-colors duration-150">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-bold text-base text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                <Radio className="w-4 h-4 text-[#0b4627] dark:text-emerald-400" />
+                <span>My Published Posts ({userPosts.length})</span>
+              </h3>
+            </div>
+
+            {loadingPosts ? (
+              <p className="text-xs text-gray-400">Loading your posts...</p>
+            ) : userPosts.length === 0 ? (
+              <div className="text-center py-6 border border-dashed border-gray-200 dark:border-[#1e3325] rounded-xl text-gray-400 dark:text-gray-500">
+                <p className="text-xs font-medium">You haven't published any posts yet.</p>
+                <p className="text-[11px] mt-1 text-gray-400">Share updates, questions, or achievements with peers from the Campus Feed!</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {userPosts.map(p => (
+                  <PostCard key={p.id} post={p} onPostDeleted={loadUserPosts} />
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>

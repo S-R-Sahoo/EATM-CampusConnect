@@ -94,6 +94,7 @@ export const CreatePostCard: React.FC<CreatePostCardProps> = ({ onPostCreated })
       const url = URL.createObjectURL(file);
       setMediaPreview(url);
       if (!isExpanded) setIsExpanded(true);
+      setTimeout(() => textareaRef.current?.focus(), 150);
     }
   };
 
@@ -372,13 +373,13 @@ export const CreatePostCard: React.FC<CreatePostCardProps> = ({ onPostCreated })
             </button>
           </div>
 
-          {/* Textarea: "What's on your mind?" */}
+          {/* Textarea: Post Message / Caption */}
           <textarea
             ref={textareaRef}
             value={content}
             onChange={(e) => setContent(e.target.value)}
-            placeholder="What's on your mind?"
-            rows={3}
+            placeholder={mediaPreview ? "Write a caption or message for this photo..." : "What's on your mind?"}
+            rows={mediaPreview ? 2 : 3}
             className="w-full text-sm placeholder:text-gray-400 dark:placeholder:text-gray-500 text-gray-900 dark:text-gray-100 bg-transparent border-none focus:outline-none resize-none leading-relaxed py-1"
           />
 
@@ -386,6 +387,10 @@ export const CreatePostCard: React.FC<CreatePostCardProps> = ({ onPostCreated })
           {mediaPreview && (
             <div className="relative rounded-xl overflow-hidden border border-gray-200 dark:border-[#1e3325] mb-2 max-h-72 bg-gray-50 dark:bg-[#16251c]">
               <img src={mediaPreview} alt="Upload preview" className="w-full h-full object-cover" />
+              <div className="absolute bottom-2 left-2 px-2.5 py-1 rounded-lg bg-black/60 backdrop-blur-md text-white text-[11px] font-medium flex items-center gap-1.5 shadow-sm">
+                <ImageIcon className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                <span>Photo attached — type your message or caption above</span>
+              </div>
               <button
                 type="button"
                 onClick={removeMedia}
