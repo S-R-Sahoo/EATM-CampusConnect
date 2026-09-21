@@ -4,11 +4,11 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
-import { Eye, EyeOff, Mail, Lock, UserCheck, ShieldCheck, GraduationCap } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock } from 'lucide-react';
 import { EATM_EMBLEM, EATM_OFFICIAL_LOGO } from '../../constants/assets';
 
 export const LoginPage: React.FC = () => {
-  const { user, login, loginWithGoogle, loginWithGithub, switchDemoPersona } = useAuth();
+  const { user, login, loginWithGoogle, loginWithGithub } = useAuth();
   const { success, error } = useToast();
   const navigate = useNavigate();
 
@@ -59,19 +59,6 @@ export const LoginPage: React.FC = () => {
       await loginWithGithub();
     } catch (err: any) {
       error(err.message || 'GitHub sign-in failed.');
-      setLoading(false);
-    }
-  };
-
-  const handleQuickDemo = async (role: 'student' | 'faculty' | 'admin') => {
-    setLoading(true);
-    try {
-      await switchDemoPersona(role);
-      success(`Logged in as ${role.toUpperCase()} persona.`);
-      if (role === 'student') navigate('/student/dashboard');
-      else if (role === 'faculty') navigate('/faculty/dashboard');
-      else if (role === 'admin') navigate('/admin/dashboard');
-    } finally {
       setLoading(false);
     }
   };
@@ -128,40 +115,6 @@ export const LoginPage: React.FC = () => {
             <p className="text-xs sm:text-sm text-gray-500 mt-1">
               Sign in to your EATM digital campus account
             </p>
-          </div>
-
-          {/* Quick Demo Switcher Pill Box */}
-          <div className="p-3.5 rounded-2xl bg-emerald-50/70 border border-emerald-200/70 mb-6">
-            <div className="flex items-center gap-1.5 text-xs font-bold text-[#0b4627] mb-2">
-              <UserCheck className="w-3.5 h-3.5 text-[#0b4627]" />
-              <span>Instant Test Sign-In (Demo Personas):</span>
-            </div>
-            <div className="grid grid-cols-3 gap-2">
-              <button
-                type="button"
-                onClick={() => handleQuickDemo('student')}
-                className="px-2 py-1.5 rounded-xl bg-white hover:bg-emerald-100/60 border border-emerald-200 text-xs font-semibold text-gray-800 flex items-center justify-center gap-1 transition shadow-sm"
-              >
-                <GraduationCap className="w-3 h-3 text-[#0b4627]" />
-                <span>Student</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickDemo('faculty')}
-                className="px-2 py-1.5 rounded-xl bg-white hover:bg-emerald-100/60 border border-emerald-200 text-xs font-semibold text-gray-800 flex items-center justify-center gap-1 transition shadow-sm"
-              >
-                <UserCheck className="w-3 h-3 text-blue-700" />
-                <span>Faculty</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickDemo('admin')}
-                className="px-2 py-1.5 rounded-xl bg-white hover:bg-red-50 border border-red-200 text-xs font-semibold text-gray-800 flex items-center justify-center gap-1 transition shadow-sm"
-              >
-                <ShieldCheck className="w-3 h-3 text-red-600" />
-                <span>Admin</span>
-              </button>
-            </div>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
