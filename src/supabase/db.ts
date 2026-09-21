@@ -402,11 +402,41 @@ export async function updateConnectionStatus(connectionId: string, status: 'acce
 // CHAT & CONVERSATIONS
 // ---------------------------------------------
 export async function fetchConversations(userId: string): Promise<Conversation[]> {
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('conversations')
+        .select('*')
+        .contains('participants', [userId])
+        .order('updatedAt', { ascending: false });
+
+      if (!error && data && data.length > 0) {
+        return data as Conversation[];
+      }
+    } catch (err) {
+      console.warn('Supabase fetchConversations error:', err);
+    }
+  }
   const convs = getLocalData<Conversation[]>('conversations', SEED_CONVERSATIONS);
   return convs.filter(c => c.participants.includes(userId));
 }
 
 export async function fetchMessages(conversationId: string): Promise<Message[]> {
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('messages')
+        .select('*')
+        .eq('conversationId', conversationId)
+        .order('createdAt', { ascending: true });
+
+      if (!error && data && data.length > 0) {
+        return data as Message[];
+      }
+    } catch (err) {
+      console.warn('Supabase fetchMessages error:', err);
+    }
+  }
   const msgs = getLocalData<Message[]>('messages', SEED_MESSAGES);
   return msgs.filter(m => m.conversationId === conversationId);
 }
@@ -424,18 +454,146 @@ export async function sendChatMessage(msg: Omit<Message, 'id' | 'createdAt' | 'r
 
   const convs = getLocalData<Conversation[]>('conversations', SEED_CONVERSATIONS);
   const conv = convs.find(c => c.id === msg.conversationId);
+  const lastMessagePayload = {
+    text: msg.text || (msg.mediaUrl ? 'Attachment' : 'Message'),
+    senderId: msg.senderId,
+    timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    read: true
+  };
+
   if (conv) {
-    conv.lastMessage = {
-      text: msg.text || (msg.mediaUrl ? 'Attachment' : 'Message'),
-      senderId: msg.senderId,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      read: true
-    };
+    conv.lastMessage = lastMessagePayload;
     conv.updatedAt = new Date().toISOString();
     setLocalData('conversations', [...convs]);
   }
 
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      await supabase.from('messages').insert([newMsg]);
+      await supabase.from('conversations').update({
+        lastMessage: lastMessagePayload,
+        updatedAt: new Date().toISOString()
+      }).eq('id', msg.conversationId);
+    } catch (err) {
+      console.warn('Supabase sendChatMessage error:', err);
+    }
+  }
+
   return newMsg;
+}
+
+// ---------------------------------------------
+// REALTIME SUBSCRIPTIONS (100% Free Tier)
+// ---------------------------------------------
+
+/**
+ * Subscribes to live changes on the posts table (INSERT, UPDATE, DELETE).
+ * Returns an unsubscribe cleanup function.
+ */
+export function subscribeToPosts(callbacks: {
+  onInsert?: (newPost: Post) => void;
+  onUpdate?: (updatedPost: Post) => void;
+  onDelete?: (deletedPostId: string) => void;
+}): () => void {
+  if (!isSupabaseConfigured() || !supabase) {
+    return () => {};
+  }
+
+  const channelName = `realtime-posts-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+  const channel = supabase
+    .channel(channelName)
+    .on(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'posts' },
+      (payload) => {
+        if (payload.new) callbacks.onInsert?.(payload.new as Post);
+      }
+    )
+    .on(
+      'postgres_changes',
+      { event: 'UPDATE', schema: 'public', table: 'posts' },
+      (payload) => {
+        if (payload.new) callbacks.onUpdate?.(payload.new as Post);
+      }
+    )
+    .on(
+      'postgres_changes',
+      { event: 'DELETE', schema: 'public', table: 'posts' },
+      (payload) => {
+        if (payload.old && (payload.old as any).id) {
+          callbacks.onDelete?.((payload.old as any).id);
+        }
+      }
+    )
+    .subscribe();
+
+  return () => {
+    if (supabase) supabase.removeChannel(channel);
+  };
+}
+
+/**
+ * Subscribes to live comments for a specific post.
+ * Returns an unsubscribe cleanup function.
+ */
+export function subscribeToComments(
+  postId: string,
+  onInsert: (newComment: Comment) => void
+): () => void {
+  if (!isSupabaseConfigured() || !supabase) {
+    return () => {};
+  }
+
+  const client = supabase;
+  const channelName = `realtime-comments-${postId}-${Date.now()}`;
+  const channel = client
+    .channel(channelName)
+    .on(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'comments' },
+      (payload) => {
+        if (payload.new && (payload.new as Comment).postId === postId) {
+          onInsert(payload.new as Comment);
+        }
+      }
+    )
+    .subscribe();
+
+  return () => {
+    if (client) client.removeChannel(channel);
+  };
+}
+
+/**
+ * Subscribes to live chat messages for a conversation.
+ * Returns an unsubscribe cleanup function.
+ */
+export function subscribeToMessages(
+  conversationId: string,
+  onInsert: (newMsg: Message) => void
+): () => void {
+  if (!isSupabaseConfigured() || !supabase) {
+    return () => {};
+  }
+
+  const client = supabase;
+  const channelName = `realtime-messages-${conversationId}-${Date.now()}`;
+  const channel = client
+    .channel(channelName)
+    .on(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'messages' },
+      (payload) => {
+        if (payload.new && (payload.new as Message).conversationId === conversationId) {
+          onInsert(payload.new as Message);
+        }
+      }
+    )
+    .subscribe();
+
+  return () => {
+    if (client) client.removeChannel(channel);
+  };
 }
 
 // ---------------------------------------------

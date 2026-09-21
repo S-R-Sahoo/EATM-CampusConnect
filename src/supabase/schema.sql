@@ -275,3 +275,24 @@ create policy "Allow all operations on conversations" on public.conversations fo
 create policy "Allow all operations on messages" on public.messages for all using (true) with check (true);
 create policy "Allow all operations on reports" on public.reports for all using (true) with check (true);
 create policy "Allow all operations on assignments" on public.assignments for all using (true) with check (true);
+
+-- ==========================================================
+-- 14. Enable Supabase Realtime (100% Free Tier)
+-- Allows live WebSocket streaming for Posts, Comments, and Messages
+-- ==========================================================
+do $$
+begin
+  if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'posts') then
+    alter publication supabase_realtime add table public.posts;
+  end if;
+  if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'comments') then
+    alter publication supabase_realtime add table public.comments;
+  end if;
+  if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'messages') then
+    alter publication supabase_realtime add table public.messages;
+  end if;
+  if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'conversations') then
+    alter publication supabase_realtime add table public.conversations;
+  end if;
+end $$;
+

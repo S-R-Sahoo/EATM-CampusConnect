@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { Comment } from '../../types';
-import { fetchPostComments, addPostComment } from '../../supabase/db';
+import { fetchPostComments, addPostComment, subscribeToComments } from '../../supabase/db';
 import { Avatar } from '../ui/Avatar';
 import { Send, Loader2 } from 'lucide-react';
 
@@ -20,6 +20,19 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ postId, onCommen
 
   useEffect(() => {
     fetchPostComments(postId).then(data => setComments(data));
+
+    // Subscribe to live comments for this post
+    const unsubscribe = subscribeToComments(postId, (newComment) => {
+      setComments(prev => {
+        if (prev.some(c => c.id === newComment.id)) return prev;
+        return [...prev, newComment];
+      });
+      onCommentAdded();
+    });
+
+    return () => {
+      unsubscribe();
+    };
   }, [postId]);
 
   const handleSubmit = async (e: React.FormEvent) => {

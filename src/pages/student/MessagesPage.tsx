@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { 
-  fetchConversations, fetchMessages, sendChatMessage, fetchUsers 
+  fetchConversations, fetchMessages, sendChatMessage, fetchUsers, subscribeToMessages 
 } from '../../supabase/db';
 import { Conversation, Message, UserProfile } from '../../types';
 import { Avatar } from '../../components/ui/Avatar';
@@ -45,6 +45,21 @@ export const MessagesPage: React.FC = () => {
           messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
         }, 100);
       });
+
+      // Realtime subscription for incoming chat messages in this conversation
+      const unsubscribe = subscribeToMessages(activeConvId, (newMsg) => {
+        setMessages(prev => {
+          if (prev.some(m => m.id === newMsg.id)) return prev;
+          return [...prev, newMsg];
+        });
+        setTimeout(() => {
+          messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        }, 80);
+      });
+
+      return () => {
+        unsubscribe();
+      };
     }
   }, [activeConvId]);
 

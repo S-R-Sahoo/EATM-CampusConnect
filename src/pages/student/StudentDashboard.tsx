@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { fetchPosts } from '../../supabase/db';
+import { fetchPosts, subscribeToPosts } from '../../supabase/db';
 import { Post } from '../../types';
 import { CreatePostCard } from '../../components/posts/CreatePostCard';
 import { PostCard } from '../../components/posts/PostCard';
@@ -25,6 +25,28 @@ export const StudentDashboard: React.FC = () => {
 
   useEffect(() => {
     loadFeed();
+
+    // Subscribe to live post updates (INSERT, UPDATE, DELETE)
+    const unsubscribe = subscribeToPosts({
+      onInsert: (newPost) => {
+        setPosts((prev) => {
+          if (prev.some((p) => p.id === newPost.id)) return prev;
+          return [newPost, ...prev];
+        });
+      },
+      onUpdate: (updatedPost) => {
+        setPosts((prev) =>
+          prev.map((p) => (p.id === updatedPost.id ? { ...p, ...updatedPost } : p))
+        );
+      },
+      onDelete: (deletedPostId) => {
+        setPosts((prev) => prev.filter((p) => p.id !== deletedPostId));
+      }
+    });
+
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
   const firstName = user?.displayName ? user.displayName.split(' ')[0] : 'Student';
