@@ -50,46 +50,68 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           localStorage.setItem('eatm_current_user', JSON.stringify(defaultStudent));
         }
 
-        // If real Supabase Auth is active, attach listener
-        if (isSupabaseConfigured() && supabase) {
-          const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-            if (session?.user) {
-              const users = await fetchUsers();
-              let profile = users.find(u => u.uid === session.user.id || u.email?.toLowerCase() === session.user.email?.toLowerCase());
-              
-              if (!profile) {
-                // Auto-create UserProfile for OAuth users (Google, GitHub)
-                const meta = session.user.user_metadata || {};
-                const fallbackName = meta.full_name || meta.name || meta.user_name || session.user.email?.split('@')[0] || 'Campus Student';
-                const newProfile: UserProfile = {
-                  id: session.user.id,
-                  uid: session.user.id,
-                  email: session.user.email || '',
-                  displayName: fallbackName,
-                  role: 'student',
-                  department: 'Computer Science & Engineering',
-                  photoURL: meta.avatar_url || meta.picture || DEFAULT_ENGINEER_AVATAR,
-                  coverURL: 'https://images.unsplash.com/photo-1562774053-701939374585?w=1600&auto=format&fit=crop&q=80',
-                  bio: 'Student at Einstein Academy of Technology and Management (EATM).',
-                  skills: ['Engineering', 'Problem Solving'],
-                  interests: ['Academics', 'Campus Life'],
-                  stats: {
-                    connections: 0,
-                    posts: 0,
-                    clubs: 0,
-                    achievements: 0
-                  },
-                  status: 'active',
-                  verified: true,
-                  createdAt: new Date().toISOString(),
-                  updatedAt: new Date().toISOString()
-                };
-                await firestoreUpdateProfile(session.user.id, newProfile);
-                profile = newProfile;
-              }
+        const syncSessionUser = async (authUser: any) => {
+          try {
+            const users = await fetchUsers();
+            let profile = users.find(u => u.uid === authUser.id || u.id === authUser.id || u.email?.toLowerCase() === authUser.email?.toLowerCase());
+            
+            if (!profile) {
+              const meta = authUser.user_metadata || {};
+              const fallbackName = meta.full_name || meta.name || meta.user_name || authUser.email?.split('@')[0] || 'Campus Student';
+              const newProfile: UserProfile = {
+                id: authUser.id,
+                uid: authUser.id,
+                email: authUser.email || '',
+                displayName: fallbackName,
+                role: 'student',
+                department: 'Computer Science & Engineering',
+                photoURL: meta.avatar_url || meta.picture || DEFAULT_ENGINEER_AVATAR,
+                coverURL: 'https://images.unsplash.com/photo-1562774053-701939374585?w=1600&auto=format&fit=crop&q=80',
+                bio: 'Student at Einstein Academy of Technology and Management (EATM).',
+                skills: ['Engineering', 'Problem Solving'],
+                interests: ['Academics', 'Campus Life'],
+                stats: {
+                  connections: 0,
+                  posts: 0,
+                  clubs: 0,
+                  achievements: 0
+                },
+                status: 'active',
+                verified: true,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+              };
+              await firestoreUpdateProfile(authUser.id, newProfile);
+              profile = newProfile;
+            }
 
-              setUser(profile);
-              localStorage.setItem('eatm_current_user', JSON.stringify(profile));
+            setUser(profile);
+            localStorage.setItem('eatm_current_user', JSON.stringify(profile));
+
+            // If returning from an OAuth callback with code or tokens, route directly to dashboard
+            const search = window.location.search;
+            const hash = window.location.hash;
+            if (search.includes('code=') || hash.includes('access_token=') || hash.includes('/login')) {
+              window.location.hash = '#/student/dashboard';
+            }
+          } catch (syncErr) {
+            console.error('Error syncing Supabase user:', syncErr);
+          }
+        };
+
+        // If real Supabase Auth is active, check session & attach listener
+        if (isSupabaseConfigured() && supabase) {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session?.user) {
+            await syncSessionUser(session.user);
+          }
+
+          const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+            if (session?.user) {
+              await syncSessionUser(session.user);
+            } else if (event === 'SIGNED_OUT') {
+              setUser(null);
+              localStorage.removeItem('eatm_current_user');
             }
           });
           unsubscribe = () => subscription.unsubscribe();

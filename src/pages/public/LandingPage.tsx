@@ -6,6 +6,7 @@ import {
   ChevronLeft, ChevronRight, ArrowRight, ShieldCheck, Heart, Compass
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
+import { useAuth } from '../../contexts/AuthContext';
 import { EATM_OFFICIAL_LOGO, EATM_EMBLEM } from '../../constants/assets';
 
 // Authentic 12 sliding banners from official https://www.eatm.in/
@@ -121,6 +122,7 @@ const HERO_SLIDES = [
 ];
 
 export const LandingPage: React.FC = () => {
+  const { user } = useAuth();
   const [currentSlide, setCurrentSlide] = useState(0);
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
 
@@ -182,18 +184,27 @@ export const LandingPage: React.FC = () => {
             <a href="#contact" className="hover:text-[#0b4627] transition">Contact</a>
           </nav>
 
-          <div className="flex items-center gap-2.5">
-            <Link to="/login">
-              <Button variant="outline" size="sm" className="border-gray-300 font-semibold text-gray-800">
-                Login
+          {user && user.uid && user.uid !== 'user_soumya' ? (
+            <Link to={user.role === 'faculty' ? '/faculty/dashboard' : user.role === 'admin' ? '/admin/dashboard' : '/student/dashboard'}>
+              <Button variant="crimson" size="sm" className="font-semibold shadow-sm flex items-center gap-1.5">
+                <span>Go to Dashboard</span>
+                <ArrowRight className="w-3.5 h-3.5" />
               </Button>
             </Link>
-            <Link to="/register">
-              <Button variant="crimson" size="sm" className="font-semibold shadow-sm">
-                Register
-              </Button>
-            </Link>
-          </div>
+          ) : (
+            <div className="flex items-center gap-2.5">
+              <Link to="/login">
+                <Button variant="outline" size="sm" className="border-gray-300 font-semibold text-gray-800">
+                  Login
+                </Button>
+              </Link>
+              <Link to="/register">
+                <Button variant="crimson" size="sm" className="font-semibold shadow-sm">
+                  Register
+                </Button>
+              </Link>
+            </div>
+          )}
         </div>
       </header>
 

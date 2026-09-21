@@ -8,15 +8,22 @@ import { Eye, EyeOff, Mail, Lock, UserCheck, ShieldCheck, GraduationCap } from '
 import { EATM_EMBLEM, EATM_OFFICIAL_LOGO } from '../../constants/assets';
 
 export const LoginPage: React.FC = () => {
-  const { login, loginWithGoogle, loginWithGithub, switchDemoPersona } = useAuth();
+  const { user, login, loginWithGoogle, loginWithGithub, switchDemoPersona } = useAuth();
   const { success, error } = useToast();
   const navigate = useNavigate();
 
-  const [emailOrRoll, setEmailOrRoll] = useState('soumya.sahoo@eatm.in');
-  const [password, setPassword] = useState('Password@123');
+  const [emailOrRoll, setEmailOrRoll] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [loading, setLoading] = useState(false);
+
+  // Auto-redirect if already signed in with a cloud Supabase account
+  React.useEffect(() => {
+    if (user && user.uid && user.uid !== 'user_soumya') {
+      navigate('/student/dashboard');
+    }
+  }, [user, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,11 +47,8 @@ export const LoginPage: React.FC = () => {
     setLoading(true);
     try {
       await loginWithGoogle();
-      success('Logged in successfully via Google Authentication.');
-      navigate('/student/dashboard');
     } catch (err: any) {
       error(err.message || 'Google sign-in failed.');
-    } finally {
       setLoading(false);
     }
   };
@@ -53,11 +57,8 @@ export const LoginPage: React.FC = () => {
     setLoading(true);
     try {
       await loginWithGithub();
-      success('Logged in successfully via GitHub Authentication.');
-      navigate('/student/dashboard');
     } catch (err: any) {
       error(err.message || 'GitHub sign-in failed.');
-    } finally {
       setLoading(false);
     }
   };
