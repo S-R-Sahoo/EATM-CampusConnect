@@ -40,6 +40,7 @@ export const MessagesPage: React.FC = () => {
         let convs = await fetchConversations(user.id);
         if (!isMounted) return;
 
+        let isFirstTimeConnection = false;
         // If no active conversations, check if there are accepted friends to auto-link
         if (convs.length === 0) {
           try {
@@ -49,6 +50,11 @@ export const MessagesPage: React.FC = () => {
               const friendId = acceptedConn.requesterId === user.id ? acceptedConn.recipientId : acceptedConn.requesterId;
               const directConv = await getOrCreateConversation(user.id, friendId);
               convs = [directConv];
+              const firstConnKey = `eatm_first_conn_opened_${user.id}`;
+              if (!localStorage.getItem(firstConnKey)) {
+                isFirstTimeConnection = true;
+                localStorage.setItem(firstConnKey, 'true');
+              }
             }
           } catch (linkErr) {
             console.warn('Auto-link friend error:', linkErr);
@@ -59,6 +65,7 @@ export const MessagesPage: React.FC = () => {
 
         const targetConvId = (location.state as any)?.conversationId || searchParams.get('conversationId');
         const targetUserId = searchParams.get('userId');
+        const explicitFirstTime = (location.state as any)?.firstTimeConnection;
 
         if (targetConvId) {
           setActiveConvId(targetConvId);
@@ -71,7 +78,7 @@ export const MessagesPage: React.FC = () => {
             });
             setActiveConvId(conv.id);
           }
-        } else if (convs.length > 0) {
+        } else if ((isFirstTimeConnection || explicitFirstTime) && convs.length > 0) {
           setActiveConvId(convs[0].id);
         }
       } catch (err) {
@@ -88,8 +95,6 @@ export const MessagesPage: React.FC = () => {
         const fresh = await fetchConversations(user.id);
         if (isMounted && fresh.length > 0) {
           setConversations(fresh);
-          // Auto-select first conversation if none selected
-          setActiveConvId(prev => prev || fresh[0].id);
         }
       } catch (_) {}
     }, 6000);
