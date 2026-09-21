@@ -85,6 +85,35 @@ export const StudentDashboard: React.FC = () => {
 
   const firstName = user?.displayName ? user.displayName.split(' ')[0] : 'Student';
 
+  // Dynamic time-based greeting & inspirational message
+  const getGreetingData = () => {
+    const hour = new Date().getHours();
+    if (hour >= 5 && hour < 12) {
+      return {
+        greeting: 'Good Morning',
+        message: 'Keep learning, keep growing. Stay connected with your campus peers and societies today.'
+      };
+    }
+    if (hour >= 12 && hour < 17) {
+      return {
+        greeting: 'Good Afternoon',
+        message: 'Keep the momentum going. Check out what is happening across campus today.'
+      };
+    }
+    if (hour >= 17 && hour < 22) {
+      return {
+        greeting: 'Good Evening',
+        message: 'Catch up with your peers, review study notes, and see what happened on campus tonight.'
+      };
+    }
+    return {
+      greeting: 'Good Night',
+      message: 'Reflect on today’s achievements, rest well, and stay inspired for tomorrow.'
+    };
+  };
+
+  const { greeting, message: greetingMessage } = getGreetingData();
+
   return (
     <div className="flex gap-6 items-start">
       {/* Central Feed Column */}
@@ -98,10 +127,10 @@ export const StudentDashboard: React.FC = () => {
               <span>Campus Community Feed</span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-black tracking-tight">
-              Good Morning, {firstName}!
+              {greeting}, {firstName}!
             </h1>
             <p className="text-xs sm:text-sm text-emerald-100 mt-1 font-medium">
-              Keep learning, keep growing. Stay connected with your campus peers and societies today.
+              {greetingMessage}
             </p>
           </div>
         </div>
