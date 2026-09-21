@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Post } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
-import { toggleLikePost, votePoll, deletePost } from '../../firebase/firestore';
+import { toggleLikePost, votePoll, deletePost, getPostShareUrl } from '../../firebase/firestore';
 import { Avatar } from '../ui/Avatar';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
@@ -232,7 +232,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onPostDeleted }) => {
                 type="button"
                 onClick={() => {
                   setMenuOpen(false);
-                  const postUrl = `${window.location.origin}${window.location.pathname}#post-${post.id}`;
+                  const postUrl = getPostShareUrl(post.id);
                   navigator.clipboard?.writeText(postUrl);
                   success('Post link copied to clipboard!');
                 }}

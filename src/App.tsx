@@ -16,6 +16,7 @@ import { RegisterPage } from './pages/public/RegisterPage';
 import { ForgotPasswordPage } from './pages/public/ForgotPasswordPage';
 import { AccessDenied } from './pages/common/AccessDenied';
 import { NotFound } from './pages/common/NotFound';
+import { PostDetailPage } from './pages/common/PostDetailPage';
 
 // Student Pages
 import { StudentDashboard } from './pages/student/StudentDashboard';
@@ -54,6 +55,10 @@ export const App: React.FC = () => {
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/access-denied" element={<AccessDenied />} />
 
+            {/* Direct Post Share Routes (both clean /post/:id and legacy /post-:id) */}
+            <Route path="/post/:id" element={<PostDetailPage />} />
+            <Route path="/post-:id" element={<PostDetailPage />} />
+
             {/* Student Routes */}
             <Route path="/student" element={<StudentLayout />}>
               <Route index element={<Navigate to="/student/dashboard" replace />} />
@@ -69,6 +74,8 @@ export const App: React.FC = () => {
               <Route path="opportunities" element={<OpportunitiesPage />} />
               <Route path="notifications" element={<NotificationsPage />} />
               <Route path="settings" element={<StudentSettings />} />
+              <Route path="post/:id" element={<PostDetailPage />} />
+              <Route path="post-:id" element={<PostDetailPage />} />
             </Route>
 
             {/* Faculty Routes */}
@@ -83,6 +90,8 @@ export const App: React.FC = () => {
               <Route path="communities" element={<CommunitiesPage />} />
               <Route path="opportunities" element={<OpportunitiesPage />} />
               <Route path="profile" element={<StudentProfile />} />
+              <Route path="post/:id" element={<PostDetailPage />} />
+              <Route path="post-:id" element={<PostDetailPage />} />
             </Route>
 
             {/* Admin Routes */}
@@ -98,6 +107,8 @@ export const App: React.FC = () => {
               <Route path="reports" element={<AdminReports />} />
               <Route path="announcements" element={<FacultyDashboard />} />
               <Route path="settings" element={<StudentSettings />} />
+              <Route path="post/:id" element={<PostDetailPage />} />
+              <Route path="post-:id" element={<PostDetailPage />} />
             </Route>
 
             {/* 404 Fallback */}

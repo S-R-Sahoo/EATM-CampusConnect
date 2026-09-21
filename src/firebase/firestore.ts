@@ -56,6 +56,28 @@ export async function fetchPosts(): Promise<Post[]> {
   return getLocalData<Post[]>('posts', SEED_POSTS);
 }
 
+export async function fetchPostById(postId: string): Promise<Post | null> {
+  if (isFirebaseConfigured() && db) {
+    try {
+      const snap = await getDoc(doc(db, 'posts', postId));
+      if (snap.exists()) {
+        return { id: snap.id, ...snap.data() } as Post;
+      }
+    } catch (err) {
+      console.warn('Firestore fetchPostById error:', err);
+    }
+  }
+  const posts = getLocalData<Post[]>('posts', SEED_POSTS);
+  return posts.find(p => p.id === postId) || null;
+}
+
+export function getPostShareUrl(postId: string): string {
+  if (typeof window === 'undefined') return '';
+  const origin = window.location.origin;
+  const cleanPath = window.location.pathname.replace(/\/[^/]*\.html$/, '').replace(/\/$/, '');
+  return `${origin}${cleanPath}/#/post/${postId}`;
+}
+
 export async function createPost(postData: Omit<Post, 'id' | 'createdAt' | 'likes' | 'likesCount' | 'commentsCount' | 'sharesCount'>): Promise<Post> {
   const newPost: Post = {
     ...postData,

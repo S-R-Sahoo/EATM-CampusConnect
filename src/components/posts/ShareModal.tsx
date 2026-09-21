@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Post } from '../../types';
 import { useToast } from '../../contexts/ToastContext';
-import { incrementPostShare } from '../../firebase/firestore';
+import { incrementPostShare, getPostShareUrl } from '../../firebase/firestore';
 import { Modal } from '../ui/Modal';
 import { Avatar } from '../ui/Avatar';
 import { 
@@ -29,9 +29,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
   const [copied, setCopied] = useState(false);
 
   // Generate shareable URL
-  const postUrl = typeof window !== 'undefined' 
-    ? `${window.location.origin}${window.location.pathname}#post-${post.id}`
-    : '';
+  const postUrl = getPostShareUrl(post.id);
 
   const shareText = `Check out this post by ${post.authorName} on EATM CampusConnect: "${post.content.slice(0, 80)}${post.content.length > 80 ? '...' : ''}"`;
 
