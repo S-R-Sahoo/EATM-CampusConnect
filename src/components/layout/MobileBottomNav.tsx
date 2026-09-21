@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { Home, Compass, MessageSquare, Bell, User } from 'lucide-react';
-import { fetchNotifications } from '../../firebase/firestore';
+import { fetchNotifications } from '../../supabase/db';
 
 export const MobileBottomNav: React.FC = () => {
   const { user } = useAuth();

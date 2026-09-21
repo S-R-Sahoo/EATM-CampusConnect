@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { fetchReports, updateReportStatus } from '../../firebase/firestore';
+import { fetchReports, updateReportStatus } from '../../supabase/db';
 import { Report } from '../../types';
 import { useToast } from '../../contexts/ToastContext';
 import { ShieldAlert, CheckCircle2, XCircle, AlertCircle, Clock, Check } from 'lucide-react';

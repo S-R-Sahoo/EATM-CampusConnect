@@ -7,7 +7,7 @@ import {
 import { 
   fetchUsers, fetchCommunities, fetchEvents, 
   fetchPosts, fetchStudyMaterials, fetchOpportunities 
-} from '../../firebase/firestore';
+} from '../../supabase/db';
 import { UserProfile, Community, CampusEvent, Post, StudyMaterial, Opportunity } from '../../types';
 
 interface GlobalSearchModalProps {

@@ -1,27 +1,28 @@
-import { 
-  signInWithEmailAndPassword, 
-  createUserWithEmailAndPassword, 
-  signInWithPopup, 
-  signOut as firebaseSignOut,
-  sendPasswordResetEmail,
-  User as FirebaseUser
-} from 'firebase/auth';
-import { auth, googleProvider, githubProvider, isFirebaseConfigured } from './config';
+import { supabase, isSupabaseConfigured } from './client';
 import { UserProfile, UserRole } from '../types';
-import { fetchUserById, updateUserProfile, fetchUsers } from './firestore';
+import { fetchUserById, updateUserProfile, fetchUsers } from './db';
 import { DEFAULT_ENGINEER_AVATAR } from '../constants/assets';
 
 export async function loginWithEmail(email: string, pass: string): Promise<UserProfile> {
-  if (isFirebaseConfigured() && auth) {
-    const cred = await signInWithEmailAndPassword(auth, email, pass);
-    const profile = await fetchUserById(cred.user.uid);
-    if (!profile) {
-      throw new Error('User profile not found in database.');
+  if (isSupabaseConfigured() && supabase) {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password: pass
+    });
+
+    if (error) {
+      throw new Error(error.message || 'Login failed.');
     }
-    if (profile.status === 'disabled') {
-      throw new Error('Your account has been temporarily disabled. Please contact the college administrator.');
+
+    if (data.user) {
+      const profile = await fetchUserById(data.user.id);
+      if (profile) {
+        if (profile.status === 'disabled') {
+          throw new Error('Your account has been temporarily disabled. Please contact the college administrator.');
+        }
+        return profile;
+      }
     }
-    return profile;
   }
 
   // Fallback demo lookup
@@ -34,7 +35,7 @@ export async function loginWithEmail(email: string, pass: string): Promise<UserP
     return found;
   }
 
-  // Default fallback to Soumyaranjan for quick demo login if email matches demo
+  // Quick demo persona fallbacks
   if (email.includes('admin')) {
     return users.find(u => u.role === 'admin') || users[0];
   } else if (email.includes('faculty') || email.includes('hod')) {
@@ -61,9 +62,24 @@ export async function registerWithEmail(
 ): Promise<UserProfile> {
   let uid = 'usr_' + Date.now();
 
-  if (isFirebaseConfigured() && auth && userData.password) {
-    const cred = await createUserWithEmailAndPassword(auth, userData.email, userData.password);
-    uid = cred.user.uid;
+  if (isSupabaseConfigured() && supabase && userData.password) {
+    const { data, error } = await supabase.auth.signUp({
+      email: userData.email,
+      password: userData.password,
+      options: {
+        data: {
+          display_name: userData.displayName,
+          role: userData.role
+        }
+      }
+    });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+    if (data.user) {
+      uid = data.user.id;
+    }
   }
 
   const newProfile: UserProfile = {
@@ -101,20 +117,14 @@ export async function registerWithEmail(
 }
 
 export async function loginWithGoogle(): Promise<UserProfile> {
-  if (isFirebaseConfigured() && auth) {
-    const cred = await signInWithPopup(auth, googleProvider);
-    let profile = await fetchUserById(cred.user.uid);
-    if (!profile) {
-      // Auto-create student profile
-      profile = await registerWithEmail({
-        email: cred.user.email || 'student@eatm.in',
-        displayName: cred.user.displayName || 'EATM Student',
-        role: 'student',
-        department: 'CSE',
-        photoURL: cred.user.photoURL || undefined
-      });
-    }
-    return profile;
+  if (isSupabaseConfigured() && supabase) {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: window.location.origin + window.location.pathname
+      }
+    });
+    if (error) throw new Error(error.message);
   }
 
   // Fallback demo user
@@ -123,20 +133,14 @@ export async function loginWithGoogle(): Promise<UserProfile> {
 }
 
 export async function loginWithGithub(): Promise<UserProfile> {
-  if (isFirebaseConfigured() && auth) {
-    const cred = await signInWithPopup(auth, githubProvider);
-    let profile = await fetchUserById(cred.user.uid);
-    if (!profile) {
-      // Auto-create student profile
-      profile = await registerWithEmail({
-        email: cred.user.email || `${cred.user.displayName?.toLowerCase().replace(/\s+/g, '') || 'developer'}@eatm.in`,
-        displayName: cred.user.displayName || 'EATM Student',
-        role: 'student',
-        department: 'CSE',
-        photoURL: cred.user.photoURL || undefined
-      });
-    }
-    return profile;
+  if (isSupabaseConfigured() && supabase) {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'github',
+      options: {
+        redirectTo: window.location.origin + window.location.pathname
+      }
+    });
+    if (error) throw new Error(error.message);
   }
 
   // Fallback demo user
@@ -145,13 +149,16 @@ export async function loginWithGithub(): Promise<UserProfile> {
 }
 
 export async function logoutUser(): Promise<void> {
-  if (isFirebaseConfigured() && auth) {
-    await firebaseSignOut(auth);
+  if (isSupabaseConfigured() && supabase) {
+    await supabase.auth.signOut();
   }
 }
 
 export async function resetPassword(email: string): Promise<void> {
-  if (isFirebaseConfigured() && auth) {
-    await sendPasswordResetEmail(auth, email);
+  if (isSupabaseConfigured() && supabase) {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}${window.location.pathname}#/forgot-password`
+    });
+    if (error) throw new Error(error.message);
   }
 }

@@ -1,8 +1,4 @@
-import { 
-  collection, doc, getDocs, getDoc, setDoc, addDoc, updateDoc, 
-  deleteDoc, query, where, orderBy, onSnapshot, arrayUnion, arrayRemove, Timestamp 
-} from 'firebase/firestore';
-import { db, isFirebaseConfigured } from './config';
+import { supabase, isSupabaseConfigured } from './client';
 import { 
   UserProfile, Post, Comment, Connection, Conversation, Message, 
   Community, CampusEvent, StudyMaterial, Opportunity, Announcement, 
@@ -16,7 +12,7 @@ import {
 } from './seedData';
 import { DEFAULT_ENGINEER_AVATAR } from '../constants/assets';
 
-// Local storage key for persistent demo state
+// Local storage key for sandbox/demo persistence
 const STORAGE_PREFIX = 'eatm_campus_';
 
 function getLocalData<T>(key: string, defaultData: T): T {
@@ -42,29 +38,37 @@ function setLocalData<T>(key: string, data: T): void {
 // POSTS
 // ---------------------------------------------
 export async function fetchPosts(): Promise<Post[]> {
-  if (isFirebaseConfigured() && db) {
+  if (isSupabaseConfigured() && supabase) {
     try {
-      const q = query(collection(db, 'posts'), orderBy('createdAt', 'desc'));
-      const snapshot = await getDocs(q);
-      if (!snapshot.empty) {
-        return snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Post));
+      const { data, error } = await supabase
+        .from('posts')
+        .select('*')
+        .order('createdAt', { ascending: false });
+
+      if (!error && data && data.length > 0) {
+        return data as Post[];
       }
     } catch (err) {
-      console.warn('Firestore fetchPosts error, using local fallback:', err);
+      console.warn('Supabase fetchPosts error, using local fallback:', err);
     }
   }
   return getLocalData<Post[]>('posts', SEED_POSTS);
 }
 
 export async function fetchPostById(postId: string): Promise<Post | null> {
-  if (isFirebaseConfigured() && db) {
+  if (isSupabaseConfigured() && supabase) {
     try {
-      const snap = await getDoc(doc(db, 'posts', postId));
-      if (snap.exists()) {
-        return { id: snap.id, ...snap.data() } as Post;
+      const { data, error } = await supabase
+        .from('posts')
+        .select('*')
+        .eq('id', postId)
+        .single();
+
+      if (!error && data) {
+        return data as Post;
       }
     } catch (err) {
-      console.warn('Firestore fetchPostById error:', err);
+      console.warn('Supabase fetchPostById error:', err);
     }
   }
   const posts = getLocalData<Post[]>('posts', SEED_POSTS);
@@ -89,12 +93,14 @@ export async function createPost(postData: Omit<Post, 'id' | 'createdAt' | 'like
     createdAt: new Date().toISOString()
   };
 
-  if (isFirebaseConfigured() && db) {
+  if (isSupabaseConfigured() && supabase) {
     try {
-      const docRef = await addDoc(collection(db, 'posts'), newPost);
-      newPost.id = docRef.id;
+      const { data, error } = await supabase.from('posts').insert([newPost]).select().single();
+      if (!error && data) {
+        newPost.id = data.id;
+      }
     } catch (err) {
-      console.warn('Firestore createPost error, falling back locally:', err);
+      console.warn('Supabase createPost error, using local fallback:', err);
     }
   }
 
@@ -109,11 +115,11 @@ export async function deletePost(postId: string): Promise<boolean> {
   const updated = posts.filter(p => p.id !== postId);
   setLocalData('posts', updated);
 
-  if (isFirebaseConfigured() && db) {
+  if (isSupabaseConfigured() && supabase) {
     try {
-      await deleteDoc(doc(db, 'posts', postId));
+      await supabase.from('posts').delete().eq('id', postId);
     } catch (err) {
-      console.warn('Firestore deletePost error:', err);
+      console.warn('Supabase deletePost error:', err);
     }
   }
   return true;
@@ -135,15 +141,14 @@ export async function toggleLikePost(postId: string, userId: string): Promise<{ 
 
   setLocalData('posts', [...posts]);
 
-  if (isFirebaseConfigured() && db) {
+  if (isSupabaseConfigured() && supabase) {
     try {
-      const postRef = doc(db, 'posts', postId);
-      await updateDoc(postRef, {
-        likes: isLiked ? arrayRemove(userId) : arrayUnion(userId),
+      await supabase.from('posts').update({
+        likes: post.likes,
         likesCount: post.likesCount
-      });
+      }).eq('id', postId);
     } catch (err) {
-      console.warn('Firestore toggleLikePost error:', err);
+      console.warn('Supabase toggleLikePost error:', err);
     }
   }
 
@@ -169,13 +174,14 @@ export async function addPostComment(postId: string, commentData: { authorId: st
     setLocalData('posts', [...posts]);
   }
 
-  if (isFirebaseConfigured() && db) {
+  if (isSupabaseConfigured() && supabase) {
     try {
-      await addDoc(collection(db, 'comments'), newComment);
-      const postRef = doc(db, 'posts', postId);
-      await updateDoc(postRef, { commentsCount: (post?.commentsCount || 0) });
+      await supabase.from('comments').insert([newComment]);
+      if (post) {
+        await supabase.from('posts').update({ commentsCount: post.commentsCount }).eq('id', postId);
+      }
     } catch (err) {
-      console.warn('Firestore addPostComment error:', err);
+      console.warn('Supabase addPostComment error:', err);
     }
   }
 
@@ -183,6 +189,18 @@ export async function addPostComment(postId: string, commentData: { authorId: st
 }
 
 export async function fetchPostComments(postId: string): Promise<Comment[]> {
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('comments')
+        .select('*')
+        .eq('postId', postId)
+        .order('createdAt', { ascending: true });
+      if (!error && data) return data as Comment[];
+    } catch (err) {
+      console.warn('Supabase fetchPostComments error:', err);
+    }
+  }
   const allComments = getLocalData<Comment[]>('comments', []);
   return allComments.filter(c => c.postId === postId);
 }
@@ -207,12 +225,11 @@ export async function votePoll(postId: string, optionId: string, userId: string)
 
   setLocalData('posts', [...posts]);
 
-  if (isFirebaseConfigured() && db) {
+  if (isSupabaseConfigured() && supabase) {
     try {
-      const postRef = doc(db, 'posts', postId);
-      await updateDoc(postRef, { poll: post.poll });
+      await supabase.from('posts').update({ poll: post.poll }).eq('id', postId);
     } catch (err) {
-      console.warn('Firestore votePoll error:', err);
+      console.warn('Supabase votePoll error:', err);
     }
   }
 
@@ -227,12 +244,11 @@ export async function incrementPostShare(postId: string): Promise<number> {
   post.sharesCount = (post.sharesCount || 0) + 1;
   setLocalData('posts', [...posts]);
 
-  if (isFirebaseConfigured() && db) {
+  if (isSupabaseConfigured() && supabase) {
     try {
-      const postRef = doc(db, 'posts', postId);
-      await updateDoc(postRef, { sharesCount: post.sharesCount });
+      await supabase.from('posts').update({ sharesCount: post.sharesCount }).eq('id', postId);
     } catch (err) {
-      console.warn('Firestore incrementPostShare error:', err);
+      console.warn('Supabase incrementPostShare error:', err);
     }
   }
 
@@ -244,14 +260,14 @@ export async function incrementPostShare(postId: string): Promise<number> {
 // ---------------------------------------------
 export async function fetchUsers(): Promise<UserProfile[]> {
   let list: UserProfile[] = [];
-  if (isFirebaseConfigured() && db) {
+  if (isSupabaseConfigured() && supabase) {
     try {
-      const snap = await getDocs(collection(db, 'users'));
-      if (!snap.empty) {
-        list = snap.docs.map(d => ({ id: d.id, ...d.data() } as UserProfile));
+      const { data, error } = await supabase.from('users').select('*');
+      if (!error && data && data.length > 0) {
+        list = data as UserProfile[];
       }
     } catch (err) {
-      console.warn('Firestore fetchUsers error:', err);
+      console.warn('Supabase fetchUsers error:', err);
     }
   }
   if (list.length === 0) {
@@ -290,12 +306,11 @@ export async function updateUserProfile(userId: string, data: Partial<UserProfil
 
   setLocalData('users', [...users]);
 
-  if (isFirebaseConfigured() && db) {
+  if (isSupabaseConfigured() && supabase) {
     try {
-      const userRef = doc(db, 'users', userId);
-      await setDoc(userRef, data, { merge: true });
+      await supabase.from('users').upsert([{ ...updatedUser, id: userId }]);
     } catch (err) {
-      console.warn('Firestore updateUserProfile error:', err);
+      console.warn('Supabase updateUserProfile error:', err);
     }
   }
 
@@ -347,7 +362,6 @@ export async function sendConnectionRequest(requesterId: string, recipientId: st
 
   setLocalData('connections', [...connections, newConn]);
 
-  // Create notification for recipient
   await createNotification({
     recipientId,
     senderId: requesterId,
@@ -405,7 +419,6 @@ export async function sendChatMessage(msg: Omit<Message, 'id' | 'createdAt' | 'r
   const msgs = getLocalData<Message[]>('messages', SEED_MESSAGES);
   setLocalData('messages', [...msgs, newMsg]);
 
-  // Update conversation lastMessage
   const convs = getLocalData<Conversation[]>('conversations', SEED_CONVERSATIONS);
   const conv = convs.find(c => c.id === msg.conversationId);
   if (conv) {

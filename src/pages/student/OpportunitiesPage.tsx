@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
-import { fetchOpportunities, toggleSaveOpportunity } from '../../firebase/firestore';
+import { fetchOpportunities, toggleSaveOpportunity } from '../../supabase/db';
 import { Opportunity } from '../../types';
 import { Tabs } from '../../components/ui/Tabs';
 import { Button } from '../../components/ui/Button';

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
-import { isFirebaseConfigured } from '../../firebase/config';
+import { isSupabaseConfigured } from '../../supabase/client';
 import { ShieldCheck, UserCheck, GraduationCap, ChevronDown, ChevronUp, Database } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -10,7 +10,7 @@ export const DemoAccountBar: React.FC = () => {
   const { success } = useToast();
   const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
-  const isLive = isFirebaseConfigured();
+  const isLive = isSupabaseConfigured();
 
   const handleSwitch = async (role: 'student' | 'faculty' | 'admin') => {
     await switchDemoPersona(role);
@@ -27,7 +27,7 @@ export const DemoAccountBar: React.FC = () => {
           <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-900/80 border border-emerald-700/50">
             <Database className={`w-3 h-3 ${isLive ? 'text-emerald-400' : 'text-amber-400'}`} />
             <span className="font-medium text-[11px]">
-              {isLive ? 'Live Firebase Mode' : 'Sandbox Persistence Mode'}
+              {isLive ? 'Live Supabase Mode' : 'Sandbox Persistence Mode'}
             </span>
           </div>
           <span className="hidden sm:inline text-gray-400">|</span>

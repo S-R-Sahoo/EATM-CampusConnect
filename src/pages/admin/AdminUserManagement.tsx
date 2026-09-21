@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { fetchUsers, updateUserProfile } from '../../firebase/firestore';
+import { fetchUsers, updateUserProfile } from '../../supabase/db';
 import { UserProfile } from '../../types';
 import { Avatar } from '../../components/ui/Avatar';
 import { Button } from '../../components/ui/Button';

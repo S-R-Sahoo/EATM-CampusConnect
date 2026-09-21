@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
-import { fetchUsers, fetchConnections, sendConnectionRequest } from '../../firebase/firestore';
+import { fetchUsers, fetchConnections, sendConnectionRequest } from '../../supabase/db';
 import { UserProfile, Connection } from '../../types';
 import { Avatar } from '../../components/ui/Avatar';
 import { Tabs } from '../../components/ui/Tabs';

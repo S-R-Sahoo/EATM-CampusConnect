@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
-import { fetchStudyMaterials, createStudyMaterial } from '../../firebase/firestore';
+import { fetchStudyMaterials, createStudyMaterial } from '../../supabase/db';
 import { StudyMaterial } from '../../types';
 import { Tabs } from '../../components/ui/Tabs';
 import { Button } from '../../components/ui/Button';

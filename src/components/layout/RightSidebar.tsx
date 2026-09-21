@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
-import { fetchEvents, toggleEventRegistration } from '../../firebase/firestore';
+import { fetchEvents, toggleEventRegistration } from '../../supabase/db';
 import { CampusEvent } from '../../types';
 import { Calendar, BookOpen, Users, Briefcase, ChevronRight, Check } from 'lucide-react';
 import confetti from 'canvas-confetti';

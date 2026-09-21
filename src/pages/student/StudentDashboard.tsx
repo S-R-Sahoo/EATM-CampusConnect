@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { fetchPosts } from '../../firebase/firestore';
+import { fetchPosts } from '../../supabase/db';
 import { Post } from '../../types';
 import { CreatePostCard } from '../../components/posts/CreatePostCard';
 import { PostCard } from '../../components/posts/PostCard';

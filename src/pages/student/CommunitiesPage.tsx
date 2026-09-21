@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
-import { fetchCommunities, toggleJoinCommunity, createCommunity } from '../../firebase/firestore';
-import { uploadFile } from '../../firebase/storage';
+import { fetchCommunities, toggleJoinCommunity, createCommunity } from '../../supabase/db';
+import { uploadFile } from '../../supabase/storage';
 import { Community } from '../../types';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';

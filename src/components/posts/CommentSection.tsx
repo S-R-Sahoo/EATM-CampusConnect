@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { Comment } from '../../types';
-import { fetchPostComments, addPostComment } from '../../firebase/firestore';
+import { fetchPostComments, addPostComment } from '../../supabase/db';
 import { Avatar } from '../ui/Avatar';
 import { Send } from 'lucide-react';
 

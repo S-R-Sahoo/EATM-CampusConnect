@@ -1,9 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { UserProfile, UserRole } from '../types';
-import { loginWithEmail, registerWithEmail, loginWithGoogle as authGoogle, loginWithGithub as authGithub, logoutUser } from '../firebase/auth';
-import { fetchUsers, updateUserProfile as firestoreUpdateProfile } from '../firebase/firestore';
-import { auth, isFirebaseConfigured } from '../firebase/config';
-import { onAuthStateChanged } from 'firebase/auth';
+import { loginWithEmail, registerWithEmail, loginWithGoogle as authGoogle, loginWithGithub as authGithub, logoutUser } from '../supabase/auth';
+import { fetchUsers, updateUserProfile as firestoreUpdateProfile } from '../supabase/db';
+import { supabase, isSupabaseConfigured } from '../supabase/client';
 import { DEFAULT_ENGINEER_AVATAR } from '../constants/assets';
 
 interface AuthContextType {
@@ -51,18 +50,19 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           localStorage.setItem('eatm_current_user', JSON.stringify(defaultStudent));
         }
 
-        // If real Firebase Auth is active, attach listener
-        if (isFirebaseConfigured() && auth) {
-          unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-            if (firebaseUser) {
+        // If real Supabase Auth is active, attach listener
+        if (isSupabaseConfigured() && supabase) {
+          const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+            if (session?.user) {
               const users = await fetchUsers();
-              const profile = users.find(u => u.uid === firebaseUser.uid || u.email === firebaseUser.email);
+              const profile = users.find(u => u.uid === session.user.id || u.email === session.user.email);
               if (profile) {
                 setUser(profile);
                 localStorage.setItem('eatm_current_user', JSON.stringify(profile));
               }
             }
           });
+          unsubscribe = () => subscription.unsubscribe();
         }
       } catch (err) {
         console.error('Error in initAuth:', err);

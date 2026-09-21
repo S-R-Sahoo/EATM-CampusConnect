@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
-import { fetchAssignments, createAssignment } from '../../firebase/firestore';
+import { fetchAssignments, createAssignment } from '../../supabase/db';
 import { Assignment } from '../../types';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';

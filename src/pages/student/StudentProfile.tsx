@@ -5,7 +5,7 @@ import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
 import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
-import { uploadFile } from '../../firebase/storage';
+import { uploadFile } from '../../supabase/storage';
 import { 
   Edit3, Calendar, Award, Code, CheckCircle, 
   ExternalLink, GraduationCap, Building2, IdCard, 

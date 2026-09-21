@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import { Post } from '../../types';
-import { fetchPostById } from '../../firebase/firestore';
+import { fetchPostById } from '../../supabase/db';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { PostCard } from '../../components/posts/PostCard';

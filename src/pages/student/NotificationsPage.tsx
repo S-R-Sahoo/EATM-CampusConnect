@@ -3,7 +3,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { 
   fetchNotifications, markNotificationAsRead, markAllNotificationsAsRead 
-} from '../../firebase/firestore';
+} from '../../supabase/db';
 import { NotificationItem } from '../../types';
 import { Tabs } from '../../components/ui/Tabs';
 import { Button } from '../../components/ui/Button';

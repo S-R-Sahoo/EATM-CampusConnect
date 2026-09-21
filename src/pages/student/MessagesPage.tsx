@@ -3,7 +3,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { 
   fetchConversations, fetchMessages, sendChatMessage, fetchUsers 
-} from '../../firebase/firestore';
+} from '../../supabase/db';
 import { Conversation, Message, UserProfile } from '../../types';
 import { Avatar } from '../../components/ui/Avatar';
 import { 

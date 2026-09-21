@@ -8,7 +8,7 @@ import {
   User, Settings, ChevronDown, Check, Shield, BookOpen,
   Sun, Moon 
 } from 'lucide-react';
-import { fetchNotifications } from '../../firebase/firestore';
+import { fetchNotifications } from '../../supabase/db';
 import { EATM_EMBLEM } from '../../constants/assets';
 
 interface NavbarProps {

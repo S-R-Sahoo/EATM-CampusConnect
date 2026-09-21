@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Post } from '../../types';
 import { useToast } from '../../contexts/ToastContext';
-import { incrementPostShare, getPostShareUrl } from '../../firebase/firestore';
+import { incrementPostShare, getPostShareUrl } from '../../supabase/db';
 import { Modal } from '../ui/Modal';
 import { Avatar } from '../ui/Avatar';
 import { 

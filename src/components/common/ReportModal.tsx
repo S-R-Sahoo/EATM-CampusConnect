@@ -3,7 +3,7 @@ import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
-import { submitReport } from '../../firebase/firestore';
+import { submitReport } from '../../supabase/db';
 import { AlertTriangle } from 'lucide-react';
 
 interface ReportModalProps {

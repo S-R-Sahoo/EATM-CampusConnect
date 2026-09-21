@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
-import { createPost } from '../../firebase/firestore';
-import { uploadFile } from '../../firebase/storage';
+import { createPost } from '../../supabase/db';
+import { uploadFile } from '../../supabase/storage';
 import { Avatar } from '../ui/Avatar';
 import { Button } from '../ui/Button';
 import { 

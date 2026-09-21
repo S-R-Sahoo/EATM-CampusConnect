@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { fetchUsers } from '../../firebase/firestore';
+import { fetchUsers } from '../../supabase/db';
 import { UserProfile } from '../../types';
 import { Avatar } from '../../components/ui/Avatar';
 import { Search, Users, Mail, Phone, GraduationCap, CheckCircle2 } from 'lucide-react';

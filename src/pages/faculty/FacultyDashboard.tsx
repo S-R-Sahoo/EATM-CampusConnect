@@ -4,7 +4,7 @@ import { useToast } from '../../contexts/ToastContext';
 import { 
   fetchAnnouncements, createAnnouncement, 
   fetchEvents, fetchStudyMaterials, fetchAssignments 
-} from '../../firebase/firestore';
+} from '../../supabase/db';
 import { Announcement } from '../../types';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
