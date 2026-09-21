@@ -3,11 +3,11 @@ import { Link } from 'react-router-dom';
 import { 
   Users, Award, Briefcase, Bell, 
   GraduationCap, BookOpen, Building2, TrendingUp, 
-  ChevronLeft, ChevronRight, ArrowRight, ShieldCheck, Heart, Compass
+  ChevronLeft, ChevronRight, ArrowRight, ShieldCheck, Heart, Compass, LogOut
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { useAuth } from '../../contexts/AuthContext';
-import { EATM_OFFICIAL_LOGO, EATM_EMBLEM } from '../../constants/assets';
+import { EATM_OFFICIAL_LOGO, EATM_EMBLEM, DEFAULT_ENGINEER_AVATAR } from '../../constants/assets';
 
 // Authentic 12 sliding banners from official https://www.eatm.in/
 const HERO_SLIDES = [
@@ -122,7 +122,7 @@ const HERO_SLIDES = [
 ];
 
 export const LandingPage: React.FC = () => {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const [currentSlide, setCurrentSlide] = useState(0);
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
 
@@ -185,12 +185,38 @@ export const LandingPage: React.FC = () => {
           </nav>
 
           {user && user.uid && user.uid !== 'user_soumya' ? (
-            <Link to={user.role === 'faculty' ? '/faculty/dashboard' : user.role === 'admin' ? '/admin/dashboard' : '/student/dashboard'}>
-              <Button variant="crimson" size="sm" className="font-semibold shadow-sm flex items-center gap-1.5">
-                <span>Go to Dashboard</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </Button>
-            </Link>
+            <div className="flex items-center gap-2 sm:gap-3">
+              <Link
+                to={user.role === 'faculty' ? '/faculty/dashboard' : user.role === 'admin' ? '/admin/dashboard' : '/student/dashboard'}
+                className="group flex items-center gap-2 sm:gap-2.5 pl-1.5 sm:pl-2 pr-3 sm:pr-4 py-1.5 rounded-full bg-emerald-50/90 hover:bg-emerald-100/90 border border-emerald-200/90 text-gray-800 transition-all duration-200 shadow-sm hover:shadow"
+              >
+                <div className="relative shrink-0">
+                  <img
+                    src={user.photoURL || DEFAULT_ENGINEER_AVATAR}
+                    alt={user.displayName}
+                    className="w-7 h-7 sm:w-8 sm:h-8 rounded-full object-cover ring-2 ring-emerald-500/30"
+                  />
+                  <span className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-emerald-500 ring-1.5 ring-white" />
+                </div>
+                <div className="flex flex-col text-left leading-tight">
+                  <span className="text-xs font-bold text-gray-900 group-hover:text-[#0b4627] max-w-[90px] sm:max-w-[130px] truncate">
+                    {user.displayName}
+                  </span>
+                  <span className="text-[10px] text-emerald-700 font-semibold tracking-wide uppercase">
+                    {user.role === 'student' ? 'Campus Portal' : `${user.role} Workspace`}
+                  </span>
+                </div>
+                <ArrowRight className="w-3.5 h-3.5 text-emerald-700 transition-transform duration-200 group-hover:translate-x-0.5 ml-0.5" />
+              </Link>
+
+              <button
+                onClick={logout}
+                title="Sign Out"
+                className="p-2 rounded-full hover:bg-red-50 text-gray-400 hover:text-red-600 transition border border-transparent hover:border-red-100"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
+            </div>
           ) : (
             <div className="flex items-center gap-2.5">
               <Link to="/login">

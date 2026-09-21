@@ -18,7 +18,8 @@ import {
   Moon, 
   LogIn, 
   UserPlus,
-  ShieldCheck
+  ShieldCheck,
+  ArrowRight
 } from 'lucide-react';
 
 export const PostDetailPage: React.FC = () => {
@@ -157,10 +158,16 @@ export const PostDetailPage: React.FC = () => {
               {user ? (
                 <Link
                   to={`/${user.role}/dashboard`}
-                  className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-[#16251c] hover:bg-emerald-100 dark:hover:bg-[#1b2f23] text-xs font-semibold text-[#0b4627] dark:text-emerald-300 border border-emerald-200/60 dark:border-[#1e3326] transition"
+                  className="group inline-flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-full bg-emerald-50/90 dark:bg-[#16251c] hover:bg-emerald-100 dark:hover:bg-[#1b2f23] text-xs font-semibold text-[#0b4627] dark:text-emerald-300 border border-emerald-200/80 dark:border-[#1e3326] transition shadow-sm"
                 >
                   <Avatar src={user.photoURL} name={user.displayName} size="xs" />
-                  <span className="hidden sm:inline">Go to Dashboard</span>
+                  <span className="hidden sm:inline font-bold text-gray-900 dark:text-gray-100 group-hover:text-[#0b4627] dark:group-hover:text-emerald-300">
+                    {user.displayName.split(' ')[0]}
+                  </span>
+                  <span className="hidden md:inline text-[10px] text-emerald-700 dark:text-emerald-400 font-medium">
+                    • Portal
+                  </span>
+                  <ArrowRight className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400 group-hover:translate-x-0.5 transition-transform" />
                 </Link>
               ) : (
                 <div className="flex items-center gap-2">
