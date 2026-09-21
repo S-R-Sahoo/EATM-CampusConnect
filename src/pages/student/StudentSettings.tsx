@@ -6,7 +6,7 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { 
   Settings, Shield, Bell, Lock, Palette, 
-  Check, Sun, Moon, Monitor, RefreshCw, CheckCircle2 
+  Check, Sun, Moon 
 } from 'lucide-react';
 
 export const StudentSettings: React.FC = () => {
@@ -38,12 +38,10 @@ export const StudentSettings: React.FC = () => {
 
   const handleThemeChange = (newTheme: Theme) => {
     setTheme(newTheme);
-    const labels: Record<Theme, string> = {
-      light: 'Light Theme',
-      dark: 'Dark Mode',
-      system: 'System Sync Mode',
-    };
-    success(`Activated ${labels[newTheme]}`, 'Theme Applied');
+    success(
+      `Activated ${newTheme === 'dark' ? 'Dark Mode' : 'Light Mode'}`,
+      'Theme Applied'
+    );
   };
 
   return (
@@ -121,41 +119,41 @@ export const StudentSettings: React.FC = () => {
                   <Palette className="w-4 h-4 text-[#0b4627] dark:text-emerald-400" />
                   <span>Color Theme & Display Mode</span>
                 </h3>
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800/60 text-[#0b4627] dark:text-emerald-300">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                  Active: {resolvedTheme === 'dark' ? 'Dark Obsidian' : 'Classic Light'} {theme === 'system' && '(System Synced)'}
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800/60 text-[#0b4627] dark:text-emerald-300">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                  Active: {resolvedTheme === 'dark' ? 'Dark Mode' : 'Light Mode'}
                 </span>
               </div>
               <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
-                Choose how EATM CampusConnect renders across your devices. Theme preference is automatically saved to your browser.
+                Choose how EATM CampusConnect renders across your devices. Your theme preference is instantly applied and saved.
               </p>
 
-              {/* 3 Interactive Mode Selector Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 max-w-2xl">
+              {/* 2 Official Mode Selector Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-xl">
                 {/* Light Mode Card */}
                 <button
                   type="button"
                   onClick={() => handleThemeChange('light')}
-                  className={`relative p-4 rounded-2xl border-2 text-left transition-all duration-200 flex flex-col justify-between ${
+                  className={`relative p-5 rounded-2xl border-2 text-left transition-all duration-200 flex flex-col justify-between group ${
                     theme === 'light'
-                      ? 'border-[#0b4627] dark:border-emerald-500 bg-emerald-50/60 dark:bg-emerald-950/30 ring-2 ring-[#0b4627]/20 shadow-sm'
+                      ? 'border-[#0b4627] dark:border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/30 ring-2 ring-[#0b4627]/20 shadow-sm'
                       : 'border-gray-200 dark:border-[#1e3325] bg-white dark:bg-[#16251c] hover:border-gray-300 dark:hover:border-[#2b4935]'
                   }`}
                 >
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="p-2 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 text-amber-600 dark:text-amber-400">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 text-amber-600 dark:text-amber-400">
                       <Sun className="w-5 h-5" />
                     </div>
                     {theme === 'light' && (
                       <span className="p-1 rounded-full bg-[#0b4627] dark:bg-emerald-500 text-white">
-                        <Check className="w-3 h-3" />
+                        <Check className="w-3.5 h-3.5" />
                       </span>
                     )}
                   </div>
                   <div>
-                    <h4 className="text-xs font-black text-gray-900 dark:text-gray-100">Light Mode</h4>
-                    <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1 leading-snug">
-                      Classic clean campus view with crisp emerald headers.
+                    <h4 className="text-sm font-bold text-gray-900 dark:text-gray-100">Light Mode</h4>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 leading-relaxed">
+                      Clean daylight theme with classic white cards and crisp emerald accents.
                     </p>
                   </div>
                 </button>
@@ -164,67 +162,41 @@ export const StudentSettings: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => handleThemeChange('dark')}
-                  className={`relative p-4 rounded-2xl border-2 text-left transition-all duration-200 flex flex-col justify-between ${
+                  className={`relative p-5 rounded-2xl border-2 text-left transition-all duration-200 flex flex-col justify-between group ${
                     theme === 'dark'
-                      ? 'border-[#0b4627] dark:border-emerald-500 bg-emerald-50/60 dark:bg-emerald-950/30 ring-2 ring-[#0b4627]/20 shadow-sm'
+                      ? 'border-[#0b4627] dark:border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/30 ring-2 ring-[#0b4627]/20 shadow-sm'
                       : 'border-gray-200 dark:border-[#1e3325] bg-white dark:bg-[#16251c] hover:border-gray-300 dark:hover:border-[#2b4935]'
                   }`}
                 >
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="p-2 rounded-xl bg-emerald-900/60 border border-emerald-700/60 text-emerald-300">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="p-2.5 rounded-xl bg-emerald-900/60 border border-emerald-700/60 text-emerald-300">
                       <Moon className="w-5 h-5" />
                     </div>
                     {theme === 'dark' && (
                       <span className="p-1 rounded-full bg-[#0b4627] dark:bg-emerald-500 text-white">
-                        <Check className="w-3 h-3" />
+                        <Check className="w-3.5 h-3.5" />
                       </span>
                     )}
                   </div>
                   <div>
-                    <h4 className="text-xs font-black text-gray-900 dark:text-gray-100">Dark Mode</h4>
-                    <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1 leading-snug">
-                      Deep obsidian emerald palette engineered for night study and reduced eye strain.
-                    </p>
-                  </div>
-                </button>
-
-                {/* System Sync Card */}
-                <button
-                  type="button"
-                  onClick={() => handleThemeChange('system')}
-                  className={`relative p-4 rounded-2xl border-2 text-left transition-all duration-200 flex flex-col justify-between ${
-                    theme === 'system'
-                      ? 'border-[#0b4627] dark:border-emerald-500 bg-emerald-50/60 dark:bg-emerald-950/30 ring-2 ring-[#0b4627]/20 shadow-sm'
-                      : 'border-gray-200 dark:border-[#1e3325] bg-white dark:bg-[#16251c] hover:border-gray-300 dark:hover:border-[#2b4935]'
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="p-2 rounded-xl bg-sky-50 dark:bg-sky-950/40 border border-sky-200 dark:border-sky-800/60 text-sky-600 dark:text-sky-400">
-                      <Monitor className="w-5 h-5" />
-                    </div>
-                    {theme === 'system' && (
-                      <span className="p-1 rounded-full bg-[#0b4627] dark:bg-emerald-500 text-white">
-                        <Check className="w-3 h-3" />
-                      </span>
-                    )}
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-black text-gray-900 dark:text-gray-100">System Sync</h4>
-                    <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1 leading-snug">
-                      Automatically follows your Windows, Mac, iOS, or Android OS day/night schedule.
+                    <h4 className="text-sm font-bold text-gray-900 dark:text-gray-100">Dark Mode</h4>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 leading-relaxed">
+                      Deep obsidian theme designed for late-night study sessions, labs, and reduced eye fatigue.
                     </p>
                   </div>
                 </button>
               </div>
             </div>
 
-            {/* Quick Feature Explanation Banner */}
-            <div className="p-4 rounded-2xl bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-200/80 dark:border-emerald-800/40 flex items-start gap-3">
-              <RefreshCw className="w-5 h-5 text-[#0b4627] dark:text-emerald-400 shrink-0 mt-0.5" />
-              <div className="text-xs text-emerald-900 dark:text-emerald-200">
-                <p className="font-bold">Real-Time System Synchronization Active</p>
-                <p className="text-[11px] text-emerald-800/90 dark:text-emerald-300/80 mt-0.5 leading-relaxed">
-                  When "System Sync" is selected, the application listens to your OS color scheme in real time without requiring page refreshes.
+            {/* Official Persistence Notice */}
+            <div className="p-4 rounded-2xl bg-gray-50 dark:bg-[#16251c] border border-gray-200/80 dark:border-[#1e3325] flex items-start gap-3 max-w-xl">
+              <div className="p-2 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 text-[#0b4627] dark:text-emerald-400 shrink-0 mt-0.5">
+                <Palette className="w-4 h-4" />
+              </div>
+              <div className="text-xs">
+                <p className="font-bold text-gray-900 dark:text-gray-100">Display Preference Saved</p>
+                <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5 leading-relaxed">
+                  Your selected visual mode applies immediately and automatically syncs across all pages in your browser.
                 </p>
               </div>
             </div>

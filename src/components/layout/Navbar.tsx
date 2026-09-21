@@ -106,7 +106,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileMenu, onOpenSearch
             type="button"
             onClick={toggleTheme}
             className="p-2 text-gray-600 dark:text-gray-300 hover:text-[#0b4627] dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-[#182b20] rounded-xl transition focus:outline-none"
-            title={`Active: ${theme === 'system' ? `System (${resolvedTheme})` : theme}. Click to toggle theme.`}
+            title={`Current: ${resolvedTheme === 'dark' ? 'Dark Mode' : 'Light Mode'}. Click to switch.`}
             aria-label="Toggle visual theme"
           >
             {resolvedTheme === 'dark' ? (
