@@ -221,11 +221,23 @@ export async function toggleLikePost(postId: string, userId: string): Promise<{ 
       }).eq('id', postId);
 
       const feedChannel = supabase.channel('campus-feed-live');
-      feedChannel.send({
-        type: 'broadcast',
-        event: 'post_like_update',
-        payload: { id: postId, likes: updatedLikes, likesCount: updatedCount }
-      }).catch(() => {});
+      if (feedChannel.state === 'joined') {
+        feedChannel.send({
+          type: 'broadcast',
+          event: 'post_like_update',
+          payload: { id: postId, likes: updatedLikes, likesCount: updatedCount }
+        }).catch(() => {});
+      } else {
+        feedChannel.subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            feedChannel.send({
+              type: 'broadcast',
+              event: 'post_like_update',
+              payload: { id: postId, likes: updatedLikes, likesCount: updatedCount }
+            }).catch(() => {});
+          }
+        });
+      }
     } catch (err) {
       console.warn('Supabase toggleLikePost persist error:', err);
     }
@@ -816,17 +828,19 @@ export async function sendChatMessage(msg: Omit<Message, 'id' | 'createdAt' | 'r
 
   if (isSupabaseConfigured() && supabase) {
     try {
-      await supabase.from('messages').insert([{
+      const { error: insertError } = await supabase.from('messages').insert([{
         id: newMsg.id,
         conversationId: newMsg.conversationId,
         senderId: newMsg.senderId,
-        senderName: newMsg.senderName,
-        senderAvatar: newMsg.senderAvatar,
         text: newMsg.text,
         mediaUrl: newMsg.mediaUrl || null,
         read: newMsg.read,
         createdAt: newMsg.createdAt
       }]);
+
+      if (insertError) {
+        console.error('❌ Supabase message insert error:', insertError.message);
+      }
 
       await supabase.from('conversations').update({
         lastMessage: lastMessagePayload,
@@ -835,11 +849,23 @@ export async function sendChatMessage(msg: Omit<Message, 'id' | 'createdAt' | 'r
 
       // Instant Realtime broadcast directly to peer in the same chat room (<50ms latency)
       const chatChannel = supabase.channel(`chat-room-${msg.conversationId}`);
-      chatChannel.send({
-        type: 'broadcast',
-        event: 'new_message',
-        payload: newMsg
-      }).catch(() => {});
+      if (chatChannel.state === 'joined') {
+        chatChannel.send({
+          type: 'broadcast',
+          event: 'new_message',
+          payload: newMsg
+        }).catch(() => {});
+      } else {
+        chatChannel.subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            chatChannel.send({
+              type: 'broadcast',
+              event: 'new_message',
+              payload: newMsg
+            }).catch(() => {});
+          }
+        });
+      }
     } catch (err) {
       console.warn('Supabase sendChatMessage error:', err);
     }

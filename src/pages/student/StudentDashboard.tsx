@@ -36,10 +36,27 @@ export const StudentDashboard: React.FC = () => {
   useEffect(() => {
     loadFeed();
 
-    // Background interval to keep feed fresh every 12 seconds silently
-    const interval = setInterval(() => {
-      loadFeed(true);
-    }, 12000);
+    // Listen to local like events to keep posts array synchronized in parent state immediately
+    const handleLocalLike = (e: CustomEvent<{ postId: string; likes: string[]; likesCount: number }>) => {
+      if (e.detail) {
+        setPosts((prev) =>
+          prev.map((p) =>
+            p.id === e.detail.postId
+              ? { ...p, likes: e.detail.likes, likesCount: e.detail.likesCount }
+              : p
+          )
+        );
+      }
+    };
+    window.addEventListener('eatm_post_like', handleLocalLike as EventListener);
+
+    // Silent refresh when user switches back to this tab
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        loadFeed(true);
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     // Subscribe to live post updates (INSERT, UPDATE, DELETE, broadcast likes)
     const unsubscribe = subscribeToPosts({
@@ -60,7 +77,8 @@ export const StudentDashboard: React.FC = () => {
     });
 
     return () => {
-      clearInterval(interval);
+      window.removeEventListener('eatm_post_like', handleLocalLike as EventListener);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       unsubscribe();
     };
   }, [user?.id]);

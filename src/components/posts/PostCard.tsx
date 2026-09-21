@@ -44,18 +44,21 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onPostDeleted }) => {
 
   // Synchronize component state whenever incoming post props update
   useEffect(() => {
+    if (isLiking) return;
     setLikesCount(post.likesCount ?? 0);
     setIsLiked(user ? (post.likes || []).includes(user.id) : false);
     setCommentsCount(post.commentsCount ?? 0);
     setSharesCount(post.sharesCount ?? 0);
     setPollData(post.poll);
-  }, [post.id, post.likesCount, post.likes, post.commentsCount, post.sharesCount, post.poll, user?.id]);
+  }, [post.id, post.likesCount, post.likes, post.commentsCount, post.sharesCount, post.poll, user?.id, isLiking]);
 
   // Live broadcast listener for instant cross-tab / feed updates
   useEffect(() => {
     const handleLikeEvent = (e: CustomEvent<{ postId: string; likes: string[]; likesCount: number }>) => {
       if (e.detail && e.detail.postId === post.id) {
         setLikesCount(e.detail.likesCount);
+        post.likesCount = e.detail.likesCount;
+        post.likes = e.detail.likes;
         if (user) {
           setIsLiked(e.detail.likes.includes(user.id));
         }
@@ -99,14 +102,32 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onPostDeleted }) => {
     setIsLiked(nextState);
     setLikesCount(nextCount);
 
+    // Update post prop in-place immediately so any re-renders retain the new like state
+    if (nextState) {
+      post.likes = Array.from(new Set([...(post.likes || []), user.id]));
+    } else {
+      post.likes = (post.likes || []).filter(id => id !== user.id);
+    }
+    post.likesCount = nextCount;
+
     try {
       const res = await toggleLikePost(post.id, user.id);
       setIsLiked(res.liked);
       setLikesCount(res.count);
+      if (res.post?.likes) {
+        post.likes = res.post.likes;
+      }
+      post.likesCount = res.count;
     } catch (e) {
       // Revert if error
       setIsLiked(previousState);
       setLikesCount(previousCount);
+      post.likesCount = previousCount;
+      if (previousState) {
+        post.likes = Array.from(new Set([...(post.likes || []), user.id]));
+      } else {
+        post.likes = (post.likes || []).filter(id => id !== user.id);
+      }
     } finally {
       setIsLiking(false);
     }
