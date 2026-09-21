@@ -116,12 +116,19 @@ export async function registerWithEmail(
   return newProfile;
 }
 
+export function getAuthRedirectUrl(): string {
+  if (typeof window === 'undefined') return 'https://s-r-sahoo.github.io/EATM-CampusConnect/';
+  const origin = window.location.origin;
+  const cleanPath = window.location.pathname.replace(/\/[^/]*\.html$/, '').replace(/\/$/, '');
+  return `${origin}${cleanPath}/`;
+}
+
 export async function loginWithGoogle(): Promise<UserProfile> {
   if (isSupabaseConfigured() && supabase) {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: window.location.origin + window.location.pathname
+        redirectTo: getAuthRedirectUrl()
       }
     });
     if (error) {
@@ -143,7 +150,7 @@ export async function loginWithGithub(): Promise<UserProfile> {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'github',
       options: {
-        redirectTo: window.location.origin + window.location.pathname
+        redirectTo: getAuthRedirectUrl()
       }
     });
     if (error) {
