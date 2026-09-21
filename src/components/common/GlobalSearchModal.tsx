@@ -4,6 +4,7 @@ import {
   Search, X, User, Users, Calendar, 
   BookOpen, Briefcase, FileText, ArrowRight 
 } from 'lucide-react';
+import { Avatar } from '../ui/Avatar';
 import { 
   fetchUsers, fetchCommunities, fetchEvents, 
   fetchPosts, fetchStudyMaterials, fetchOpportunities 
@@ -129,7 +130,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({ isOpen, on
               {/* People */}
               {filteredUsers.length > 0 && (
                 <div>
-                  <h4 className="text-[11px] font-bold text-gray-400 uppercase tracking-wider px-2 mb-2 flex items-center gap-1.5">
+                  <h4 className="text-[11px] font-bold text-gray-400 dark:text-gray-400 uppercase tracking-wider px-2 mb-2 flex items-center gap-1.5">
                     <User className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> People ({filteredUsers.length})
                   </h4>
                   <div className="space-y-1">
@@ -140,13 +141,17 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({ isOpen, on
                         className="flex items-center justify-between p-2.5 rounded-xl hover:bg-emerald-50/60 dark:hover:bg-[#182b20] cursor-pointer transition group"
                       >
                         <div className="flex items-center gap-3">
-                          <img src={u.photoURL} alt={u.displayName} className="w-8 h-8 rounded-full object-cover" />
+                          <Avatar src={u.photoURL} name={u.displayName} size="sm" />
                           <div>
-                            <p className="text-xs font-bold text-gray-900 group-hover:text-[#0b4627]">{u.displayName}</p>
-                            <p className="text-[11px] text-gray-500">{u.department} • {u.role}</p>
+                            <p className="text-xs sm:text-sm font-bold text-gray-900 dark:text-gray-100 group-hover:text-[#0b4627] dark:group-hover:text-emerald-300 transition-colors">
+                              {u.displayName}
+                            </p>
+                            <p className="text-[11px] text-gray-500 dark:text-gray-400">
+                              {u.department} • {u.role}
+                            </p>
                           </div>
                         </div>
-                        <ArrowRight className="w-4 h-4 text-gray-300 group-hover:text-[#0b4627] transition" />
+                        <ArrowRight className="w-4 h-4 text-gray-300 dark:text-gray-600 group-hover:text-[#0b4627] dark:group-hover:text-emerald-400 transition" />
                       </div>
                     ))}
                   </div>
@@ -156,24 +161,28 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({ isOpen, on
               {/* Communities */}
               {filteredClubs.length > 0 && (
                 <div>
-                  <h4 className="text-[11px] font-bold text-gray-400 uppercase tracking-wider px-2 mb-2 flex items-center gap-1.5">
-                    <Users className="w-3.5 h-3.5 text-blue-600" /> Communities & Clubs ({filteredClubs.length})
+                  <h4 className="text-[11px] font-bold text-gray-400 dark:text-gray-400 uppercase tracking-wider px-2 mb-2 flex items-center gap-1.5">
+                    <Users className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" /> Communities & Clubs ({filteredClubs.length})
                   </h4>
                   <div className="space-y-1">
                     {filteredClubs.map(c => (
                       <div
                         key={c.id}
                         onClick={() => handleSelect(`/student/communities`)}
-                        className="flex items-center justify-between p-2.5 rounded-xl hover:bg-emerald-50/60 cursor-pointer transition group"
+                        className="flex items-center justify-between p-2.5 rounded-xl hover:bg-emerald-50/60 dark:hover:bg-[#182b20] cursor-pointer transition group"
                       >
                         <div className="flex items-center gap-3">
-                          <img src={c.logoUrl} alt={c.name} className="w-8 h-8 rounded-lg object-cover" />
+                          <img src={c.logoUrl} alt={c.name} className="w-8 h-8 rounded-lg object-cover ring-1 ring-gray-200 dark:ring-[#1e3325]" />
                           <div>
-                            <p className="text-xs font-bold text-gray-900 group-hover:text-[#0b4627]">{c.name}</p>
-                            <p className="text-[11px] text-gray-500">{c.category} • {c.memberCount} members</p>
+                            <p className="text-xs sm:text-sm font-bold text-gray-900 dark:text-gray-100 group-hover:text-[#0b4627] dark:group-hover:text-emerald-300 transition-colors">
+                              {c.name}
+                            </p>
+                            <p className="text-[11px] text-gray-500 dark:text-gray-400">
+                              {c.category} • {c.memberCount} members
+                            </p>
                           </div>
                         </div>
-                        <ArrowRight className="w-4 h-4 text-gray-300 group-hover:text-[#0b4627] transition" />
+                        <ArrowRight className="w-4 h-4 text-gray-300 dark:text-gray-600 group-hover:text-[#0b4627] dark:group-hover:text-emerald-400 transition" />
                       </div>
                     ))}
                   </div>
@@ -183,24 +192,28 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({ isOpen, on
               {/* Events */}
               {filteredEvents.length > 0 && (
                 <div>
-                  <h4 className="text-[11px] font-bold text-gray-400 uppercase tracking-wider px-2 mb-2 flex items-center gap-1.5">
-                    <Calendar className="w-3.5 h-3.5 text-red-600" /> Campus Events ({filteredEvents.length})
+                  <h4 className="text-[11px] font-bold text-gray-400 dark:text-gray-400 uppercase tracking-wider px-2 mb-2 flex items-center gap-1.5">
+                    <Calendar className="w-3.5 h-3.5 text-red-600 dark:text-red-400" /> Campus Events ({filteredEvents.length})
                   </h4>
                   <div className="space-y-1">
                     {filteredEvents.map(e => (
                       <div
                         key={e.id}
                         onClick={() => handleSelect(`/student/events`)}
-                        className="flex items-center justify-between p-2.5 rounded-xl hover:bg-emerald-50/60 cursor-pointer transition group"
+                        className="flex items-center justify-between p-2.5 rounded-xl hover:bg-emerald-50/60 dark:hover:bg-[#182b20] cursor-pointer transition group"
                       >
                         <div className="flex items-center gap-3">
-                          <img src={e.imageUrl} alt={e.title} className="w-8 h-8 rounded-lg object-cover" />
+                          <img src={e.imageUrl} alt={e.title} className="w-8 h-8 rounded-lg object-cover ring-1 ring-gray-200 dark:ring-[#1e3325]" />
                           <div>
-                            <p className="text-xs font-bold text-gray-900 group-hover:text-[#0b4627]">{e.title}</p>
-                            <p className="text-[11px] text-gray-500">{e.date} • {e.location}</p>
+                            <p className="text-xs sm:text-sm font-bold text-gray-900 dark:text-gray-100 group-hover:text-[#0b4627] dark:group-hover:text-emerald-300 transition-colors">
+                              {e.title}
+                            </p>
+                            <p className="text-[11px] text-gray-500 dark:text-gray-400">
+                              {e.date} • {e.location}
+                            </p>
                           </div>
                         </div>
-                        <ArrowRight className="w-4 h-4 text-gray-300 group-hover:text-[#0b4627] transition" />
+                        <ArrowRight className="w-4 h-4 text-gray-300 dark:text-gray-600 group-hover:text-[#0b4627] dark:group-hover:text-emerald-400 transition" />
                       </div>
                     ))}
                   </div>
@@ -210,18 +223,22 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({ isOpen, on
               {/* Posts */}
               {filteredPosts.length > 0 && (
                 <div>
-                  <h4 className="text-[11px] font-bold text-gray-400 uppercase tracking-wider px-2 mb-2 flex items-center gap-1.5">
-                    <FileText className="w-3.5 h-3.5 text-purple-600" /> Feed Posts ({filteredPosts.length})
+                  <h4 className="text-[11px] font-bold text-gray-400 dark:text-gray-400 uppercase tracking-wider px-2 mb-2 flex items-center gap-1.5">
+                    <FileText className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" /> Feed Posts ({filteredPosts.length})
                   </h4>
                   <div className="space-y-1">
                     {filteredPosts.map(p => (
                       <div
                         key={p.id}
                         onClick={() => handleSelect(`/student/dashboard`)}
-                        className="p-2.5 rounded-xl hover:bg-emerald-50/60 cursor-pointer transition group"
+                        className="p-2.5 rounded-xl hover:bg-emerald-50/60 dark:hover:bg-[#182b20] cursor-pointer transition group"
                       >
-                        <p className="text-xs font-bold text-gray-900">{p.authorName}</p>
-                        <p className="text-xs text-gray-600 truncate mt-0.5">{p.content}</p>
+                        <p className="text-xs sm:text-sm font-bold text-gray-900 dark:text-gray-100 group-hover:text-[#0b4627] dark:group-hover:text-emerald-300 transition-colors">
+                          {p.authorName}
+                        </p>
+                        <p className="text-xs text-gray-600 dark:text-gray-300 truncate mt-0.5">
+                          {p.content}
+                        </p>
                       </div>
                     ))}
                   </div>

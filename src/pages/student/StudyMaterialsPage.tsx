@@ -118,13 +118,13 @@ export const StudyMaterialsPage: React.FC = () => {
 
           <div className="flex items-center gap-3">
             <div className="relative w-full sm:w-64">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search subject, notes..."
-                className="w-full pl-9 pr-3 py-2 text-xs bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#0b4627]"
+                className="w-full pl-9 pr-3 py-2 text-xs bg-gray-50 dark:bg-[#16251c] text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 border border-gray-200 dark:border-[#1e3325] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#0b4627] dark:focus:ring-emerald-500"
               />
             </div>
 
@@ -144,32 +144,32 @@ export const StudyMaterialsPage: React.FC = () => {
       </div>
 
       {/* Materials List Table Style (matching reference bottom-left 2 panel) */}
-      <div className="bg-white rounded-2xl border border-gray-200/80 shadow-card divide-y divide-gray-100 overflow-hidden">
+      <div className="bg-white dark:bg-[#111d15] rounded-2xl border border-gray-200/80 dark:border-[#1e3325] shadow-card divide-y divide-gray-100 dark:divide-[#1e3325] overflow-hidden">
         {filteredMaterials.length === 0 ? (
-          <div className="p-12 text-center text-gray-400 text-xs">
+          <div className="p-12 text-center text-gray-400 dark:text-gray-500 text-xs">
             No study materials found for this filter.
           </div>
         ) : (
           filteredMaterials.map(mat => (
             <div
               key={mat.id}
-              className="p-4 sm:p-5 flex items-center justify-between gap-4 hover:bg-gray-50 transition group"
+              className="p-4 sm:p-5 flex items-center justify-between gap-4 hover:bg-gray-50 dark:hover:bg-[#16251c]/60 transition group"
             >
               <div className="flex items-center gap-3.5">
                 {getTypeIcon(mat.fileType)}
                 <div>
-                  <h3 className="font-bold text-sm text-gray-900 group-hover:text-[#0b4627] transition-colors">
+                  <h3 className="font-bold text-sm text-gray-900 dark:text-gray-100 group-hover:text-[#0b4627] dark:group-hover:text-emerald-300 transition-colors">
                     {mat.title}
                   </h3>
-                  <p className="text-xs text-gray-500 mt-0.5">
-                    {mat.department} • {mat.semester} Semester • <span className="font-semibold text-gray-600">{mat.fileSize}</span> • By {mat.uploadedByName}
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                    {mat.department} • {mat.semester} Semester • <span className="font-semibold text-gray-600 dark:text-gray-300">{mat.fileSize}</span> • By {mat.uploadedByName}
                   </p>
                 </div>
               </div>
 
               <button
                 onClick={() => handleDownload(mat)}
-                className="p-2.5 rounded-xl text-gray-500 hover:text-[#0b4627] hover:bg-emerald-50 transition border border-gray-200/60 group-hover:border-emerald-200"
+                className="p-2.5 rounded-xl text-gray-500 dark:text-gray-400 hover:text-[#0b4627] dark:hover:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-[#16251c] transition border border-gray-200/60 dark:border-[#1e3325] group-hover:border-emerald-200 dark:group-hover:border-emerald-800"
                 title="Download Material"
               >
                 <Download className="w-4 h-4" />
