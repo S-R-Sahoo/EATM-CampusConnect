@@ -187,19 +187,6 @@ export const StudentSettings: React.FC = () => {
                 </button>
               </div>
             </div>
-
-            {/* Official Persistence Notice */}
-            <div className="p-4 rounded-2xl bg-gray-50 dark:bg-[#16251c] border border-gray-200/80 dark:border-[#1e3325] flex items-start gap-3 max-w-xl">
-              <div className="p-2 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 text-[#0b4627] dark:text-emerald-400 shrink-0 mt-0.5">
-                <Palette className="w-4 h-4" />
-              </div>
-              <div className="text-xs">
-                <p className="font-bold text-gray-900 dark:text-gray-100">Display Preference Saved</p>
-                <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5 leading-relaxed">
-                  Your selected visual mode applies immediately and automatically syncs across all pages in your browser.
-                </p>
-              </div>
-            </div>
           </div>
         )}
 
