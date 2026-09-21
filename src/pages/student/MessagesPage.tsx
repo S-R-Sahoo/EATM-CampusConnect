@@ -65,14 +65,30 @@ export const MessagesPage: React.FC = () => {
     };
 
     initConvs();
+
+    // Background interval to keep conversation list updated with latest messages/connections
+    const convsInterval = setInterval(async () => {
+      if (!isMounted || !user) return;
+      try {
+        const fresh = await fetchConversations(user.id);
+        if (isMounted && fresh.length > 0) {
+          setConversations(fresh);
+        }
+      } catch (_) {}
+    }, 6000);
+
     return () => {
       isMounted = false;
+      clearInterval(convsInterval);
     };
   }, [user, location.state, searchParams]);
 
   useEffect(() => {
     if (activeConvId) {
+      let isSubscribed = true;
+
       fetchMessages(activeConvId).then(msgs => {
+        if (!isSubscribed) return;
         setMessages(msgs);
         setTimeout(() => {
           messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -81,6 +97,7 @@ export const MessagesPage: React.FC = () => {
 
       // Realtime subscription for incoming chat messages in this conversation
       const unsubscribe = subscribeToMessages(activeConvId, (newMsg) => {
+        if (!isSubscribed) return;
         setMessages(prev => {
           if (prev.some(m => m.id === newMsg.id)) return prev;
           return [...prev, newMsg];
@@ -90,7 +107,35 @@ export const MessagesPage: React.FC = () => {
         }, 80);
       });
 
+      // Live Heartbeat Sync (every 2.5s) to guarantee zero missed messages even across mobile sleep or network switch
+      const heartbeatInterval = setInterval(async () => {
+        if (!isSubscribed) return;
+        try {
+          const freshMsgs = await fetchMessages(activeConvId);
+          if (!isSubscribed) return;
+          setMessages(prev => {
+            if (freshMsgs.length === prev.length && freshMsgs[freshMsgs.length - 1]?.id === prev[prev.length - 1]?.id) {
+              return prev;
+            }
+            const map = new Map<string, Message>();
+            prev.forEach(m => map.set(m.id, m));
+            freshMsgs.forEach(m => map.set(m.id, m));
+            const merged = Array.from(map.values()).sort(
+              (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+            );
+            setTimeout(() => {
+              messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+            }, 50);
+            return merged;
+          });
+        } catch {
+          // ignore background heartbeat errors
+        }
+      }, 2500);
+
       return () => {
+        isSubscribed = false;
+        clearInterval(heartbeatInterval);
         unsubscribe();
       };
     }

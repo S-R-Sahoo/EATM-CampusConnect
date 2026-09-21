@@ -26,6 +26,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onPostDeleted }) => {
 
   const [likesCount, setLikesCount] = useState(post.likesCount || 0);
   const [isLiked, setIsLiked] = useState(user ? post.likes?.includes(user.id) : false);
+  const [isLiking, setIsLiking] = useState(false);
   const [commentsCount, setCommentsCount] = useState(post.commentsCount || 0);
   const [sharesCount, setSharesCount] = useState(post.sharesCount || 0);
   const [showComments, setShowComments] = useState(false);
@@ -40,6 +41,31 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onPostDeleted }) => {
   // Poll state
   const [pollData, setPollData] = useState(post.poll);
   const [voting, setVoting] = useState(false);
+
+  // Synchronize component state whenever incoming post props update
+  useEffect(() => {
+    setLikesCount(post.likesCount ?? 0);
+    setIsLiked(user ? (post.likes || []).includes(user.id) : false);
+    setCommentsCount(post.commentsCount ?? 0);
+    setSharesCount(post.sharesCount ?? 0);
+    setPollData(post.poll);
+  }, [post.id, post.likesCount, post.likes, post.commentsCount, post.sharesCount, post.poll, user?.id]);
+
+  // Live broadcast listener for instant cross-tab / feed updates
+  useEffect(() => {
+    const handleLikeEvent = (e: CustomEvent<{ postId: string; likes: string[]; likesCount: number }>) => {
+      if (e.detail && e.detail.postId === post.id) {
+        setLikesCount(e.detail.likesCount);
+        if (user) {
+          setIsLiked(e.detail.likes.includes(user.id));
+        }
+      }
+    };
+    window.addEventListener('eatm_post_like', handleLikeEvent as EventListener);
+    return () => {
+      window.removeEventListener('eatm_post_like', handleLikeEvent as EventListener);
+    };
+  }, [post.id, user?.id]);
 
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -62,13 +88,16 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onPostDeleted }) => {
   }, [menuOpen]);
 
   const handleLike = async () => {
-    if (!user) return;
+    if (!user || isLiking) return;
+    setIsLiking(true);
     const previousState = isLiked;
     const previousCount = likesCount;
 
     // Optimistic UI update
-    setIsLiked(!previousState);
-    setLikesCount(previousState ? Math.max(0, previousCount - 1) : previousCount + 1);
+    const nextState = !previousState;
+    const nextCount = nextState ? previousCount + 1 : Math.max(0, previousCount - 1);
+    setIsLiked(nextState);
+    setLikesCount(nextCount);
 
     try {
       const res = await toggleLikePost(post.id, user.id);
@@ -78,6 +107,8 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onPostDeleted }) => {
       // Revert if error
       setIsLiked(previousState);
       setLikesCount(previousCount);
+    } finally {
+      setIsLiking(false);
     }
   };
 
@@ -409,9 +440,10 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onPostDeleted }) => {
           <button
             type="button"
             onClick={handleLike}
+            disabled={isLiking}
             className={`flex items-center gap-1.5 font-semibold transition group ${
               isLiked ? 'text-[#dc2626]' : 'hover:text-[#dc2626]'
-            }`}
+            } ${isLiking ? 'opacity-80 cursor-not-allowed' : ''}`}
           >
             <Heart className={`w-4 h-4 transition-transform group-hover:scale-110 ${isLiked ? 'fill-current text-[#dc2626]' : ''}`} />
             <span>{likesCount}</span>

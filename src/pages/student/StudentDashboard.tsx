@@ -15,7 +15,8 @@ export const StudentDashboard: React.FC = () => {
   const [friendIds, setFriendIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
 
-  const loadFeed = async () => {
+  const loadFeed = async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const [data, conns] = await Promise.all([
         fetchPosts(),
@@ -28,14 +29,19 @@ export const StudentDashboard: React.FC = () => {
       setFriendIds(accepted);
       setPosts(data);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
   useEffect(() => {
     loadFeed();
 
-    // Subscribe to live post updates (INSERT, UPDATE, DELETE)
+    // Background interval to keep feed fresh every 12 seconds silently
+    const interval = setInterval(() => {
+      loadFeed(true);
+    }, 12000);
+
+    // Subscribe to live post updates (INSERT, UPDATE, DELETE, broadcast likes)
     const unsubscribe = subscribeToPosts({
       onInsert: (newPost) => {
         setPosts((prev) => {
@@ -54,9 +60,10 @@ export const StudentDashboard: React.FC = () => {
     });
 
     return () => {
+      clearInterval(interval);
       unsubscribe();
     };
-  }, []);
+  }, [user?.id]);
 
   const firstName = user?.displayName ? user.displayName.split(' ')[0] : 'Student';
 

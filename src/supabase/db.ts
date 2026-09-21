@@ -46,6 +46,7 @@ export async function fetchPosts(): Promise<Post[]> {
         .order('createdAt', { ascending: false });
 
       if (!error && data && data.length > 0) {
+        setLocalData('posts', data);
         return data as Post[];
       }
     } catch (err) {
@@ -102,6 +103,14 @@ export async function createPost(postData: Omit<Post, 'id' | 'createdAt' | 'like
       } else if (error) {
         console.error('❌ Supabase createPost error:', error.message, error);
       }
+
+      // Broadcast new post over campus-feed-live
+      const feedChannel = supabase.channel('campus-feed-live');
+      feedChannel.send({
+        type: 'broadcast',
+        event: 'new_post',
+        payload: newPost
+      }).catch(() => {});
     } catch (err: any) {
       console.error('❌ Supabase createPost exception:', err?.message || err);
     }
@@ -121,6 +130,13 @@ export async function deletePost(postId: string): Promise<boolean> {
   if (isSupabaseConfigured() && supabase) {
     try {
       await supabase.from('posts').delete().eq('id', postId);
+
+      const feedChannel = supabase.channel('campus-feed-live');
+      feedChannel.send({
+        type: 'broadcast',
+        event: 'delete_post',
+        payload: { id: postId }
+      }).catch(() => {});
     } catch (err) {
       console.warn('Supabase deletePost error:', err);
     }
@@ -128,34 +144,94 @@ export async function deletePost(postId: string): Promise<boolean> {
   return true;
 }
 
-export async function toggleLikePost(postId: string, userId: string): Promise<{ liked: boolean; count: number }> {
-  const posts = getLocalData<Post[]>('posts', SEED_POSTS);
-  const post = posts.find(p => p.id === postId);
-  if (!post) return { liked: false, count: 0 };
-
-  const isLiked = post.likes.includes(userId);
-  if (isLiked) {
-    post.likes = post.likes.filter(id => id !== userId);
-    post.likesCount = Math.max(0, post.likesCount - 1);
-  } else {
-    post.likes.push(userId);
-    post.likesCount += 1;
-  }
-
-  setLocalData('posts', [...posts]);
+export async function toggleLikePost(postId: string, userId: string): Promise<{ liked: boolean; count: number; post?: Post }> {
+  // 1. Fetch fresh server data if Supabase is connected to avoid overwriting with stale local cache
+  let serverLikes: string[] = [];
+  let serverCount: number = 0;
+  let authoritativePost: Post | null = null;
 
   if (isSupabaseConfigured() && supabase) {
     try {
-      await supabase.from('posts').update({
-        likes: post.likes,
-        likesCount: post.likesCount
-      }).eq('id', postId);
+      const { data, error } = await supabase
+        .from('posts')
+        .select('*')
+        .eq('id', postId)
+        .maybeSingle();
+
+      if (!error && data) {
+        authoritativePost = data as Post;
+        serverLikes = Array.isArray(data.likes) ? [...data.likes] : [];
+        serverCount = typeof data.likesCount === 'number' ? data.likesCount : serverLikes.length;
+      }
     } catch (err) {
-      console.warn('Supabase toggleLikePost error:', err);
+      console.warn('Supabase toggleLikePost fetch error:', err);
     }
   }
 
-  return { liked: !isLiked, count: post.likesCount };
+  // 2. Fallback to local cache if offline or not in Supabase yet
+  const localPosts = getLocalData<Post[]>('posts', SEED_POSTS);
+  const localPostIndex = localPosts.findIndex(p => p.id === postId);
+  const localPost = localPostIndex !== -1 ? localPosts[localPostIndex] : null;
+
+  if (!authoritativePost && localPost) {
+    authoritativePost = localPost;
+    serverLikes = Array.isArray(localPost.likes) ? [...localPost.likes] : [];
+    serverCount = typeof localPost.likesCount === 'number' ? localPost.likesCount : serverLikes.length;
+  }
+
+  if (!authoritativePost) {
+    return { liked: false, count: 0 };
+  }
+
+  // 3. Atomically calculate the toggle
+  const alreadyLiked = serverLikes.includes(userId);
+  let updatedLikes: string[];
+  let updatedCount: number;
+
+  if (alreadyLiked) {
+    updatedLikes = serverLikes.filter(id => id !== userId);
+    updatedCount = Math.max(0, serverCount - 1);
+  } else {
+    updatedLikes = Array.from(new Set([...serverLikes, userId]));
+    updatedCount = serverCount + 1;
+  }
+
+  authoritativePost.likes = updatedLikes;
+  authoritativePost.likesCount = updatedCount;
+
+  // 4. Update local cache immediately
+  if (localPostIndex !== -1) {
+    localPosts[localPostIndex] = { ...authoritativePost };
+    setLocalData('posts', localPosts);
+  } else {
+    setLocalData('posts', [authoritativePost, ...localPosts]);
+  }
+
+  // 5. Dispatch instant local window event for all components in current window
+  window.dispatchEvent(new CustomEvent('eatm_post_like', {
+    detail: { postId, likes: updatedLikes, likesCount: updatedCount }
+  }));
+
+  // 6. Persist to Supabase and broadcast live to peers
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      await supabase.from('posts').update({
+        likes: updatedLikes,
+        likesCount: updatedCount
+      }).eq('id', postId);
+
+      const feedChannel = supabase.channel('campus-feed-live');
+      feedChannel.send({
+        type: 'broadcast',
+        event: 'post_like_update',
+        payload: { id: postId, likes: updatedLikes, likesCount: updatedCount }
+      }).catch(() => {});
+    } catch (err) {
+      console.warn('Supabase toggleLikePost persist error:', err);
+    }
+  }
+
+  return { liked: !alreadyLiked, count: updatedCount, post: authoritativePost };
 }
 
 export async function addPostComment(postId: string, commentData: { authorId: string; authorName: string; authorAvatar?: string; content: string }): Promise<Comment> {
@@ -183,6 +259,14 @@ export async function addPostComment(postId: string, commentData: { authorId: st
       if (post) {
         await supabase.from('posts').update({ commentsCount: post.commentsCount }).eq('id', postId);
       }
+
+      // Broadcast comment live
+      const commentChannel = supabase.channel(`comments-${postId}`);
+      commentChannel.send({
+        type: 'broadcast',
+        event: 'new_comment',
+        payload: newComment
+      }).catch(() => {});
     } catch (err) {
       console.warn('Supabase addPostComment error:', err);
     }
@@ -675,7 +759,7 @@ export async function fetchMessages(conversationId: string): Promise<Message[]> 
         const allUsers = await fetchUsers();
         const userMap = new Map(allUsers.map(u => [u.id, u]));
 
-        return (data as Message[]).map(m => {
+        const enriched = (data as Message[]).map(m => {
           const u = userMap.get(m.senderId);
           return {
             ...m,
@@ -683,6 +767,14 @@ export async function fetchMessages(conversationId: string): Promise<Message[]> 
             senderAvatar: m.senderAvatar || u?.photoURL
           };
         });
+
+        // Sync local cache
+        const localMsgs = getLocalData<Message[]>('messages', SEED_MESSAGES);
+        const serverIds = new Set(enriched.map(m => m.id));
+        const remainingLocal = localMsgs.filter(m => m.conversationId !== conversationId || !serverIds.has(m.id));
+        setLocalData('messages', [...remainingLocal, ...enriched]);
+
+        return enriched;
       }
     } catch (err) {
       console.warn('Supabase fetchMessages error:', err);
@@ -719,6 +811,9 @@ export async function sendChatMessage(msg: Omit<Message, 'id' | 'createdAt' | 'r
     setLocalData('conversations', [...convs]);
   }
 
+  // Dispatch local window event so other tabs/components on this client get instant update
+  window.dispatchEvent(new CustomEvent('eatm_chat_message', { detail: newMsg }));
+
   if (isSupabaseConfigured() && supabase) {
     try {
       await supabase.from('messages').insert([{
@@ -737,6 +832,14 @@ export async function sendChatMessage(msg: Omit<Message, 'id' | 'createdAt' | 'r
         lastMessage: lastMessagePayload,
         updatedAt: new Date().toISOString()
       }).eq('id', msg.conversationId);
+
+      // Instant Realtime broadcast directly to peer in the same chat room (<50ms latency)
+      const chatChannel = supabase.channel(`chat-room-${msg.conversationId}`);
+      chatChannel.send({
+        type: 'broadcast',
+        event: 'new_message',
+        payload: newMsg
+      }).catch(() => {});
     } catch (err) {
       console.warn('Supabase sendChatMessage error:', err);
     }
@@ -750,7 +853,7 @@ export async function sendChatMessage(msg: Omit<Message, 'id' | 'createdAt' | 'r
 // ---------------------------------------------
 
 /**
- * Subscribes to live changes on the posts table (INSERT, UPDATE, DELETE).
+ * Subscribes to live changes on the posts table (INSERT, UPDATE, DELETE) & Broadcasts.
  * Returns an unsubscribe cleanup function.
  */
 export function subscribeToPosts(callbacks: {
@@ -762,9 +865,35 @@ export function subscribeToPosts(callbacks: {
     return () => {};
   }
 
-  const channelName = `realtime-posts-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
   const channel = supabase
-    .channel(channelName)
+    .channel('campus-feed-live')
+    .on(
+      'broadcast',
+      { event: 'post_like_update' },
+      (event) => {
+        if (event.payload && event.payload.id) {
+          callbacks.onUpdate?.(event.payload as Post);
+        }
+      }
+    )
+    .on(
+      'broadcast',
+      { event: 'new_post' },
+      (event) => {
+        if (event.payload) {
+          callbacks.onInsert?.(event.payload as Post);
+        }
+      }
+    )
+    .on(
+      'broadcast',
+      { event: 'delete_post' },
+      (event) => {
+        if (event.payload && event.payload.id) {
+          callbacks.onDelete?.(event.payload.id);
+        }
+      }
+    )
     .on(
       'postgres_changes',
       { event: 'INSERT', schema: 'public', table: 'posts' },
@@ -808,9 +937,18 @@ export function subscribeToComments(
   }
 
   const client = supabase;
-  const channelName = `realtime-comments-${postId}-${Date.now()}`;
+  const channelName = `comments-${postId}`;
   const channel = client
     .channel(channelName)
+    .on(
+      'broadcast',
+      { event: 'new_comment' },
+      (event) => {
+        if (event.payload && event.payload.postId === postId) {
+          onInsert(event.payload as Comment);
+        }
+      }
+    )
     .on(
       'postgres_changes',
       { event: 'INSERT', schema: 'public', table: 'comments' },
@@ -829,20 +967,40 @@ export function subscribeToComments(
 
 /**
  * Subscribes to live chat messages for a conversation.
+ * Combines Realtime Broadcast (<50ms), Postgres Changes, and Window Events.
  * Returns an unsubscribe cleanup function.
  */
 export function subscribeToMessages(
   conversationId: string,
   onInsert: (newMsg: Message) => void
 ): () => void {
+  // 1. Listen to local window event (syncs instant updates across tabs/components)
+  const windowListener = (e: CustomEvent<Message>) => {
+    if (e.detail && e.detail.conversationId === conversationId) {
+      onInsert(e.detail);
+    }
+  };
+  window.addEventListener('eatm_chat_message', windowListener as EventListener);
+
   if (!isSupabaseConfigured() || !supabase) {
-    return () => {};
+    return () => {
+      window.removeEventListener('eatm_chat_message', windowListener as EventListener);
+    };
   }
 
   const client = supabase;
-  const channelName = `realtime-messages-${conversationId}-${Date.now()}`;
+  const channelName = `chat-room-${conversationId}`;
   const channel = client
     .channel(channelName)
+    .on(
+      'broadcast',
+      { event: 'new_message' },
+      (event) => {
+        if (event.payload && event.payload.conversationId === conversationId) {
+          onInsert(event.payload as Message);
+        }
+      }
+    )
     .on(
       'postgres_changes',
       { event: 'INSERT', schema: 'public', table: 'messages' },
@@ -855,6 +1013,7 @@ export function subscribeToMessages(
     .subscribe();
 
   return () => {
+    window.removeEventListener('eatm_chat_message', windowListener as EventListener);
     if (client) client.removeChannel(channel);
   };
 }
@@ -867,14 +1026,27 @@ export function subscribeToConnections(
   userId: string,
   onChange: () => void
 ): () => void {
+  // Listen to local connection event
+  const windowListener = () => onChange();
+  window.addEventListener('eatm_connections_changed', windowListener);
+
   if (!isSupabaseConfigured() || !supabase) {
-    return () => {};
+    return () => {
+      window.removeEventListener('eatm_connections_changed', windowListener);
+    };
   }
 
   const client = supabase;
-  const channelName = `realtime-connections-${userId}-${Date.now()}`;
+  const channelName = `connections-${userId}`;
   const channel = client
     .channel(channelName)
+    .on(
+      'broadcast',
+      { event: 'connection_changed' },
+      () => {
+        onChange();
+      }
+    )
     .on(
       'postgres_changes',
       { event: '*', schema: 'public', table: 'connections' },
@@ -888,6 +1060,7 @@ export function subscribeToConnections(
     .subscribe();
 
   return () => {
+    window.removeEventListener('eatm_connections_changed', windowListener);
     if (client) client.removeChannel(channel);
   };
 }
