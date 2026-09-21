@@ -14,7 +14,6 @@ import {
   Home, 
   Share2, 
   AlertCircle, 
-  Sparkles, 
   Sun, 
   Moon, 
   LogIn, 
@@ -184,8 +183,8 @@ export const PostDetailPage: React.FC = () => {
 
       {/* Main Content Area */}
       <main className="max-w-3xl mx-auto px-4 py-6 sm:py-8 space-y-6">
-        {/* Navigation & Context Bar */}
-        <div className="flex items-center justify-between gap-3">
+        {/* Navigation Bar */}
+        <div className="flex items-center">
           <button
             type="button"
             onClick={handleBack}
@@ -194,11 +193,6 @@ export const PostDetailPage: React.FC = () => {
             <ArrowLeft className="w-4 h-4 text-[#0b4627] dark:text-emerald-400" />
             <span>{user ? 'Back to Campus Feed' : 'Back to Home'}</span>
           </button>
-
-          <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
-            <Sparkles className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-            <span className="font-medium">Direct Post Link</span>
-          </div>
         </div>
 
         {/* Loading State */}
