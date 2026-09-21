@@ -1,16 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Post } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
-import { toggleLikePost, votePoll } from '../../firebase/firestore';
+import { toggleLikePost, votePoll, deletePost } from '../../firebase/firestore';
 import { Avatar } from '../ui/Avatar';
+import { Modal } from '../ui/Modal';
+import { Button } from '../ui/Button';
 import { CommentSection } from './CommentSection';
 import { ReportModal } from '../common/ReportModal';
 import { ShareModal } from './ShareModal';
 import { 
   Heart, MessageSquare, Share2, Bookmark, 
   MoreHorizontal, Flag, BarChart2, CheckCircle2,
-  Globe, Users
+  Globe, Users, Trash2, Copy, EyeOff 
 } from 'lucide-react';
 
 interface PostCardProps {
@@ -31,10 +33,33 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onPostDeleted }) => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [hidden, setHidden] = useState(false);
 
   // Poll state
   const [pollData, setPollData] = useState(post.poll);
   const [voting, setVoting] = useState(false);
+
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Whether current user is the author or admin
+  const isAuthor = (user && post.authorId && user.id === post.authorId) || user?.role === 'admin';
+
+  // Click outside to close dropdown menu
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    if (menuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [menuOpen]);
 
   const handleLike = async () => {
     if (!user) return;
@@ -102,6 +127,35 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onPostDeleted }) => {
     }
   };
 
+  const handleConfirmDelete = async () => {
+    setDeleting(true);
+    try {
+      await deletePost(post.id);
+      success('Your post has been permanently deleted.', 'Post Deleted');
+      setDeleteModalOpen(false);
+      onPostDeleted?.();
+    } catch (err: any) {
+      console.error('Delete post error:', err);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  if (hidden) {
+    return (
+      <div className="bg-gray-50/90 dark:bg-[#111d15] rounded-2xl border border-dashed border-gray-200 dark:border-[#1e3325] p-4 text-xs text-gray-500 dark:text-gray-400 flex items-center justify-between transition-all">
+        <span>Post hidden from your feed.</span>
+        <button
+          type="button"
+          onClick={() => setHidden(false)}
+          className="text-[#0b4627] dark:text-emerald-400 font-semibold hover:underline"
+        >
+          Undo
+        </button>
+      </div>
+    );
+  }
+
   const totalPollVotes = pollData?.options.reduce((sum, opt) => sum + (opt.votes?.length || 0), 0) || 0;
   const hasVotedAny = pollData?.options.some(opt => opt.votes?.includes(user?.id || ''));
 
@@ -141,8 +195,9 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onPostDeleted }) => {
         </div>
 
         {/* More Actions Dropdown */}
-        <div className="relative">
+        <div className="relative" ref={menuRef}>
           <button
+            type="button"
             onClick={() => setMenuOpen(!menuOpen)}
             className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-[#182b20] rounded-lg transition"
             aria-label="Post options"
@@ -151,17 +206,121 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onPostDeleted }) => {
           </button>
 
           {menuOpen && (
-            <div className="absolute right-0 mt-1 w-36 bg-white dark:bg-[#16251c] rounded-xl shadow-lg border border-gray-100 dark:border-[#1e3325] py-1 z-20">
+            <div className="absolute right-0 mt-1.5 w-60 bg-white dark:bg-[#16251c] rounded-2xl shadow-xl border border-gray-100 dark:border-[#1e3325] py-1.5 z-20 animate-in fade-in zoom-in-95">
+              {/* Save / Bookmark Post */}
               <button
+                type="button"
                 onClick={() => {
                   setMenuOpen(false);
-                  setReportOpen(true);
+                  handleSave();
                 }}
-                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-gray-700 dark:text-gray-300 hover:bg-red-50 dark:hover:bg-red-950/40 hover:text-red-700 dark:hover:text-red-400 transition"
+                className="w-full flex items-center gap-3 px-3.5 py-2 text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#1f3527] transition text-left"
               >
-                <Flag className="w-3.5 h-3.5" />
-                <span>Report Post</span>
+                <Bookmark className={`w-4 h-4 text-gray-400 dark:text-gray-500 ${isSaved ? 'fill-current text-[#0b4627] dark:text-emerald-400' : ''}`} />
+                <div>
+                  <p className="font-semibold text-gray-900 dark:text-gray-100">
+                    {isSaved ? 'Remove Bookmark' : 'Save Post'}
+                  </p>
+                  <p className="text-[10px] text-gray-400 dark:text-gray-500">
+                    {isSaved ? 'Remove from your saved posts' : 'Add this to your saved posts'}
+                  </p>
+                </div>
               </button>
+
+              {/* Copy Link */}
+              <button
+                type="button"
+                onClick={() => {
+                  setMenuOpen(false);
+                  const postUrl = `${window.location.origin}${window.location.pathname}#post-${post.id}`;
+                  navigator.clipboard?.writeText(postUrl);
+                  success('Post link copied to clipboard!');
+                }}
+                className="w-full flex items-center gap-3 px-3.5 py-2 text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#1f3527] transition text-left"
+              >
+                <Copy className="w-4 h-4 text-gray-400 dark:text-gray-500" />
+                <div>
+                  <p className="font-semibold text-gray-900 dark:text-gray-100">Copy Link</p>
+                  <p className="text-[10px] text-gray-400 dark:text-gray-500">Copy direct link to this post</p>
+                </div>
+              </button>
+
+              {/* Share */}
+              <button
+                type="button"
+                onClick={() => {
+                  setMenuOpen(false);
+                  setShareModalOpen(true);
+                }}
+                className="w-full flex items-center gap-3 px-3.5 py-2 text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#1f3527] transition text-left"
+              >
+                <Share2 className="w-4 h-4 text-gray-400 dark:text-gray-500" />
+                <div>
+                  <p className="font-semibold text-gray-900 dark:text-gray-100">Share Post</p>
+                  <p className="text-[10px] text-gray-400 dark:text-gray-500">Share via WhatsApp, X, etc.</p>
+                </div>
+              </button>
+
+              {!isAuthor && (
+                <>
+                  {/* Hide Post */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      setHidden(true);
+                      info('Post hidden from your feed.');
+                    }}
+                    className="w-full flex items-center gap-3 px-3.5 py-2 text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#1f3527] transition text-left"
+                  >
+                    <EyeOff className="w-4 h-4 text-gray-400 dark:text-gray-500" />
+                    <div>
+                      <p className="font-semibold text-gray-900 dark:text-gray-100">Hide Post</p>
+                      <p className="text-[10px] text-gray-400 dark:text-gray-500">See fewer posts like this</p>
+                    </div>
+                  </button>
+
+                  <div className="my-1 border-t border-gray-100 dark:border-[#1e3325]" />
+
+                  {/* Report Post */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      setReportOpen(true);
+                    }}
+                    className="w-full flex items-center gap-3 px-3.5 py-2 text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 transition text-left"
+                  >
+                    <Flag className="w-4 h-4 text-red-500" />
+                    <div>
+                      <p className="font-semibold">Report Post</p>
+                      <p className="text-[10px] text-red-400 dark:text-red-500">I'm concerned about this post</p>
+                    </div>
+                  </button>
+                </>
+              )}
+
+              {isAuthor && (
+                <>
+                  <div className="my-1 border-t border-gray-100 dark:border-[#1e3325]" />
+
+                  {/* Delete Post (Official Destructive Action) */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      setDeleteModalOpen(true);
+                    }}
+                    className="w-full flex items-center gap-3 px-3.5 py-2 text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 transition text-left group"
+                  >
+                    <Trash2 className="w-4 h-4 text-red-500 group-hover:scale-110 transition-transform" />
+                    <div>
+                      <p className="font-semibold">Delete Post</p>
+                      <p className="text-[10px] text-red-400 dark:text-red-500">Permanently remove this post</p>
+                    </div>
+                  </button>
+                </>
+              )}
             </div>
           )}
         </div>
@@ -248,6 +407,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onPostDeleted }) => {
       <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-[#1e3325] text-xs text-gray-500 dark:text-gray-400">
         <div className="flex items-center gap-4 sm:gap-6">
           <button
+            type="button"
             onClick={handleLike}
             className={`flex items-center gap-1.5 font-semibold transition group ${
               isLiked ? 'text-[#dc2626]' : 'hover:text-[#dc2626]'
@@ -258,6 +418,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onPostDeleted }) => {
           </button>
 
           <button
+            type="button"
             onClick={() => setShowComments(!showComments)}
             className="flex items-center gap-1.5 font-semibold hover:text-[#0b4627] dark:hover:text-emerald-400 transition"
           >
@@ -266,6 +427,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onPostDeleted }) => {
           </button>
 
           <button
+            type="button"
             onClick={handleShare}
             className="flex items-center gap-1.5 font-semibold hover:text-blue-600 dark:hover:text-blue-400 transition"
             title="Share post"
@@ -276,6 +438,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onPostDeleted }) => {
         </div>
 
         <button
+          type="button"
           onClick={handleSave}
           className={`p-1 rounded-lg transition ${
             isSaved ? 'text-[#0b4627] dark:text-emerald-400' : 'hover:text-gray-800 dark:hover:text-gray-200'
@@ -310,6 +473,64 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onPostDeleted }) => {
         post={post}
         onShared={(newCount) => setSharesCount(newCount)}
       />
+
+      {/* Official Delete Confirmation Modal */}
+      <Modal
+        isOpen={deleteModalOpen}
+        onClose={() => !deleting && setDeleteModalOpen(false)}
+        title="Delete Post"
+        maxWidth="sm"
+      >
+        <div className="space-y-4">
+          <div className="flex items-start gap-3.5">
+            <div className="w-10 h-10 rounded-xl bg-red-100 dark:bg-red-950/60 text-red-600 dark:text-red-400 flex items-center justify-center shrink-0">
+              <Trash2 className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="font-bold text-sm text-gray-900 dark:text-gray-100">
+                Delete this post?
+              </h4>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 leading-relaxed">
+                This action cannot be undone. This post will be permanently removed from the campus feed.
+              </p>
+            </div>
+          </div>
+
+          {post.content && (
+            <div className="p-3 bg-gray-50 dark:bg-[#16251c] rounded-xl border border-gray-100 dark:border-[#1e3325] text-xs text-gray-600 dark:text-gray-300 italic line-clamp-2">
+              "{post.content}"
+            </div>
+          )}
+
+          <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-gray-100 dark:border-[#1e3325]">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setDeleteModalOpen(false)}
+              disabled={deleting}
+              className="px-4 text-xs font-semibold"
+            >
+              Cancel
+            </Button>
+            <button
+              type="button"
+              onClick={handleConfirmDelete}
+              disabled={deleting}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-semibold shadow-sm transition disabled:opacity-50"
+            >
+              {deleting ? (
+                <span>Deleting...</span>
+              ) : (
+                <>
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Delete Post</span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };

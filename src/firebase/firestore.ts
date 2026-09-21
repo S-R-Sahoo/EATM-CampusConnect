@@ -82,6 +82,21 @@ export async function createPost(postData: Omit<Post, 'id' | 'createdAt' | 'like
   return newPost;
 }
 
+export async function deletePost(postId: string): Promise<boolean> {
+  const posts = getLocalData<Post[]>('posts', SEED_POSTS);
+  const updated = posts.filter(p => p.id !== postId);
+  setLocalData('posts', updated);
+
+  if (isFirebaseConfigured() && db) {
+    try {
+      await deleteDoc(doc(db, 'posts', postId));
+    } catch (err) {
+      console.warn('Firestore deletePost error:', err);
+    }
+  }
+  return true;
+}
+
 export async function toggleLikePost(postId: string, userId: string): Promise<{ liked: boolean; count: number }> {
   const posts = getLocalData<Post[]>('posts', SEED_POSTS);
   const post = posts.find(p => p.id === postId);
