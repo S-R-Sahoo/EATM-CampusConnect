@@ -4,7 +4,7 @@ import { useToast } from '../../contexts/ToastContext';
 import { Comment } from '../../types';
 import { fetchPostComments, addPostComment } from '../../supabase/db';
 import { Avatar } from '../ui/Avatar';
-import { Send } from 'lucide-react';
+import { Send, Loader2 } from 'lucide-react';
 
 interface CommentSectionProps {
   postId: string;
@@ -44,20 +44,35 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ postId, onCommen
     }
   };
 
+  const formatCommentTime = (isoString?: string) => {
+    if (!isoString) return 'Just now';
+    try {
+      const diff = Math.floor((Date.now() - new Date(isoString).getTime()) / 1000);
+      if (diff < 60) return 'Just now';
+      if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+      if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+      return `${Math.floor(diff / 86400)}d ago`;
+    } catch {
+      return 'Just now';
+    }
+  };
+
   return (
-    <div className="pt-3 mt-3 border-t border-gray-100 space-y-3">
+    <div className="pt-3 mt-3 border-t border-gray-100 dark:border-[#1e3325] space-y-3">
       {/* Existing Comments List */}
       {comments.length > 0 && (
         <div className="space-y-2.5 max-h-56 overflow-y-auto pr-1">
           {comments.map(c => (
             <div key={c.id} className="flex items-start gap-2.5">
               <Avatar src={c.authorAvatar} name={c.authorName} size="xs" />
-              <div className="flex-1 bg-gray-50 rounded-xl px-3 py-2 text-xs border border-gray-100">
+              <div className="flex-1 bg-gray-50 dark:bg-[#16251c] rounded-xl px-3 py-2 text-xs border border-gray-100 dark:border-[#1e3325] transition-colors">
                 <div className="flex items-center justify-between mb-0.5">
-                  <span className="font-bold text-gray-900">{c.authorName}</span>
-                  <span className="text-[10px] text-gray-400">Just now</span>
+                  <span className="font-bold text-gray-900 dark:text-gray-100">{c.authorName}</span>
+                  <span className="text-[10px] text-gray-400 dark:text-gray-500">
+                    {formatCommentTime(c.createdAt)}
+                  </span>
                 </div>
-                <p className="text-gray-700">{c.content}</p>
+                <p className="text-gray-800 dark:text-gray-200 leading-relaxed break-words">{c.content}</p>
               </div>
             </div>
           ))}
@@ -74,14 +89,21 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ postId, onCommen
               value={text}
               onChange={(e) => setText(e.target.value)}
               placeholder="Write a comment..."
-              className="w-full text-xs bg-gray-50 border border-gray-200 rounded-xl pl-3 pr-9 py-2 focus:outline-none focus:ring-1 focus:ring-[#0b4627] focus:bg-white transition"
+              disabled={submitting}
+              className="w-full text-xs text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 bg-gray-100/90 dark:bg-[#16251c] border border-gray-200/80 dark:border-[#1e3325] rounded-xl pl-3 pr-9 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#0b4627] dark:focus:ring-emerald-500 focus:bg-white dark:focus:bg-[#111d15] focus:border-transparent transition"
             />
             <button
               type="submit"
               disabled={submitting || !text.trim()}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-[#0b4627] disabled:opacity-30 p-1"
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-emerald-700 dark:text-emerald-400 hover:text-emerald-800 dark:hover:text-emerald-300 disabled:opacity-30 disabled:text-gray-400 p-1 transition"
+              aria-label="Submit comment"
+              title="Post comment"
             >
-              <Send className="w-3.5 h-3.5" />
+              {submitting ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600" />
+              ) : (
+                <Send className="w-3.5 h-3.5" />
+              )}
             </button>
           </div>
         </form>
