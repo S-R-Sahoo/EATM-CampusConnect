@@ -55,11 +55,41 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
             if (session?.user) {
               const users = await fetchUsers();
-              const profile = users.find(u => u.uid === session.user.id || u.email === session.user.email);
-              if (profile) {
-                setUser(profile);
-                localStorage.setItem('eatm_current_user', JSON.stringify(profile));
+              let profile = users.find(u => u.uid === session.user.id || u.email?.toLowerCase() === session.user.email?.toLowerCase());
+              
+              if (!profile) {
+                // Auto-create UserProfile for OAuth users (Google, GitHub)
+                const meta = session.user.user_metadata || {};
+                const fallbackName = meta.full_name || meta.name || meta.user_name || session.user.email?.split('@')[0] || 'Campus Student';
+                const newProfile: UserProfile = {
+                  id: session.user.id,
+                  uid: session.user.id,
+                  email: session.user.email || '',
+                  displayName: fallbackName,
+                  role: 'student',
+                  department: 'Computer Science & Engineering',
+                  photoURL: meta.avatar_url || meta.picture || DEFAULT_ENGINEER_AVATAR,
+                  coverURL: 'https://images.unsplash.com/photo-1562774053-701939374585?w=1600&auto=format&fit=crop&q=80',
+                  bio: 'Student at Einstein Academy of Technology and Management (EATM).',
+                  skills: ['Engineering', 'Problem Solving'],
+                  interests: ['Academics', 'Campus Life'],
+                  stats: {
+                    connections: 0,
+                    posts: 0,
+                    clubs: 0,
+                    achievements: 0
+                  },
+                  status: 'active',
+                  verified: true,
+                  createdAt: new Date().toISOString(),
+                  updatedAt: new Date().toISOString()
+                };
+                await firestoreUpdateProfile(session.user.id, newProfile);
+                profile = newProfile;
               }
+
+              setUser(profile);
+              localStorage.setItem('eatm_current_user', JSON.stringify(profile));
             }
           });
           unsubscribe = () => subscription.unsubscribe();

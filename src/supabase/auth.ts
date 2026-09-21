@@ -124,7 +124,13 @@ export async function loginWithGoogle(): Promise<UserProfile> {
         redirectTo: window.location.origin + window.location.pathname
       }
     });
-    if (error) throw new Error(error.message);
+    if (error) {
+      const msg = error.message.toLowerCase();
+      if (msg.includes('not enabled') || msg.includes('unsupported') || msg.includes('disabled') || msg.includes('validation')) {
+        throw new Error('Google sign-in is not enabled in your Supabase dashboard yet. Go to Supabase > Authentication > Providers > Google to enable it.');
+      }
+      throw new Error(error.message);
+    }
   }
 
   // Fallback demo user
@@ -140,7 +146,13 @@ export async function loginWithGithub(): Promise<UserProfile> {
         redirectTo: window.location.origin + window.location.pathname
       }
     });
-    if (error) throw new Error(error.message);
+    if (error) {
+      const msg = error.message.toLowerCase();
+      if (msg.includes('not enabled') || msg.includes('unsupported') || msg.includes('disabled') || msg.includes('validation')) {
+        throw new Error('GitHub sign-in is not enabled in your Supabase dashboard yet. Go to Supabase > Authentication > Providers > GitHub to enable it.');
+      }
+      throw new Error(error.message);
+    }
   }
 
   // Fallback demo user
