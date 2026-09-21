@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { fetchUsers } from '../../supabase/db';
 import { UserProfile } from '../../types';
 import { Avatar } from '../../components/ui/Avatar';
@@ -74,11 +75,17 @@ export const FacultyStudents: React.FC = () => {
         ) : (
           filtered.map(st => (
             <div key={st.id} className="p-4 sm:p-5 flex items-center justify-between gap-4 hover:bg-gray-50 dark:hover:bg-[#16251c]/60 transition">
-              <div className="flex items-center gap-3.5">
+              <Link
+                to={`/faculty/profile/${st.id}`}
+                className="flex items-center gap-3.5 group/student hover:opacity-95 transition"
+                title="View Student Academic Profile"
+              >
                 <Avatar src={st.photoURL} name={st.displayName} size="md" online={true} />
                 <div>
                   <div className="flex items-center gap-2">
-                    <h3 className="font-bold text-sm text-gray-900 dark:text-gray-100">{st.displayName}</h3>
+                    <h3 className="font-bold text-sm text-gray-900 dark:text-gray-100 group-hover/student:text-[#0b4627] dark:group-hover/student:text-emerald-400 transition-colors">
+                      {st.displayName}
+                    </h3>
                     <span className="text-[10px] font-bold px-2 py-0.2 rounded-full bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
                       {st.status}
                     </span>
@@ -88,7 +95,7 @@ export const FacultyStudents: React.FC = () => {
                   </p>
                   <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">{st.email}</p>
                 </div>
-              </div>
+              </Link>
 
               <div className="text-right">
                 <span className="text-xs font-semibold text-emerald-800 dark:text-emerald-300 block">

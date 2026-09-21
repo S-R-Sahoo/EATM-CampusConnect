@@ -165,7 +165,11 @@ export const DiscoverPeople: React.FC = () => {
                 key={student.id}
                 className="bg-white dark:bg-[#111d15] rounded-2xl border border-gray-200/80 dark:border-[#1e3325] p-4 sm:p-5 shadow-card hover:border-emerald-200 dark:hover:border-emerald-800 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4"
               >
-                <div className="flex items-start sm:items-center gap-3.5 min-w-0">
+                <Link
+                  to={`/student/profile/${student.id}`}
+                  className="flex items-start sm:items-center gap-3.5 min-w-0 group/student hover:opacity-95 transition"
+                  title="View Student Profile"
+                >
                   <Avatar
                     src={student.photoURL}
                     name={student.displayName}
@@ -173,7 +177,7 @@ export const DiscoverPeople: React.FC = () => {
                     online={true}
                   />
                   <div className="min-w-0">
-                    <h3 className="font-bold text-sm sm:text-base text-gray-900 dark:text-gray-100 truncate">
+                    <h3 className="font-bold text-sm sm:text-base text-gray-900 dark:text-gray-100 group-hover/student:text-[#0b4627] dark:group-hover/student:text-emerald-400 transition-colors truncate">
                       {student.displayName}
                     </h3>
                     <p className="text-xs text-gray-500 dark:text-gray-400 font-medium truncate">
@@ -192,7 +196,7 @@ export const DiscoverPeople: React.FC = () => {
                       ))}
                     </div>
                   </div>
-                </div>
+                </Link>
 
                 {/* Connection Status / Action Buttons */}
                 <div className="sm:self-center shrink-0">

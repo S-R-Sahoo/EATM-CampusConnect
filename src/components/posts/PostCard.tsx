@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { Post } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
@@ -215,7 +216,11 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onPostDeleted }) => {
     <div id={`post-${post.id}`} className="bg-white dark:bg-[#111d15] rounded-2xl border border-gray-200/80 dark:border-[#1e3325] p-5 shadow-card transition-all hover:border-gray-300/80 dark:hover:border-[#2b4935]">
       {/* Post Author Header */}
       <div className="flex items-start justify-between gap-3 mb-3">
-        <div className="flex items-center gap-3">
+        <Link
+          to={post.authorId ? `/profile/${post.authorId}` : '#'}
+          className="flex items-center gap-3 group/author hover:opacity-95 transition"
+          title="View Author Profile"
+        >
           <Avatar
             src={post.authorAvatar}
             name={post.authorName}
@@ -223,7 +228,9 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onPostDeleted }) => {
           />
           <div>
             <div className="flex items-center gap-2">
-              <h4 className="font-bold text-sm text-gray-900 dark:text-gray-100">{post.authorName}</h4>
+              <h4 className="font-bold text-sm text-gray-900 dark:text-gray-100 group-hover/author:text-[#0b4627] dark:group-hover/author:text-emerald-400 transition-colors">
+                {post.authorName}
+              </h4>
               {post.authorRole === 'faculty' && (
                 <span className="text-[10px] font-bold px-1.5 py-0.2 bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-300 rounded">
                   Faculty
@@ -244,7 +251,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onPostDeleted }) => {
               )}
             </div>
           </div>
-        </div>
+        </Link>
 
         {/* More Actions Dropdown */}
         <div className="relative" ref={menuRef}>

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { fetchUsers, updateUserProfile } from '../../supabase/db';
 import { UserProfile } from '../../types';
 import { Avatar } from '../../components/ui/Avatar';
@@ -105,16 +106,20 @@ export const AdminUserManagement: React.FC = () => {
               {filteredUsers.map(u => (
                 <tr key={u.id} className="hover:bg-gray-50/80 dark:hover:bg-[#16251c]/60 transition">
                   <td className="py-3.5 px-4">
-                    <div className="flex items-center gap-3">
+                    <Link
+                      to={`/admin/profile/${u.id}`}
+                      className="flex items-center gap-3 group/user hover:opacity-95 transition"
+                      title="View Official User Profile"
+                    >
                       <Avatar src={u.photoURL} name={u.displayName} size="sm" />
                       <div>
-                        <div className="flex items-center gap-1.5 font-bold text-gray-900 dark:text-gray-100">
+                        <div className="flex items-center gap-1.5 font-bold text-gray-900 dark:text-gray-100 group-hover/user:text-[#0b4627] dark:group-hover/user:text-emerald-400 transition-colors">
                           <span>{u.displayName}</span>
                           {u.verified && <CheckCircle className="w-3.5 h-3.5 text-emerald-600 fill-emerald-50" />}
                         </div>
                         <span className="text-[11px] text-gray-400 dark:text-gray-500">{u.email}</span>
                       </div>
-                    </div>
+                    </Link>
                   </td>
 
                   <td className="py-3.5 px-4">

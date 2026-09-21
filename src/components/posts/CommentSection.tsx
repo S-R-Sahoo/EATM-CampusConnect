@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { Comment } from '../../types';
@@ -77,10 +78,17 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ postId, onCommen
         <div className="space-y-2.5 max-h-56 overflow-y-auto pr-1">
           {comments.map(c => (
             <div key={c.id} className="flex items-start gap-2.5">
-              <Avatar src={c.authorAvatar} name={c.authorName} size="xs" />
+              <Link to={c.authorId ? `/profile/${c.authorId}` : '#'} className="shrink-0 hover:opacity-90 transition" title="View Profile">
+                <Avatar src={c.authorAvatar} name={c.authorName} size="xs" />
+              </Link>
               <div className="flex-1 bg-gray-50 dark:bg-[#16251c] rounded-xl px-3 py-2 text-xs border border-gray-100 dark:border-[#1e3325] transition-colors">
                 <div className="flex items-center justify-between mb-0.5">
-                  <span className="font-bold text-gray-900 dark:text-gray-100">{c.authorName}</span>
+                  <Link
+                    to={c.authorId ? `/profile/${c.authorId}` : '#'}
+                    className="font-bold text-gray-900 dark:text-gray-100 hover:text-[#0b4627] dark:hover:text-emerald-400 transition-colors"
+                  >
+                    {c.authorName}
+                  </Link>
                   <span className="text-[10px] text-gray-400 dark:text-gray-500">
                     {formatCommentTime(c.createdAt)}
                   </span>

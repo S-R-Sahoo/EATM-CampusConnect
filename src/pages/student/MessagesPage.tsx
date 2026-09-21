@@ -178,6 +178,7 @@ export const MessagesPage: React.FC = () => {
     const otherId = activeConv.participants.find(id => id !== user.id) || '';
     const detail = activeConv.participantDetails?.[otherId];
     return {
+      id: otherId,
       name: detail?.name || 'Student',
       avatar: detail?.avatar,
       online: detail?.online ?? true
@@ -373,19 +374,45 @@ export const MessagesPage: React.FC = () => {
                 >
                   <ArrowLeft className="w-5 h-5" />
                 </button>
-                <Avatar
-                  src={other.avatar}
-                  name={other.name}
-                  size="md"
-                  online={other.online}
-                />
-                <div>
-                  <h3 className="font-bold text-sm text-gray-900 dark:text-gray-100">{other.name}</h3>
-                  <p className="text-[11px] text-emerald-600 font-semibold flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                    Online
-                  </p>
-                </div>
+                {(!activeConv.isGroup && other.id) ? (
+                  <Link
+                    to={`/student/profile/${other.id}`}
+                    className="flex items-center gap-2.5 sm:gap-3 group/peer hover:opacity-95 transition"
+                    title="View Student Profile"
+                  >
+                    <Avatar
+                      src={other.avatar}
+                      name={other.name}
+                      size="md"
+                      online={other.online}
+                    />
+                    <div>
+                      <h3 className="font-bold text-sm text-gray-900 dark:text-gray-100 group-hover/peer:text-[#0b4627] dark:group-hover/peer:text-emerald-400 transition-colors">
+                        {other.name}
+                      </h3>
+                      <p className="text-[11px] text-emerald-600 font-semibold flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                        Online
+                      </p>
+                    </div>
+                  </Link>
+                ) : (
+                  <div className="flex items-center gap-2.5 sm:gap-3">
+                    <Avatar
+                      src={other.avatar}
+                      name={other.name}
+                      size="md"
+                      online={other.online}
+                    />
+                    <div>
+                      <h3 className="font-bold text-sm text-gray-900 dark:text-gray-100">{other.name}</h3>
+                      <p className="text-[11px] text-emerald-600 font-semibold flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                        Online
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="flex items-center gap-1 text-gray-400 dark:text-gray-400">
@@ -418,12 +445,17 @@ export const MessagesPage: React.FC = () => {
                     className={`flex items-end gap-2 ${isMe ? 'justify-end' : 'justify-start'}`}
                   >
                     {!isMe && (
-                      <Avatar
-                        src={msg.senderAvatar}
-                        name={msg.senderName}
-                        size="xs"
-                        className="mb-1"
-                      />
+                      <Link
+                        to={msg.senderId ? `/profile/${msg.senderId}` : '#'}
+                        className="mb-1 shrink-0 hover:opacity-90 transition"
+                        title="View Profile"
+                      >
+                        <Avatar
+                          src={msg.senderAvatar}
+                          name={msg.senderName}
+                          size="xs"
+                        />
+                      </Link>
                     )}
 
                     <div

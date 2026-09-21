@@ -1,5 +1,5 @@
 import React from 'react';
-import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate, useParams } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ToastProvider } from './contexts/ToastContext';
 import { ThemeProvider } from './contexts/ThemeContext';
@@ -41,6 +41,13 @@ import { AdminDashboard } from './pages/admin/AdminDashboard';
 import { AdminUserManagement } from './pages/admin/AdminUserManagement';
 import { AdminReports } from './pages/admin/AdminReports';
 
+const ProfileRedirect: React.FC = () => {
+  const { id } = useParams<{ id: string }>();
+  const { user } = useAuth();
+  const role = user?.role === 'faculty' ? 'faculty' : user?.role === 'admin' ? 'admin' : 'student';
+  return <Navigate to={`/${role}/profile/${id}`} replace />;
+};
+
 const AppRoutes: React.FC = () => {
   const { user, isLoading } = useAuth();
 
@@ -71,6 +78,9 @@ const AppRoutes: React.FC = () => {
       {/* Direct Post Share Routes (both clean /post/:id and legacy /post-:id) */}
       <Route path="/post/:id" element={<PostDetailPage />} />
       <Route path="/post-:id" element={<PostDetailPage />} />
+
+      {/* Direct Profile Route with Auto-Role Redirect */}
+      <Route path="/profile/:id" element={<ProfileRedirect />} />
 
             {/* Student Routes */}
             <Route path="/student" element={<StudentLayout />}>
@@ -103,6 +113,7 @@ const AppRoutes: React.FC = () => {
               <Route path="communities" element={<CommunitiesPage />} />
               <Route path="opportunities" element={<OpportunitiesPage />} />
               <Route path="profile" element={<StudentProfile />} />
+              <Route path="profile/:id" element={<StudentProfile />} />
               <Route path="post/:id" element={<PostDetailPage />} />
               <Route path="post-:id" element={<PostDetailPage />} />
             </Route>
@@ -119,6 +130,8 @@ const AppRoutes: React.FC = () => {
               <Route path="opportunities" element={<OpportunitiesPage />} />
               <Route path="reports" element={<AdminReports />} />
               <Route path="announcements" element={<FacultyDashboard />} />
+              <Route path="profile" element={<StudentProfile />} />
+              <Route path="profile/:id" element={<StudentProfile />} />
               <Route path="settings" element={<StudentSettings />} />
               <Route path="post/:id" element={<PostDetailPage />} />
               <Route path="post-:id" element={<PostDetailPage />} />

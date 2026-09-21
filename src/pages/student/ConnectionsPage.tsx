@@ -165,17 +165,21 @@ export const ConnectionsPage: React.FC = () => {
                   key={conn.id}
                   className="bg-white dark:bg-[#111d15] rounded-2xl border border-gray-200/80 dark:border-[#1e3325] p-4 shadow-card hover:border-emerald-200 dark:hover:border-emerald-800 transition-all flex items-center justify-between gap-4"
                 >
-                  <div className="flex items-center gap-3.5 min-w-0">
+                  <Link
+                    to={`/student/profile/${otherId}`}
+                    className="flex items-center gap-3.5 min-w-0 group/friend hover:opacity-95 transition"
+                    title="View Student Profile"
+                  >
                     <Avatar src={otherUser.photoURL} name={otherUser.displayName} size="md" online={true} />
                     <div className="min-w-0">
-                      <h3 className="font-bold text-sm text-gray-900 dark:text-gray-100 truncate">
+                      <h3 className="font-bold text-sm text-gray-900 dark:text-gray-100 group-hover/friend:text-[#0b4627] dark:group-hover/friend:text-emerald-400 transition-colors truncate">
                         {otherUser.displayName}
                       </h3>
                       <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
                         {otherUser.department} • {otherUser.year || 'Student'}
                       </p>
                     </div>
-                  </div>
+                  </Link>
 
                   <Button
                     variant="outline"
@@ -211,17 +215,21 @@ export const ConnectionsPage: React.FC = () => {
                   key={conn.id}
                   className="bg-white dark:bg-[#111d15] rounded-2xl border border-emerald-100 dark:border-[#1e3325] p-4 shadow-card flex items-center justify-between gap-4"
                 >
-                  <div className="flex items-center gap-3.5 min-w-0">
+                  <Link
+                    to={`/student/profile/${conn.requesterId}`}
+                    className="flex items-center gap-3.5 min-w-0 group/requester hover:opacity-95 transition"
+                    title="View Student Profile"
+                  >
                     <Avatar src={requester.photoURL} name={requester.displayName} size="md" />
                     <div className="min-w-0">
-                      <h3 className="font-bold text-sm text-gray-900 dark:text-gray-100 truncate">
+                      <h3 className="font-bold text-sm text-gray-900 dark:text-gray-100 group-hover/requester:text-[#0b4627] dark:group-hover/requester:text-emerald-400 transition-colors truncate">
                         {requester.displayName}
                       </h3>
                       <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
                         {requester.department} • {requester.year || 'Student'}
                       </p>
                     </div>
-                  </div>
+                  </Link>
 
                   <div className="flex items-center gap-2 shrink-0">
                     <Button
@@ -267,17 +275,21 @@ export const ConnectionsPage: React.FC = () => {
                   key={conn.id}
                   className="bg-white dark:bg-[#111d15] rounded-2xl border border-gray-200/80 dark:border-[#1e3325] p-4 shadow-card flex items-center justify-between gap-4"
                 >
-                  <div className="flex items-center gap-3.5 min-w-0">
+                  <Link
+                    to={`/student/profile/${conn.recipientId}`}
+                    className="flex items-center gap-3.5 min-w-0 group/recipient hover:opacity-95 transition"
+                    title="View Student Profile"
+                  >
                     <Avatar src={recipient.photoURL} name={recipient.displayName} size="md" />
                     <div className="min-w-0">
-                      <h3 className="font-bold text-sm text-gray-900 dark:text-gray-100 truncate">
+                      <h3 className="font-bold text-sm text-gray-900 dark:text-gray-100 group-hover/recipient:text-[#0b4627] dark:group-hover/recipient:text-emerald-400 transition-colors truncate">
                         {recipient.displayName}
                       </h3>
                       <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
                         {recipient.department} • {recipient.year || 'Student'}
                       </p>
                     </div>
-                  </div>
+                  </Link>
 
                   <span className="text-xs font-semibold px-3 py-1.5 bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 rounded-full border border-amber-200/70 dark:border-amber-800/60 flex items-center gap-1.5 shrink-0">
                     <Clock className="w-3.5 h-3.5" />

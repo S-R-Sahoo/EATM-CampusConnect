@@ -137,7 +137,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({ isOpen, on
                     {filteredUsers.map(u => (
                       <div
                         key={u.id}
-                        onClick={() => handleSelect(`/student/discover`)}
+                        onClick={() => handleSelect(`/profile/${u.id}`)}
                         className="flex items-center justify-between p-2.5 rounded-xl hover:bg-emerald-50/60 dark:hover:bg-[#182b20] cursor-pointer transition group"
                       >
                         <div className="flex items-center gap-3">

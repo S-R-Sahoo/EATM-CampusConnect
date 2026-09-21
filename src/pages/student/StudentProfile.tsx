@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { Button } from '../../components/ui/Button';
@@ -6,14 +7,19 @@ import { Modal } from '../../components/ui/Modal';
 import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
 import { uploadFile } from '../../supabase/storage';
-import { fetchPosts, fetchConnections } from '../../supabase/db';
-import { Post } from '../../types';
+import { 
+  fetchPosts, fetchConnections, fetchUserById, 
+  sendConnectionRequest, updateConnectionStatus, getOrCreateConversation 
+} from '../../supabase/db';
+import { Post, UserProfile } from '../../types';
 import { PostCard } from '../../components/posts/PostCard';
+import confetti from 'canvas-confetti';
 import { 
   Edit3, Calendar, Award, Code, CheckCircle, 
   ExternalLink, GraduationCap, Building2, IdCard, 
   Camera, Upload, Image as ImageIcon, Loader2,
-  User, Cpu, Compass, Trophy, BookOpen, Radio
+  User, Cpu, Compass, Trophy, BookOpen, Radio,
+  ArrowLeft, Check, Clock, UserPlus, MessageSquare, X
 } from 'lucide-react';
 import { DEFAULT_ENGINEER_AVATAR } from '../../constants/assets';
 
@@ -68,22 +74,34 @@ const OFFICIAL_COVER_PRESETS = [
 ];
 
 export const StudentProfile: React.FC = () => {
+  const { id } = useParams<{ id?: string }>();
+  const navigate = useNavigate();
   const { user, updateUser } = useAuth();
   const { success, error: toastError } = useToast();
+
+  const isOwnProfile = !id || id === user?.id || id === user?.uid;
+
+  const [viewedUser, setViewedUser] = useState<UserProfile | null>(null);
+  const [loadingProfile, setLoadingProfile] = useState<boolean>(!isOwnProfile);
+  const [connectionInfo, setConnectionInfo] = useState<{
+    status: 'connected' | 'pending_sent' | 'pending_received' | 'none';
+    connectionId?: string;
+  }>({ status: 'none' });
+  const [connecting, setConnecting] = useState(false);
 
   const [editModalOpen, setEditModalOpen] = useState(false);
 
   // Edit form state
-  const [displayName, setDisplayName] = useState(user?.displayName || '');
-  const [department, setDepartment] = useState(user?.department || 'CSE');
-  const [year, setYear] = useState(user?.year || '3rd Year');
-  const [semester, setSemester] = useState(user?.semester || '6th');
-  const [rollNumber, setRollNumber] = useState(user?.rollNumber || 'EATM23CSE001');
-  const [bio, setBio] = useState(user?.bio || '');
-  const [skillsStr, setSkillsStr] = useState(user?.skills?.join(', ') || '');
-  const [interestsStr, setInterestsStr] = useState(user?.interests?.join(', ') || '');
-  const [photoURL, setPhotoURL] = useState(user?.photoURL || '');
-  const [coverURL, setCoverURL] = useState(user?.coverURL || '');
+  const [displayName, setDisplayName] = useState('');
+  const [department, setDepartment] = useState('CSE');
+  const [year, setYear] = useState('3rd Year');
+  const [semester, setSemester] = useState('6th');
+  const [rollNumber, setRollNumber] = useState('EATM23CSE001');
+  const [bio, setBio] = useState('');
+  const [skillsStr, setSkillsStr] = useState('');
+  const [interestsStr, setInterestsStr] = useState('');
+  const [photoURL, setPhotoURL] = useState('');
+  const [coverURL, setCoverURL] = useState('');
   const [saving, setSaving] = useState(false);
 
   // Upload state
@@ -103,11 +121,14 @@ export const StudentProfile: React.FC = () => {
   const [loadingPosts, setLoadingPosts] = useState(true);
   const [liveConnectionsCount, setLiveConnectionsCount] = useState<number | null>(null);
 
-  const loadUserPosts = async () => {
-    if (!user) return;
+  const activeUser = isOwnProfile ? user : viewedUser;
+
+  const loadUserPosts = async (targetUserId?: string) => {
+    const idToFetch = targetUserId || (isOwnProfile ? user?.id : id);
+    if (!idToFetch) return;
     try {
       const allPosts = await fetchPosts();
-      const myPosts = allPosts.filter(p => p.authorId === user.id || (user.uid && p.authorId === user.uid));
+      const myPosts = allPosts.filter(p => p.authorId === idToFetch || (isOwnProfile && user?.uid && p.authorId === user.uid));
       setUserPosts(myPosts);
     } catch (e) {
       console.error('Failed to load user posts:', e);
@@ -117,22 +138,127 @@ export const StudentProfile: React.FC = () => {
   };
 
   useEffect(() => {
-    loadUserPosts();
-    if (user) {
-      fetchConnections(user.id).then(conns => {
-        const accepted = conns.filter(c => c.status === 'accepted').length;
-        setLiveConnectionsCount(accepted);
-      }).catch(() => {});
+    if (isOwnProfile) {
+      setViewedUser(null);
+      setLoadingProfile(false);
+      if (user) {
+        setDisplayName(user.displayName || '');
+        setDepartment(user.department || 'CSE');
+        setYear(user.year || '3rd Year');
+        setSemester(user.semester || '6th');
+        setRollNumber(user.rollNumber || 'EATM23CSE001');
+        setBio(user.bio || '');
+        setSkillsStr(user.skills?.join(', ') || '');
+        setInterestsStr(user.interests?.join(', ') || '');
+        setPhotoURL(user.photoURL || '');
+        setCoverURL(user.coverURL || '');
+        loadUserPosts(user.id);
+        fetchConnections(user.id).then(conns => {
+          const accepted = conns.filter(c => c.status === 'accepted').length;
+          setLiveConnectionsCount(accepted);
+        }).catch(() => {});
+      }
+    } else if (id) {
+      setLoadingProfile(true);
+      fetchUserById(id).then(async (target) => {
+        setViewedUser(target);
+        setLoadingProfile(false);
+        if (target) {
+          loadUserPosts(target.id);
+          if (user) {
+            try {
+              const conns = await fetchConnections(user.id);
+              const conn = conns.find(c => 
+                (c.requesterId === user.id && c.recipientId === target.id) ||
+                (c.requesterId === target.id && c.recipientId === user.id)
+              );
+              if (conn) {
+                if (conn.status === 'accepted') {
+                  setConnectionInfo({ status: 'connected', connectionId: conn.id });
+                } else if (conn.requesterId === user.id) {
+                  setConnectionInfo({ status: 'pending_sent', connectionId: conn.id });
+                } else {
+                  setConnectionInfo({ status: 'pending_received', connectionId: conn.id });
+                }
+              } else {
+                setConnectionInfo({ status: 'none' });
+              }
+
+              const targetConns = await fetchConnections(target.id);
+              setLiveConnectionsCount(targetConns.filter(c => c.status === 'accepted').length);
+            } catch (err) {
+              console.warn('Failed to fetch connections for target user:', err);
+            }
+          }
+        }
+      }).catch(err => {
+        console.error('Error fetching user profile:', err);
+        setLoadingProfile(false);
+      });
     }
-  }, [user?.id, user?.uid]);
+  }, [id, user?.id, isOwnProfile]);
 
-  if (!user) return null;
+  const handleConnect = async () => {
+    if (!user || !activeUser) return;
+    setConnecting(true);
+    try {
+      const newConn = await sendConnectionRequest(user.id, activeUser.id);
+      setConnectionInfo({ status: 'pending_sent', connectionId: newConn.id });
+      confetti({ particleCount: 40, spread: 50, origin: { y: 0.8 } });
+      success(`Connection request sent to ${activeUser.displayName}!`, 'Request Sent');
+    } catch (err) {
+      toastError('Could not send connection request.');
+    } finally {
+      setConnecting(false);
+    }
+  };
 
-  const effectivePhoto = (user.photoURL && !user.photoURL.includes('photo-1534528741775-53994a69daeb'))
-    ? user.photoURL
+  const handleAcceptConnection = async () => {
+    if (!connectionInfo.connectionId) return;
+    setConnecting(true);
+    try {
+      await updateConnectionStatus(connectionInfo.connectionId, 'accepted');
+      setConnectionInfo(prev => ({ ...prev, status: 'connected' }));
+      confetti({ particleCount: 50, spread: 60, origin: { y: 0.7 } });
+      success(`You and ${activeUser?.displayName} are now campus friends 🎉`, 'Friend Connected');
+      setLiveConnectionsCount(prev => (prev ?? 0) + 1);
+    } catch (err) {
+      toastError('Could not accept connection request.');
+    } finally {
+      setConnecting(false);
+    }
+  };
+
+  const handleRejectConnection = async () => {
+    if (!connectionInfo.connectionId) return;
+    setConnecting(true);
+    try {
+      await updateConnectionStatus(connectionInfo.connectionId, 'rejected');
+      setConnectionInfo({ status: 'none' });
+      success('Connection request declined.', 'Request Ignored');
+    } catch (err) {
+      toastError('Could not decline connection request.');
+    } finally {
+      setConnecting(false);
+    }
+  };
+
+  const handleStartDirectChat = async () => {
+    if (!user || !activeUser) return;
+    try {
+      const conv = await getOrCreateConversation(user.id, activeUser.id);
+      navigate('/student/messages', { state: { conversationId: conv.id } });
+    } catch (err) {
+      navigate('/student/messages');
+    }
+  };
+
+  const effectivePhoto = (activeUser?.photoURL && !activeUser.photoURL.includes('photo-1534528741775-53994a69daeb'))
+    ? activeUser.photoURL
     : DEFAULT_ENGINEER_AVATAR;
 
   const handleOpenEdit = () => {
+    if (!user) return;
     setDisplayName(user.displayName || '');
     setDepartment(user.department || 'CSE');
     setYear(user.year || '3rd Year');
@@ -145,9 +271,8 @@ export const StudentProfile: React.FC = () => {
     setCoverURL(user.coverURL || '');
     setEditModalOpen(true);
   };
-
   const handleAvatarUpload = async (file: File, isModal = false) => {
-    if (!file) return;
+    if (!file || !user) return;
     setUploadingPhoto(true);
     setPhotoProgress(0);
     try {
@@ -173,7 +298,7 @@ export const StudentProfile: React.FC = () => {
   };
 
   const handleCoverUpload = async (file: File, isModal = false) => {
-    if (!file) return;
+    if (!file || !user) return;
     setUploadingCover(true);
     setCoverProgress(0);
     try {
@@ -221,14 +346,55 @@ export const StudentProfile: React.FC = () => {
     }
   };
 
+  if (loadingProfile) {
+    return (
+      <div className="max-w-5xl mx-auto p-12 text-center bg-white dark:bg-[#111d15] rounded-3xl border border-gray-200/80 dark:border-[#1e3325] shadow-card space-y-3">
+        <Loader2 className="w-8 h-8 animate-spin mx-auto text-emerald-600 dark:text-emerald-400" />
+        <p className="text-sm font-bold text-gray-900 dark:text-gray-100">Loading Student Profile...</p>
+        <p className="text-xs text-gray-500 dark:text-gray-400">Fetching verified academic credentials and campus records</p>
+      </div>
+    );
+  }
+
+  if (!activeUser) {
+    return (
+      <div className="max-w-xl mx-auto p-12 text-center bg-white dark:bg-[#111d15] rounded-3xl border border-gray-200/80 dark:border-[#1e3325] shadow-card space-y-4">
+        <div className="w-14 h-14 rounded-2xl bg-gray-100 dark:bg-[#16251c] text-gray-500 dark:text-gray-400 flex items-center justify-center mx-auto">
+          <User className="w-7 h-7" />
+        </div>
+        <h2 className="text-lg font-black text-gray-900 dark:text-gray-100">Student Profile Not Found</h2>
+        <p className="text-xs text-gray-500 dark:text-gray-400 max-w-sm mx-auto">
+          The requested profile does not exist or may have been updated.
+        </p>
+        <Button variant="primary" size="sm" onClick={() => navigate('/student/discover')}>
+          Explore Campus Directory
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-5xl mx-auto space-y-6">
+      {/* Top back navigation button when viewing someone else */}
+      {!isOwnProfile && (
+        <div className="flex items-center justify-between pb-1">
+          <button
+            type="button"
+            onClick={() => navigate(-1)}
+            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white dark:bg-[#111d15] border border-gray-200/80 dark:border-[#1e3325] text-xs font-bold text-gray-700 dark:text-gray-200 shadow-xs hover:bg-gray-50 dark:hover:bg-[#16251c] transition active:scale-95"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>Back</span>
+          </button>
+        </div>
+      )}
+
       {/* Profile Cover & Main Identity Card */}
       <div className="bg-white dark:bg-[#111d15] rounded-3xl border border-gray-200/80 dark:border-[#1e3325] shadow-card overflow-hidden transition-colors duration-150">
         {/* Cover Photo Banner */}
         <div className="h-44 sm:h-56 md:h-64 relative bg-emerald-950 overflow-hidden group">
           <img
-            src={user.coverURL || 'https://images.unsplash.com/photo-1562774053-701939374585?w=1600&auto=format&fit=crop&q=80'}
+            src={activeUser.coverURL || 'https://images.unsplash.com/photo-1562774053-701939374585?w=1600&auto=format&fit=crop&q=80'}
             alt="Campus Cover"
             className="w-full h-full object-cover"
           />
@@ -241,58 +407,62 @@ export const StudentProfile: React.FC = () => {
             <span className="sm:hidden">EATM</span>
           </div>
 
-          {/* Quick Change Cover Action Button */}
-          <div className="absolute bottom-3 sm:bottom-4 right-3 sm:right-4 z-10">
-            <input
-              type="file"
-              ref={coverFileRef}
-              onChange={(e) => {
-                if (e.target.files?.[0]) handleCoverUpload(e.target.files[0], false);
-              }}
-              accept="image/*"
-              className="hidden"
-            />
-            <button
-              type="button"
-              onClick={() => coverFileRef.current?.click()}
-              disabled={uploadingCover}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-black/60 hover:bg-black/80 backdrop-blur-md border border-white/20 text-white text-xs font-semibold transition-all shadow-md active:scale-95 disabled:opacity-50"
-            >
-              {uploadingCover ? (
-                <>
-                  <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-400" />
-                  <span>Uploading... {coverProgress}%</span>
-                </>
-              ) : (
-                <>
-                  <Camera className="w-3.5 h-3.5 text-emerald-400" />
-                  <span className="hidden sm:inline">Change Cover</span>
-                  <span className="sm:hidden">Cover</span>
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-
-        {/* Profile Content Section (Completely Below Banner - Zero Overlap) */}
-        <div className="px-5 sm:px-8 pb-6 sm:pb-8 pt-0">
-          {/* Row 1: Floating Avatar & Edit Profile Button */}
-          <div className="flex items-end justify-between -mt-14 sm:-mt-20 mb-4 sm:mb-5">
-            {/* Avatar with Thick Border & Quick Upload Button */}
-            <div className="relative group">
+          {/* Quick Change Cover Action Button (Only for own profile) */}
+          {isOwnProfile && (
+            <div className="absolute bottom-3 sm:bottom-4 right-3 sm:right-4 z-10">
               <input
                 type="file"
-                ref={avatarFileRef}
+                ref={coverFileRef}
                 onChange={(e) => {
-                  if (e.target.files?.[0]) handleAvatarUpload(e.target.files[0], false);
+                  if (e.target.files?.[0]) handleCoverUpload(e.target.files[0], false);
                 }}
                 accept="image/*"
                 className="hidden"
               />
+              <button
+                type="button"
+                onClick={() => coverFileRef.current?.click()}
+                disabled={uploadingCover}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-black/60 hover:bg-black/80 backdrop-blur-md border border-white/20 text-white text-xs font-semibold transition-all shadow-md active:scale-95 disabled:opacity-50"
+              >
+                {uploadingCover ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-400" />
+                    <span>Uploading... {coverProgress}%</span>
+                  </>
+                ) : (
+                  <>
+                    <Camera className="w-3.5 h-3.5 text-emerald-400" />
+                    <span className="hidden sm:inline">Change Cover</span>
+                    <span className="sm:hidden">Cover</span>
+                  </>
+                )}
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Profile Content Section (Completely Below Banner - Zero Overlap) */}
+        <div className="px-5 sm:px-8 pb-6 sm:pb-8 pt-0">
+          {/* Row 1: Floating Avatar & Edit Profile / Connect Button */}
+          <div className="flex items-end justify-between -mt-14 sm:-mt-20 mb-4 sm:mb-5">
+            {/* Avatar with Thick Border & Quick Upload Button */}
+            <div className="relative group">
+              {isOwnProfile && (
+                <input
+                  type="file"
+                  ref={avatarFileRef}
+                  onChange={(e) => {
+                    if (e.target.files?.[0]) handleAvatarUpload(e.target.files[0], false);
+                  }}
+                  accept="image/*"
+                  className="hidden"
+                />
+              )}
               <div className="w-28 h-28 sm:w-36 sm:h-36 rounded-full ring-4 ring-white dark:ring-[#111d15] shadow-xl overflow-hidden bg-white dark:bg-[#16251c] flex items-center justify-center relative">
                 <img
                   src={effectivePhoto}
-                  alt={user.displayName}
+                  alt={activeUser.displayName}
                   className="w-full h-full object-cover"
                 />
                 {uploadingPhoto && (
@@ -303,18 +473,20 @@ export const StudentProfile: React.FC = () => {
                 )}
               </div>
 
-              {/* Direct Camera Action on Avatar */}
-              <button
-                type="button"
-                onClick={() => avatarFileRef.current?.click()}
-                disabled={uploadingPhoto}
-                title="Upload Profile Photo"
-                className="absolute top-1 right-1 p-2 rounded-full bg-emerald-700 hover:bg-emerald-800 text-white shadow-lg border-2 border-white dark:border-[#111d15] transition-all hover:scale-105 active:scale-95 disabled:opacity-50"
-              >
-                <Camera className="w-3.5 h-3.5" />
-              </button>
+              {/* Direct Camera Action on Avatar (Only for own profile) */}
+              {isOwnProfile && (
+                <button
+                  type="button"
+                  onClick={() => avatarFileRef.current?.click()}
+                  disabled={uploadingPhoto}
+                  title="Upload Profile Photo"
+                  className="absolute top-1 right-1 p-2 rounded-full bg-emerald-700 hover:bg-emerald-800 text-white shadow-lg border-2 border-white dark:border-[#111d15] transition-all hover:scale-105 active:scale-95 disabled:opacity-50"
+                >
+                  <Camera className="w-3.5 h-3.5" />
+                </button>
+              )}
 
-              {user.verified && (
+              {activeUser.verified && (
                 <div 
                   className="absolute bottom-1 right-1 p-1 sm:p-1.5 rounded-full bg-white dark:bg-[#111d15] shadow-md border border-gray-100 dark:border-[#1e3325]"
                   title="Official Verified Student"
@@ -326,15 +498,75 @@ export const StudentProfile: React.FC = () => {
 
             {/* Action Buttons */}
             <div className="pb-1 sm:pb-2">
-              <Button
-                variant="crimson"
-                size="sm"
-                onClick={handleOpenEdit}
-                icon={<Edit3 className="w-3.5 h-3.5" />}
-                className="shadow-sm font-bold text-xs sm:text-sm"
-              >
-                Edit Profile
-              </Button>
+              {isOwnProfile ? (
+                <Button
+                  variant="crimson"
+                  size="sm"
+                  onClick={handleOpenEdit}
+                  icon={<Edit3 className="w-3.5 h-3.5" />}
+                  className="shadow-sm font-bold text-xs sm:text-sm"
+                >
+                  Edit Profile
+                </Button>
+              ) : (
+                <div className="flex items-center gap-2">
+                  {connectionInfo.status === 'connected' ? (
+                    <span className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-50 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 border border-emerald-200/90 dark:border-emerald-800/70 shadow-xs">
+                      <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                      <span>Connected</span>
+                    </span>
+                  ) : connectionInfo.status === 'pending_received' ? (
+                    <div className="flex items-center gap-1.5">
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        disabled={connecting}
+                        onClick={handleAcceptConnection}
+                        icon={<Check className="w-3.5 h-3.5" />}
+                        className="shadow-sm font-bold text-xs"
+                      >
+                        Accept
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={connecting}
+                        onClick={handleRejectConnection}
+                        icon={<X className="w-3.5 h-3.5" />}
+                        className="shadow-sm font-bold text-xs"
+                      >
+                        Ignore
+                      </Button>
+                    </div>
+                  ) : connectionInfo.status === 'pending_sent' ? (
+                    <span className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-amber-50 dark:bg-amber-950/70 text-amber-800 dark:text-amber-300 border border-amber-200/90 dark:border-amber-800/70 shadow-xs">
+                      <Clock className="w-3.5 h-3.5" />
+                      <span>Pending</span>
+                    </span>
+                  ) : (
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      disabled={connecting}
+                      onClick={handleConnect}
+                      icon={<UserPlus className="w-3.5 h-3.5" />}
+                      className="shadow-sm font-bold text-xs"
+                    >
+                      Connect
+                    </Button>
+                  )}
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleStartDirectChat}
+                    icon={<MessageSquare className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />}
+                    className="shadow-sm font-bold text-xs"
+                  >
+                    Message
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
 
@@ -343,9 +575,9 @@ export const StudentProfile: React.FC = () => {
             {/* Name and Verified Campus Scholar Badge */}
             <div className="flex flex-wrap items-center gap-2.5">
               <h1 className="text-2xl sm:text-3xl font-black text-gray-900 dark:text-gray-100 tracking-tight leading-tight">
-                {user.displayName}
+                {activeUser.displayName}
               </h1>
-              {user.verified && (
+              {activeUser.verified && (
                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold bg-emerald-50 dark:bg-emerald-950/70 border border-emerald-200/90 dark:border-emerald-800/70 text-[#0b4627] dark:text-emerald-300 shadow-xs">
                   <CheckCircle className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 fill-emerald-100 dark:fill-emerald-950 shrink-0" />
                   <span>Verified Student</span>
@@ -358,19 +590,19 @@ export const StudentProfile: React.FC = () => {
               {/* Branch / Department Badge */}
               <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gray-50 dark:bg-[#16251c] border border-gray-200/80 dark:border-[#1e3325] text-xs font-semibold text-gray-700 dark:text-gray-300 shadow-xs">
                 <GraduationCap className="w-4 h-4 text-[#0b4627] dark:text-emerald-400 shrink-0" />
-                <span>Branch: <strong className="font-extrabold text-[#0b4627] dark:text-emerald-400">{user.department}</strong></span>
+                <span>Branch: <strong className="font-extrabold text-[#0b4627] dark:text-emerald-400">{activeUser.department}</strong></span>
               </div>
 
               {/* Year & Semester Badge */}
               <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gray-50 dark:bg-[#16251c] border border-gray-200/80 dark:border-[#1e3325] text-xs font-semibold text-gray-700 dark:text-gray-300 shadow-xs">
                 <Calendar className="w-4 h-4 text-[#0b4627] dark:text-emerald-400 shrink-0" />
-                <span>Year: <strong className="font-extrabold text-gray-900 dark:text-gray-100">{user.year || '3rd Year'}</strong> {user.semester ? `(${user.semester} Sem)` : ''}</span>
+                <span>Year: <strong className="font-extrabold text-gray-900 dark:text-gray-100">{activeUser.year || '3rd Year'}</strong> {activeUser.semester ? `(${activeUser.semester} Sem)` : ''}</span>
               </div>
 
               {/* Official Roll Number Badge */}
               <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-50/90 dark:bg-red-950/40 border border-red-200/90 dark:border-red-900/60 text-xs font-bold text-[#dc2626] dark:text-red-300 shadow-xs">
                 <IdCard className="w-4 h-4 text-[#dc2626] dark:text-red-400 shrink-0" />
-                <span>Roll No: <strong className="font-black tracking-wide text-[#b91c1c] dark:text-red-300">{user.rollNumber || 'EATM23CSE001'}</strong></span>
+                <span>Roll No: <strong className="font-black tracking-wide text-[#b91c1c] dark:text-red-300">{activeUser.rollNumber || 'EATM23CSE001'}</strong></span>
               </div>
 
               {/* College Badge */}
@@ -385,20 +617,20 @@ export const StudentProfile: React.FC = () => {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 py-4 mt-6 border-y border-gray-100 dark:border-[#1e3325] text-center bg-gray-50/50 dark:bg-[#16251c]/50 rounded-2xl">
             <div>
               <div className="text-xl font-black text-gray-900 dark:text-gray-100">
-                {liveConnectionsCount !== null ? liveConnectionsCount : (user.stats?.connections ?? 0)}
+                {liveConnectionsCount !== null ? liveConnectionsCount : (activeUser.stats?.connections ?? 0)}
               </div>
               <div className="text-xs font-semibold text-gray-500 dark:text-gray-400">Connections</div>
             </div>
             <div>
-              <div className="text-xl font-black text-gray-900 dark:text-gray-100">{userPosts.length > 0 ? userPosts.length : (user.stats?.posts ?? 0)}</div>
+              <div className="text-xl font-black text-gray-900 dark:text-gray-100">{userPosts.length > 0 ? userPosts.length : (activeUser.stats?.posts ?? 0)}</div>
               <div className="text-xs font-semibold text-gray-500 dark:text-gray-400">Posts</div>
             </div>
             <div>
-              <div className="text-xl font-black text-gray-900 dark:text-gray-100">{user.stats?.clubs ?? 0}</div>
+              <div className="text-xl font-black text-gray-900 dark:text-gray-100">{activeUser.stats?.clubs ?? 0}</div>
               <div className="text-xs font-semibold text-gray-500 dark:text-gray-400">Clubs</div>
             </div>
             <div>
-              <div className="text-xl font-black text-gray-900 dark:text-gray-100">{user.stats?.achievements ?? 0}</div>
+              <div className="text-xl font-black text-gray-900 dark:text-gray-100">{activeUser.stats?.achievements ?? 0}</div>
               <div className="text-xs font-semibold text-gray-500 dark:text-gray-400">Achievements</div>
             </div>
           </div>
@@ -416,7 +648,7 @@ export const StudentProfile: React.FC = () => {
               <span>About Me</span>
             </h3>
             <p className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed">
-              {user.bio || 'Passionate about building innovative engineering solutions and exploring new technologies.'}
+              {activeUser.bio || 'Passionate about building innovative engineering solutions and exploring new technologies.'}
             </p>
           </div>
 
@@ -427,8 +659,8 @@ export const StudentProfile: React.FC = () => {
               <span>Skills & Technologies</span>
             </h3>
             <div className="flex flex-wrap gap-1.5">
-              {user.skills && user.skills.length > 0 ? (
-                user.skills.map(skill => (
+              {activeUser.skills && activeUser.skills.length > 0 ? (
+                activeUser.skills.map(skill => (
                   <span
                     key={skill}
                     className="px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/60 text-[#0b4627] dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-800/60"
@@ -449,8 +681,8 @@ export const StudentProfile: React.FC = () => {
               <span>Interests & Hobbies</span>
             </h3>
             <div className="flex flex-wrap gap-1.5">
-              {user.interests && user.interests.length > 0 ? (
-                user.interests.map(int => (
+              {activeUser.interests && activeUser.interests.length > 0 ? (
+                activeUser.interests.map(int => (
                   <span
                     key={int}
                     className="px-3 py-1 rounded-full text-xs font-semibold bg-gray-100 dark:bg-[#16251c] text-gray-700 dark:text-gray-300 border border-gray-200/60 dark:border-[#1e3325]"
@@ -477,8 +709,8 @@ export const StudentProfile: React.FC = () => {
             </div>
 
             <div className="space-y-4">
-              {user.projects && user.projects.length > 0 ? (
-                user.projects.map((proj, idx) => (
+              {activeUser.projects && activeUser.projects.length > 0 ? (
+                activeUser.projects.map((proj, idx) => (
                   <div key={idx} className="p-4 rounded-xl border border-gray-100 dark:border-[#1e3325] bg-gray-50/50 dark:bg-[#16251c]/50 hover:border-emerald-200 dark:hover:border-emerald-800 transition">
                     <div className="flex items-start justify-between">
                       <h4 className="font-bold text-sm text-gray-900 dark:text-gray-100">{proj.title}</h4>
@@ -512,8 +744,8 @@ export const StudentProfile: React.FC = () => {
             </h3>
 
             <div className="space-y-3">
-              {user.achievements && user.achievements.length > 0 ? (
-                user.achievements.map((ach, idx) => (
+              {activeUser.achievements && activeUser.achievements.length > 0 ? (
+                activeUser.achievements.map((ach, idx) => (
                   <div key={idx} className="flex items-start gap-3 p-3.5 rounded-xl border border-gray-100 dark:border-[#1e3325] bg-amber-50/30 dark:bg-amber-950/20">
                     <div className="p-2 rounded-lg bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 shrink-0">
                       <Trophy className="w-4 h-4" />
@@ -533,26 +765,30 @@ export const StudentProfile: React.FC = () => {
             </div>
           </div>
 
-          {/* My Campus Posts */}
+          {/* Campus Posts */}
           <div className="bg-white dark:bg-[#111d15] rounded-2xl border border-gray-200/80 dark:border-[#1e3325] p-6 shadow-card transition-colors duration-150">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-bold text-base text-gray-900 dark:text-gray-100 flex items-center gap-2">
                 <Radio className="w-4 h-4 text-[#0b4627] dark:text-emerald-400" />
-                <span>My Published Posts ({userPosts.length})</span>
+                <span>{isOwnProfile ? 'My Published Posts' : `${activeUser.displayName}'s Posts`} ({userPosts.length})</span>
               </h3>
             </div>
 
             {loadingPosts ? (
-              <p className="text-xs text-gray-400">Loading your posts...</p>
+              <p className="text-xs text-gray-400">Loading posts...</p>
             ) : userPosts.length === 0 ? (
               <div className="text-center py-6 border border-dashed border-gray-200 dark:border-[#1e3325] rounded-xl text-gray-400 dark:text-gray-500">
-                <p className="text-xs font-medium">You haven't published any posts yet.</p>
-                <p className="text-[11px] mt-1 text-gray-400">Share updates, questions, or achievements with peers from the Campus Feed!</p>
+                <p className="text-xs font-medium">
+                  {isOwnProfile ? "You haven't published any posts yet." : "No posts published yet."}
+                </p>
+                {isOwnProfile && (
+                  <p className="text-[11px] mt-1 text-gray-400">Share updates, questions, or achievements with peers from the Campus Feed!</p>
+                )}
               </div>
             ) : (
               <div className="space-y-4">
                 {userPosts.map(p => (
-                  <PostCard key={p.id} post={p} onPostDeleted={loadUserPosts} />
+                  <PostCard key={p.id} post={p} onPostDeleted={() => loadUserPosts(activeUser.id)} />
                 ))}
               </div>
             )}
@@ -560,8 +796,9 @@ export const StudentProfile: React.FC = () => {
         </div>
       </div>
 
-      {/* Edit Profile Modal */}
-      <Modal isOpen={editModalOpen} onClose={() => setEditModalOpen(false)} title="Edit Student Profile">
+      {/* Edit Profile Modal (Only for own profile) */}
+      {isOwnProfile && (
+        <Modal isOpen={editModalOpen} onClose={() => setEditModalOpen(false)} title="Edit Student Profile">
         <form onSubmit={handleSaveProfile} className="space-y-5 max-h-[78vh] overflow-y-auto pr-1">
           {/* Section 1: Academic Identity */}
           <div className="bg-gray-50/70 dark:bg-[#16251c]/60 p-4 rounded-2xl border border-gray-200/70 dark:border-[#1e3325] space-y-3.5">
@@ -786,6 +1023,7 @@ export const StudentProfile: React.FC = () => {
           </div>
         </form>
       </Modal>
+      )}
     </div>
   );
 };
