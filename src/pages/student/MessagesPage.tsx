@@ -9,9 +9,11 @@ import { Conversation, Message, UserProfile } from '../../types';
 import { Avatar } from '../../components/ui/Avatar';
 import { 
   Search, Send, Paperclip, Smile, Phone, Video, 
-  MoreVertical, CheckCheck, Check, Image as ImageIcon, MessageSquare 
+  MoreVertical, CheckCheck, Check, Image as ImageIcon, MessageSquare,
+  ShieldCheck, GraduationCap, Users, Building2, Lock, ArrowRight, Sparkles 
 } from 'lucide-react';
 import { useLocation, useSearchParams, Link } from 'react-router-dom';
+import { EATM_EMBLEM } from '../../constants/assets';
 
 export const MessagesPage: React.FC = () => {
   const { user } = useAuth();
@@ -173,14 +175,18 @@ export const MessagesPage: React.FC = () => {
   const other = getOtherParty();
 
   return (
-    <div className="max-w-6xl mx-auto h-[calc(100vh-140px)] min-h-[550px] bg-white rounded-3xl border border-gray-200/80 shadow-card flex overflow-hidden">
+    <div className="max-w-6xl mx-auto h-[calc(100vh-140px)] min-h-[550px] bg-white dark:bg-[#111d15] rounded-3xl border border-gray-200/80 dark:border-[#1e3325] shadow-card flex overflow-hidden transition-colors">
       {/* Left Column: Conversations List */}
-      <div className="w-full sm:w-80 md:w-96 border-r border-gray-200/80 flex flex-col bg-white shrink-0">
-        <div className="p-4 border-b border-gray-100 space-y-3">
+      <div className="w-full sm:w-80 md:w-96 border-r border-gray-200/80 dark:border-[#1e3325] flex flex-col bg-white dark:bg-[#111d15] shrink-0">
+        <div className="p-4 border-b border-gray-100 dark:border-[#1e3325] space-y-3">
           <div className="flex items-center justify-between">
-            <h2 className="font-extrabold text-lg text-gray-900">Messages</h2>
-            <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200/60">
-              Live Campus Chat
+            <div>
+              <h2 className="font-black text-lg text-gray-900 dark:text-gray-100">Campus Messages</h2>
+              <p className="text-[11px] text-gray-500 dark:text-gray-400 font-medium">EATM Institutional Network</p>
+            </div>
+            <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-[#0b4627] dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 px-2.5 py-1 rounded-full border border-emerald-200/80 dark:border-emerald-800/60 shadow-xs">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              Verified Network
             </span>
           </div>
 
@@ -402,20 +408,90 @@ export const MessagesPage: React.FC = () => {
             </div>
           </>
         ) : (
-          <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-gray-50/50 dark:bg-[#0c1610]">
-            <div className="w-16 h-16 rounded-3xl bg-emerald-50 dark:bg-emerald-950/60 text-[#0b4627] dark:text-emerald-400 flex items-center justify-center mb-4 shadow-sm border border-emerald-100 dark:border-[#1e3325]">
-              <MessageSquare className="w-8 h-8" />
+          <div className="flex-1 flex flex-col items-center justify-center p-6 sm:p-10 text-center bg-gradient-to-b from-gray-50/60 via-white to-gray-50/40 dark:from-[#0d1712] dark:via-[#0a120e] dark:to-[#080e0a] overflow-y-auto">
+            <div className="max-w-md w-full space-y-6 flex flex-col items-center py-4">
+              {/* Official EATM Crest & Verified Shield Badge */}
+              <div className="relative group">
+                <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-3xl bg-white dark:bg-[#16251c] p-3 shadow-xl border border-emerald-100/90 dark:border-emerald-900/60 flex items-center justify-center ring-4 ring-emerald-500/10 dark:ring-emerald-500/5 transition-transform group-hover:scale-105">
+                  <img
+                    src={EATM_EMBLEM}
+                    alt="EATM Institutional Crest"
+                    className="w-full h-full object-contain drop-shadow-sm"
+                  />
+                </div>
+                <div 
+                  className="absolute -bottom-2 -right-2 p-1.5 rounded-full bg-[#0b4627] text-white shadow-md border-2 border-white dark:border-[#0a120e] flex items-center justify-center" 
+                  title="Verified Official Campus Network"
+                >
+                  <ShieldCheck className="w-4 h-4 text-emerald-300" />
+                </div>
+              </div>
+
+              {/* Institutional Title & Accreditation */}
+              <div className="space-y-2">
+                <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/70 border border-emerald-200/80 dark:border-emerald-800/70 text-[#0b4627] dark:text-emerald-300 text-[11px] font-extrabold uppercase tracking-wider shadow-xs">
+                  <Building2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                  <span>Einstein Academy of Technology & Management</span>
+                </div>
+                <h3 className="font-black text-xl sm:text-2xl text-gray-900 dark:text-gray-100 tracking-tight">
+                  Campus Communication Network
+                </h3>
+                <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 leading-relaxed max-w-sm mx-auto">
+                  Official real-time messaging portal for registered scholars, faculty members, and student societies.
+                </p>
+              </div>
+
+              {/* Institutional Guidelines & Security Protocols */}
+              <div className="w-full bg-white dark:bg-[#111d15] rounded-2xl border border-gray-200/80 dark:border-[#1e3325] p-4 text-left shadow-card space-y-3">
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-950/70 text-[#0b4627] dark:text-emerald-400 flex items-center justify-center shrink-0 mt-0.5 border border-emerald-100 dark:border-emerald-900/60">
+                    <GraduationCap className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-gray-900 dark:text-gray-100">Academic & Project Collaboration</h4>
+                    <p className="text-[11px] text-gray-500 dark:text-gray-400 leading-snug mt-0.5">
+                      Direct messaging between branch mates, project teammates, and mentors across departments.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3 pt-2.5 border-t border-gray-100 dark:border-[#1e3325]">
+                  <div className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-950/70 text-[#0b4627] dark:text-emerald-400 flex items-center justify-center shrink-0 mt-0.5 border border-emerald-100 dark:border-emerald-900/60">
+                    <Lock className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-gray-900 dark:text-gray-100">Encrypted Institutional Channel</h4>
+                    <p className="text-[11px] text-gray-500 dark:text-gray-400 leading-snug mt-0.5">
+                      Messages, study notes, and research materials are securely synchronized in real time.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Official Primary Actions */}
+              <div className="flex flex-col sm:flex-row items-center gap-2.5 w-full pt-1">
+                <Link
+                  to="/student/discover"
+                  className="w-full sm:flex-1 py-2.5 px-4 rounded-xl text-xs font-bold bg-[#0b4627] hover:bg-[#0f5132] text-white shadow-md flex items-center justify-center gap-2 transition active:scale-95"
+                >
+                  <Users className="w-4 h-4" />
+                  <span>Browse Student Directory</span>
+                </Link>
+                <Link
+                  to="/student/connections"
+                  className="w-full sm:flex-1 py-2.5 px-4 rounded-xl text-xs font-bold bg-gray-50 dark:bg-[#16251c] hover:bg-gray-100 dark:hover:bg-[#1e3325] text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-[#1e3325] flex items-center justify-center gap-2 transition active:scale-95"
+                >
+                  <span>View Campus Friends</span>
+                  <ArrowRight className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400" />
+                </Link>
+              </div>
+
+              {/* Institutional Footer Seal */}
+              <div className="pt-2 flex items-center justify-center gap-1.5 text-[10px] text-gray-400 dark:text-gray-500 font-medium">
+                <ShieldCheck className="w-3 h-3 text-emerald-600 dark:text-emerald-500" />
+                <span>EATM Digital Campus • BPUT Odisha Affiliated Institution</span>
+              </div>
             </div>
-            <h3 className="font-extrabold text-base text-gray-900 dark:text-gray-100">Campus Real-Time Chat</h3>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1.5 max-w-sm leading-relaxed">
-              Select a conversation from the sidebar, or discover campus peers to connect and chat directly.
-            </p>
-            <Link
-              to="/student/discover"
-              className="mt-5 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold bg-[#0b4627] hover:bg-[#0f5132] text-white shadow-sm transition active:scale-95"
-            >
-              Discover Campus Students
-            </Link>
           </div>
         )}
       </div>
