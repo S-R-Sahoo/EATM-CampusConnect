@@ -2,21 +2,25 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { 
-  fetchConversations, fetchMessages, sendChatMessage, fetchUsers, subscribeToMessages 
+  fetchConversations, fetchMessages, sendChatMessage, fetchUsers, 
+  subscribeToMessages, getOrCreateConversation 
 } from '../../supabase/db';
 import { Conversation, Message, UserProfile } from '../../types';
 import { Avatar } from '../../components/ui/Avatar';
 import { 
   Search, Send, Paperclip, Smile, Phone, Video, 
-  MoreVertical, CheckCheck, Check, Image as ImageIcon 
+  MoreVertical, CheckCheck, Check, Image as ImageIcon, MessageSquare 
 } from 'lucide-react';
+import { useLocation, useSearchParams, Link } from 'react-router-dom';
 
 export const MessagesPage: React.FC = () => {
   const { user } = useAuth();
   const { error } = useToast();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
 
   const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [activeConvId, setActiveConvId] = useState<string>('conv_soumya_priya');
+  const [activeConvId, setActiveConvId] = useState<string>('');
   const [messages, setMessages] = useState<Message[]>([]);
   const [textInput, setTextInput] = useState('');
   const [activeTab, setActiveTab] = useState<'chats' | 'groups'>('chats');
@@ -27,15 +31,42 @@ export const MessagesPage: React.FC = () => {
   const emojis = ['👍', '❤️', '🔥', '🚀', '🎉', '😊', '🙌', '💯', '👏', '📚'];
 
   useEffect(() => {
-    if (user) {
-      fetchConversations(user.id).then(convs => {
+    if (!user) return;
+
+    let isMounted = true;
+    const initConvs = async () => {
+      try {
+        const convs = await fetchConversations(user.id);
+        if (!isMounted) return;
         setConversations(convs);
-        if (convs.length > 0 && !activeConvId) {
-          setActiveConvId(convs[0].id);
+
+        const targetConvId = (location.state as any)?.conversationId || searchParams.get('conversationId');
+        const targetUserId = searchParams.get('userId');
+
+        if (targetConvId) {
+          setActiveConvId(targetConvId);
+        } else if (targetUserId) {
+          const conv = await getOrCreateConversation(user.id, targetUserId);
+          if (isMounted) {
+            setConversations(prev => {
+              if (prev.some(c => c.id === conv.id)) return prev;
+              return [conv, ...prev];
+            });
+            setActiveConvId(conv.id);
+          }
+        } else if (convs.length > 0) {
+          setActiveConvId(prev => prev || convs[0].id);
         }
-      });
-    }
-  }, [user]);
+      } catch (err) {
+        console.warn('Failed to initialize conversations:', err);
+      }
+    };
+
+    initConvs();
+    return () => {
+      isMounted = false;
+    };
+  }, [user, location.state, searchParams]);
 
   useEffect(() => {
     if (activeConvId) {
@@ -371,8 +402,20 @@ export const MessagesPage: React.FC = () => {
             </div>
           </>
         ) : (
-          <div className="flex-1 flex items-center justify-center text-gray-400 text-sm">
-            Select a conversation to start chatting
+          <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-gray-50/50 dark:bg-[#0c1610]">
+            <div className="w-16 h-16 rounded-3xl bg-emerald-50 dark:bg-emerald-950/60 text-[#0b4627] dark:text-emerald-400 flex items-center justify-center mb-4 shadow-sm border border-emerald-100 dark:border-[#1e3325]">
+              <MessageSquare className="w-8 h-8" />
+            </div>
+            <h3 className="font-extrabold text-base text-gray-900 dark:text-gray-100">Campus Real-Time Chat</h3>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1.5 max-w-sm leading-relaxed">
+              Select a conversation from the sidebar, or discover campus peers to connect and chat directly.
+            </p>
+            <Link
+              to="/student/discover"
+              className="mt-5 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold bg-[#0b4627] hover:bg-[#0f5132] text-white shadow-sm transition active:scale-95"
+            >
+              Discover Campus Students
+            </Link>
           </div>
         )}
       </div>

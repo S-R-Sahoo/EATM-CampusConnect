@@ -324,76 +324,168 @@ export async function updateUserProfile(userId: string, data: Partial<UserProfil
 // CONNECTIONS
 // ---------------------------------------------
 export async function fetchConnections(userId: string): Promise<Connection[]> {
-  const connections = getLocalData<Connection[]>('connections', [
-    {
-      id: 'conn_1',
-      requesterId: 'user_priya',
-      recipientId: 'user_soumya',
-      status: 'accepted',
-      createdAt: '2025-01-10T10:00:00Z',
-      updatedAt: '2025-01-10T11:00:00Z'
-    },
-    {
-      id: 'conn_2',
-      requesterId: 'user_rohit',
-      recipientId: 'user_soumya',
-      status: 'pending',
-      createdAt: '2025-02-20T07:15:00Z',
-      updatedAt: '2025-02-20T07:15:00Z'
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('connections')
+        .select('*')
+        .or(`requesterId.eq.${userId},recipientId.eq.${userId}`);
+
+      if (!error && data) {
+        // Update local cache
+        const currentLocal = getLocalData<Connection[]>('connections', []);
+        const nonUserConns = currentLocal.filter(c => c.requesterId !== userId && c.recipientId !== userId);
+        setLocalData('connections', [...nonUserConns, ...(data as Connection[])]);
+        return data as Connection[];
+      }
+    } catch (err) {
+      console.warn('Supabase fetchConnections error, fallback to local:', err);
     }
-  ]);
+  }
+
+  const connections = getLocalData<Connection[]>('connections', []);
   return connections.filter(c => c.requesterId === userId || c.recipientId === userId);
 }
 
 export async function sendConnectionRequest(requesterId: string, recipientId: string): Promise<Connection> {
-  const connections = getLocalData<Connection[]>('connections', []);
-  const existing = connections.find(c => 
-    (c.requesterId === requesterId && c.recipientId === recipientId) ||
-    (c.requesterId === recipientId && c.recipientId === requesterId)
-  );
-
-  if (existing) return existing;
-
+  const now = new Date().toISOString();
   const newConn: Connection = {
-    id: 'conn_' + Date.now(),
+    id: 'conn_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
     requesterId,
     recipientId,
     status: 'pending',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
+    createdAt: now,
+    updatedAt: now
   };
 
-  setLocalData('connections', [...connections, newConn]);
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      // Check if a connection already exists in either direction
+      const { data: existing, error: findError } = await supabase
+        .from('connections')
+        .select('*')
+        .or(`and(requesterId.eq.${requesterId},recipientId.eq.${recipientId}),and(requesterId.eq.${recipientId},recipientId.eq.${requesterId})`)
+        .limit(1);
 
-  await createNotification({
-    recipientId,
-    senderId: requesterId,
-    type: 'connection_request',
-    title: 'New Connection Request',
-    message: 'Someone sent you a connection request!',
-    link: '/student/connections'
-  });
+      if (!findError && existing && existing.length > 0) {
+        return existing[0] as Connection;
+      }
+
+      const { data, error } = await supabase
+        .from('connections')
+        .insert([newConn])
+        .select()
+        .single();
+
+      if (!error && data) {
+        newConn.id = data.id;
+      }
+    } catch (err) {
+      console.warn('Supabase sendConnectionRequest error:', err);
+    }
+  }
+
+  // Update local cache
+  const localConns = getLocalData<Connection[]>('connections', []);
+  setLocalData('connections', [...localConns.filter(c => c.id !== newConn.id), newConn]);
+
+  // Notify recipient with requester's real profile name & avatar
+  try {
+    const requester = await fetchUserById(requesterId);
+    await createNotification({
+      recipientId,
+      senderId: requesterId,
+      senderName: requester?.displayName || 'Campus Student',
+      senderAvatar: requester?.photoURL,
+      type: 'connection_request',
+      title: 'New Connection Request',
+      message: `${requester?.displayName || 'A student'} sent you a connection request!`,
+      link: '/student/connections'
+    });
+  } catch (notifErr) {
+    console.warn('Error sending connection request notification:', notifErr);
+  }
 
   return newConn;
 }
 
 export async function updateConnectionStatus(connectionId: string, status: 'accepted' | 'rejected'): Promise<void> {
-  const connections = getLocalData<Connection[]>('connections', []);
-  const conn = connections.find(c => c.id === connectionId);
-  if (conn) {
-    conn.status = status;
-    conn.updatedAt = new Date().toISOString();
-    setLocalData('connections', [...connections]);
+  const now = new Date().toISOString();
+  let conn: Connection | null = null;
 
-    if (status === 'accepted') {
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      const { data: existing } = await supabase
+        .from('connections')
+        .select('*')
+        .eq('id', connectionId)
+        .single();
+
+      if (existing) {
+        conn = existing as Connection;
+      }
+
+      await supabase
+        .from('connections')
+        .update({ status, updatedAt: now })
+        .eq('id', connectionId);
+    } catch (err) {
+      console.warn('Supabase updateConnectionStatus error:', err);
+    }
+  }
+
+  // Update local cache
+  const connections = getLocalData<Connection[]>('connections', []);
+  const localConn = connections.find(c => c.id === connectionId);
+  if (localConn) {
+    localConn.status = status;
+    localConn.updatedAt = now;
+    setLocalData('connections', [...connections]);
+    if (!conn) conn = localConn;
+  }
+
+  // If accepted, become official friends:
+  // 1. Sync connection counters for both users in users table
+  // 2. Automatically create / link a 1-on-1 Conversation
+  // 3. Send congratulatory notification to the requester
+  if (conn && status === 'accepted') {
+    try {
+      const [u1, u2] = await Promise.all([
+        fetchUserById(conn.requesterId),
+        fetchUserById(conn.recipientId)
+      ]);
+
+      if (u1) {
+        const curCount = u1.stats?.connections || 0;
+        await updateUserProfile(u1.id, {
+          stats: { ...(u1.stats || { posts: 0, clubs: 0, achievements: 0 }), connections: curCount + 1 }
+        });
+      }
+
+      if (u2) {
+        const curCount = u2.stats?.connections || 0;
+        await updateUserProfile(u2.id, {
+          stats: { ...(u2.stats || { posts: 0, clubs: 0, achievements: 0 }), connections: curCount + 1 }
+        });
+      }
+
+      // Automatically create or link the 1-on-1 Conversation
+      await getOrCreateConversation(conn.requesterId, conn.recipientId);
+
+      // Send accepted notification to requester
+      const recipientUser = u2 || await fetchUserById(conn.recipientId);
       await createNotification({
         recipientId: conn.requesterId,
         senderId: conn.recipientId,
+        senderName: recipientUser?.displayName,
+        senderAvatar: recipientUser?.photoURL,
         type: 'connection_accepted',
-        title: 'Connection Accepted',
-        message: 'Your connection request was accepted!',
-        link: '/student/connections'
+        title: 'Connection Accepted! 🎉',
+        message: `${recipientUser?.displayName || 'Your peer'} accepted your connection request. You are now campus friends!`,
+        link: '/student/messages'
       });
+    } catch (postAcceptErr) {
+      console.warn('Error during post-accept friend linking:', postAcceptErr);
     }
   }
 }
@@ -401,7 +493,128 @@ export async function updateConnectionStatus(connectionId: string, status: 'acce
 // ---------------------------------------------
 // CHAT & CONVERSATIONS
 // ---------------------------------------------
+export async function getOrCreateConversation(user1Id: string, user2Id: string): Promise<Conversation> {
+  // Check Supabase first
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('conversations')
+        .select('*')
+        .contains('participants', [user1Id, user2Id]);
+
+      if (!error && data && data.length > 0) {
+        const directConv = data.find(c => !c.isGroup && c.participants.length === 2) || data[0];
+        if (directConv) {
+          const [u1, u2] = await Promise.all([fetchUserById(user1Id), fetchUserById(user2Id)]);
+          return {
+            ...directConv,
+            participantDetails: {
+              ...(directConv.participantDetails || {}),
+              [user1Id]: {
+                name: u1?.displayName || 'Student',
+                avatar: u1?.photoURL,
+                role: u1?.role || 'student',
+                online: true
+              },
+              [user2Id]: {
+                name: u2?.displayName || 'Student',
+                avatar: u2?.photoURL,
+                role: u2?.role || 'student',
+                online: true
+              }
+            }
+          };
+        }
+      }
+    } catch (err) {
+      console.warn('Supabase getOrCreateConversation search error:', err);
+    }
+  }
+
+  // Check local cache
+  const localConvs = getLocalData<Conversation[]>('conversations', SEED_CONVERSATIONS);
+  const existingLocal = localConvs.find(c => !c.isGroup && c.participants.includes(user1Id) && c.participants.includes(user2Id));
+  if (existingLocal) {
+    return existingLocal;
+  }
+
+  // Create new conversation
+  const [u1, u2] = await Promise.all([fetchUserById(user1Id), fetchUserById(user2Id)]);
+  const convId = `conv_${user1Id.replace(/[^a-zA-Z0-9]/g, '').slice(0, 10)}_${user2Id.replace(/[^a-zA-Z0-9]/g, '').slice(0, 10)}_${Date.now()}`;
+  const now = new Date().toISOString();
+
+  const newConv: Conversation = {
+    id: convId,
+    isGroup: false,
+    participants: [user1Id, user2Id],
+    participantDetails: {
+      [user1Id]: {
+        name: u1?.displayName || 'Student',
+        avatar: u1?.photoURL,
+        role: u1?.role || 'student',
+        online: true
+      },
+      [user2Id]: {
+        name: u2?.displayName || 'Student',
+        avatar: u2?.photoURL,
+        role: u2?.role || 'student',
+        online: true
+      }
+    },
+    lastMessage: {
+      text: 'Connected on CampusConnect! Say hello 👋',
+      senderId: 'system',
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      read: true
+    },
+    unreadCount: {
+      [user1Id]: 0,
+      [user2Id]: 0
+    },
+    updatedAt: now
+  };
+
+  // Cache locally
+  setLocalData('conversations', [newConv, ...localConvs]);
+
+  // Persist to Supabase
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      await supabase.from('conversations').upsert([{
+        id: newConv.id,
+        participants: newConv.participants,
+        lastMessage: newConv.lastMessage,
+        updatedAt: newConv.updatedAt
+      }]);
+
+      const welcomeMsg: Message = {
+        id: 'msg_' + Date.now(),
+        conversationId: newConv.id,
+        senderId: 'system',
+        senderName: 'CampusConnect',
+        text: '🎉 You are now connected! You can exchange messages, study notes, and campus projects.',
+        createdAt: now,
+        read: true
+      };
+
+      await supabase.from('messages').insert([{
+        id: welcomeMsg.id,
+        conversationId: welcomeMsg.conversationId,
+        senderId: welcomeMsg.senderId,
+        text: welcomeMsg.text,
+        createdAt: welcomeMsg.createdAt,
+        read: true
+      }]);
+    } catch (err) {
+      console.warn('Supabase create conversation error:', err);
+    }
+  }
+
+  return newConv;
+}
+
 export async function fetchConversations(userId: string): Promise<Conversation[]> {
+  let list: Conversation[] = [];
   if (isSupabaseConfigured() && supabase) {
     try {
       const { data, error } = await supabase
@@ -411,14 +624,41 @@ export async function fetchConversations(userId: string): Promise<Conversation[]
         .order('updatedAt', { ascending: false });
 
       if (!error && data && data.length > 0) {
-        return data as Conversation[];
+        list = data as Conversation[];
       }
     } catch (err) {
       console.warn('Supabase fetchConversations error:', err);
     }
   }
-  const convs = getLocalData<Conversation[]>('conversations', SEED_CONVERSATIONS);
-  return convs.filter(c => c.participants.includes(userId));
+
+  if (list.length === 0) {
+    const localConvs = getLocalData<Conversation[]>('conversations', SEED_CONVERSATIONS);
+    list = localConvs.filter(c => c.participants.includes(userId));
+  }
+
+  // Enrich participantDetails from live user directory
+  const allUsers = await fetchUsers();
+  const userMap = new Map(allUsers.map(u => [u.id, u]));
+
+  return list.map(conv => {
+    const details = { ...(conv.participantDetails || {}) };
+    conv.participants.forEach(pId => {
+      const u = userMap.get(pId);
+      if (u) {
+        details[pId] = {
+          ...(details[pId] || {}),
+          name: details[pId]?.name || u.displayName,
+          avatar: details[pId]?.avatar || u.photoURL,
+          role: details[pId]?.role || u.role,
+          online: true
+        };
+      }
+    });
+    return {
+      ...conv,
+      participantDetails: details
+    };
+  });
 }
 
 export async function fetchMessages(conversationId: string): Promise<Message[]> {
@@ -431,12 +671,24 @@ export async function fetchMessages(conversationId: string): Promise<Message[]> 
         .order('createdAt', { ascending: true });
 
       if (!error && data && data.length > 0) {
-        return data as Message[];
+        // Enrich senderName and senderAvatar from users directory
+        const allUsers = await fetchUsers();
+        const userMap = new Map(allUsers.map(u => [u.id, u]));
+
+        return (data as Message[]).map(m => {
+          const u = userMap.get(m.senderId);
+          return {
+            ...m,
+            senderName: m.senderName || u?.displayName || (m.senderId === 'system' ? 'CampusConnect' : 'Student'),
+            senderAvatar: m.senderAvatar || u?.photoURL
+          };
+        });
       }
     } catch (err) {
       console.warn('Supabase fetchMessages error:', err);
     }
   }
+
   const msgs = getLocalData<Message[]>('messages', SEED_MESSAGES);
   return msgs.filter(m => m.conversationId === conversationId);
 }
@@ -469,7 +721,18 @@ export async function sendChatMessage(msg: Omit<Message, 'id' | 'createdAt' | 'r
 
   if (isSupabaseConfigured() && supabase) {
     try {
-      await supabase.from('messages').insert([newMsg]);
+      await supabase.from('messages').insert([{
+        id: newMsg.id,
+        conversationId: newMsg.conversationId,
+        senderId: newMsg.senderId,
+        senderName: newMsg.senderName,
+        senderAvatar: newMsg.senderAvatar,
+        text: newMsg.text,
+        mediaUrl: newMsg.mediaUrl || null,
+        read: newMsg.read,
+        createdAt: newMsg.createdAt
+      }]);
+
       await supabase.from('conversations').update({
         lastMessage: lastMessagePayload,
         updatedAt: new Date().toISOString()
@@ -586,6 +849,72 @@ export function subscribeToMessages(
       (payload) => {
         if (payload.new && (payload.new as Message).conversationId === conversationId) {
           onInsert(payload.new as Message);
+        }
+      }
+    )
+    .subscribe();
+
+  return () => {
+    if (client) client.removeChannel(channel);
+  };
+}
+
+/**
+ * Subscribes to live connection changes for a user.
+ * Returns an unsubscribe cleanup function.
+ */
+export function subscribeToConnections(
+  userId: string,
+  onChange: () => void
+): () => void {
+  if (!isSupabaseConfigured() || !supabase) {
+    return () => {};
+  }
+
+  const client = supabase;
+  const channelName = `realtime-connections-${userId}-${Date.now()}`;
+  const channel = client
+    .channel(channelName)
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'connections' },
+      (payload) => {
+        const row = (payload.new || payload.old) as any;
+        if (row && (row.requesterId === userId || row.recipientId === userId)) {
+          onChange();
+        }
+      }
+    )
+    .subscribe();
+
+  return () => {
+    if (client) client.removeChannel(channel);
+  };
+}
+
+/**
+ * Subscribes to live in-app notifications for a user.
+ * Returns an unsubscribe cleanup function.
+ */
+export function subscribeToNotifications(
+  userId: string,
+  onChange: () => void
+): () => void {
+  if (!isSupabaseConfigured() || !supabase) {
+    return () => {};
+  }
+
+  const client = supabase;
+  const channelName = `realtime-notifications-${userId}-${Date.now()}`;
+  const channel = client
+    .channel(channelName)
+    .on(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'notifications' },
+      (payload) => {
+        const row = payload.new as any;
+        if (row && row.recipientId === userId) {
+          onChange();
         }
       }
     )
@@ -753,6 +1082,22 @@ export async function createAnnouncement(data: Omit<Announcement, 'id' | 'create
 // NOTIFICATIONS
 // ---------------------------------------------
 export async function fetchNotifications(userId: string): Promise<NotificationItem[]> {
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('recipientId', userId)
+        .order('createdAt', { ascending: false });
+
+      if (!error && data) {
+        return data as NotificationItem[];
+      }
+    } catch (err) {
+      console.warn('Supabase fetchNotifications error:', err);
+    }
+  }
+
   const list = getLocalData<NotificationItem[]>('notifications', SEED_NOTIFICATIONS);
   return list.filter(n => n.recipientId === userId);
 }
@@ -760,16 +1105,33 @@ export async function fetchNotifications(userId: string): Promise<NotificationIt
 export async function createNotification(notif: Omit<NotificationItem, 'id' | 'read' | 'createdAt'>): Promise<NotificationItem> {
   const newNotif: NotificationItem = {
     ...notif,
-    id: 'notif_' + Date.now(),
+    id: 'notif_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
     read: false,
     createdAt: new Date().toISOString()
   };
+
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      await supabase.from('notifications').insert([newNotif]);
+    } catch (err) {
+      console.warn('Supabase createNotification error:', err);
+    }
+  }
+
   const list = getLocalData<NotificationItem[]>('notifications', SEED_NOTIFICATIONS);
   setLocalData('notifications', [newNotif, ...list]);
   return newNotif;
 }
 
 export async function markNotificationAsRead(notifId: string): Promise<void> {
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      await supabase.from('notifications').update({ read: true }).eq('id', notifId);
+    } catch (err) {
+      console.warn('Supabase markNotificationAsRead error:', err);
+    }
+  }
+
   const list = getLocalData<NotificationItem[]>('notifications', SEED_NOTIFICATIONS);
   const target = list.find(n => n.id === notifId);
   if (target) {
@@ -779,6 +1141,14 @@ export async function markNotificationAsRead(notifId: string): Promise<void> {
 }
 
 export async function markAllNotificationsAsRead(userId: string): Promise<void> {
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      await supabase.from('notifications').update({ read: true }).eq('recipientId', userId);
+    } catch (err) {
+      console.warn('Supabase markAllNotificationsAsRead error:', err);
+    }
+  }
+
   const list = getLocalData<NotificationItem[]>('notifications', SEED_NOTIFICATIONS);
   list.forEach(n => {
     if (n.recipientId === userId) n.read = true;

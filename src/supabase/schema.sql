@@ -200,19 +200,37 @@ create table if not exists public.connections (
 create table if not exists public.conversations (
   id text primary key,
   participants text[] not null,
+  "isGroup" boolean default false,
+  "groupName" text,
+  "groupAvatar" text,
+  "participantDetails" jsonb default '{}',
+  "unreadCount" jsonb default '{}',
   "lastMessage" jsonb,
   "updatedAt" timestamptz default now()
 );
+
+-- Ensure existing installations have all columns
+alter table public.conversations add column if not exists "isGroup" boolean default false;
+alter table public.conversations add column if not exists "groupName" text;
+alter table public.conversations add column if not exists "groupAvatar" text;
+alter table public.conversations add column if not exists "participantDetails" jsonb default '{}';
+alter table public.conversations add column if not exists "unreadCount" jsonb default '{}';
 
 create table if not exists public.messages (
   id text primary key,
   "conversationId" text not null references public.conversations(id) on delete cascade,
   "senderId" text not null,
+  "senderName" text,
+  "senderAvatar" text,
   text text,
   "mediaUrl" text,
   read boolean default false,
   "createdAt" timestamptz default now()
 );
+
+-- Ensure existing messages installations have sender metadata columns
+alter table public.messages add column if not exists "senderName" text;
+alter table public.messages add column if not exists "senderAvatar" text;
 
 -- 13. Reports Table
 create table if not exists public.reports (
@@ -278,7 +296,7 @@ create policy "Allow all operations on assignments" on public.assignments for al
 
 -- ==========================================================
 -- 14. Enable Supabase Realtime (100% Free Tier)
--- Allows live WebSocket streaming for Posts, Comments, and Messages
+-- Allows live WebSocket streaming for Posts, Comments, Messages, Connections, Notifications
 -- ==========================================================
 do $$
 begin
@@ -293,6 +311,12 @@ begin
   end if;
   if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'conversations') then
     alter publication supabase_realtime add table public.conversations;
+  end if;
+  if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'connections') then
+    alter publication supabase_realtime add table public.connections;
+  end if;
+  if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'notifications') then
+    alter publication supabase_realtime add table public.notifications;
   end if;
 end $$;
 

@@ -16,6 +16,7 @@ interface AuthContextType {
   logout: () => Promise<void>;
   switchDemoPersona: (role: UserRole) => Promise<void>;
   updateUser: (data: Partial<UserProfile>) => Promise<void>;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -213,6 +214,20 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     localStorage.setItem('eatm_current_user', JSON.stringify(updated));
   };
 
+  const refreshUser = async () => {
+    if (!user) return;
+    try {
+      const users = await fetchUsers();
+      const fresh = users.find(u => u.id === user.id || u.uid === user.id);
+      if (fresh) {
+        setUser(fresh);
+        localStorage.setItem('eatm_current_user', JSON.stringify(fresh));
+      }
+    } catch (err) {
+      console.warn('Error refreshing user profile:', err);
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -225,7 +240,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         loginWithGithub,
         logout,
         switchDemoPersona,
-        updateUser
+        updateUser,
+        refreshUser
       }}
     >
       {children}

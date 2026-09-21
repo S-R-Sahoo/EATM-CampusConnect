@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { fetchPosts, subscribeToPosts } from '../../supabase/db';
+import { fetchPosts, subscribeToPosts, fetchConnections } from '../../supabase/db';
 import { Post } from '../../types';
 import { CreatePostCard } from '../../components/posts/CreatePostCard';
 import { PostCard } from '../../components/posts/PostCard';
@@ -12,11 +12,20 @@ import { Link } from 'react-router-dom';
 export const StudentDashboard: React.FC = () => {
   const { user } = useAuth();
   const [posts, setPosts] = useState<Post[]>([]);
+  const [friendIds, setFriendIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
 
   const loadFeed = async () => {
     try {
-      const data = await fetchPosts();
+      const [data, conns] = await Promise.all([
+        fetchPosts(),
+        user ? fetchConnections(user.id) : Promise.resolve([])
+      ]);
+      const accepted = new Set<string>();
+      conns.filter(c => c.status === 'accepted').forEach(c => {
+        accepted.add(c.requesterId === user?.id ? c.recipientId : c.requesterId);
+      });
+      setFriendIds(accepted);
       setPosts(data);
     } finally {
       setLoading(false);
@@ -137,16 +146,28 @@ export const StudentDashboard: React.FC = () => {
               <PostCardSkeleton />
               <PostCardSkeleton />
             </>
-          ) : posts.length === 0 ? (
-            <div className="bg-white dark:bg-[#111d15] rounded-2xl p-12 text-center border border-gray-200 dark:border-[#1e3325] text-gray-500 dark:text-gray-400">
-              <p className="font-semibold text-base">No posts yet in the campus feed.</p>
-              <p className="text-xs mt-1">Be the first to share an achievement, question, or note!</p>
-            </div>
-          ) : (
-            posts.map(post => (
+          ) : (() => {
+            const visiblePosts = posts.filter(post => {
+              if (!post.visibility || post.visibility === 'campus') return true;
+              if (post.visibility === 'connections') {
+                return post.authorId === user?.id || friendIds.has(post.authorId);
+              }
+              return true;
+            });
+
+            if (visiblePosts.length === 0) {
+              return (
+                <div className="bg-white dark:bg-[#111d15] rounded-2xl p-12 text-center border border-gray-200 dark:border-[#1e3325] text-gray-500 dark:text-gray-400">
+                  <p className="font-semibold text-base">No posts yet in the campus feed.</p>
+                  <p className="text-xs mt-1">Be the first to share an achievement, question, or note!</p>
+                </div>
+              );
+            }
+
+            return visiblePosts.map(post => (
               <PostCard key={post.id} post={post} onPostDeleted={loadFeed} />
-            ))
-          )}
+            ));
+          })()}
         </div>
       </div>
 

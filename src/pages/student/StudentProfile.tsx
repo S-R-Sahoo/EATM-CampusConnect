@@ -6,7 +6,7 @@ import { Modal } from '../../components/ui/Modal';
 import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
 import { uploadFile } from '../../supabase/storage';
-import { fetchPosts } from '../../supabase/db';
+import { fetchPosts, fetchConnections } from '../../supabase/db';
 import { Post } from '../../types';
 import { PostCard } from '../../components/posts/PostCard';
 import { 
@@ -101,6 +101,7 @@ export const StudentProfile: React.FC = () => {
   // User posts state
   const [userPosts, setUserPosts] = useState<Post[]>([]);
   const [loadingPosts, setLoadingPosts] = useState(true);
+  const [liveConnectionsCount, setLiveConnectionsCount] = useState<number | null>(null);
 
   const loadUserPosts = async () => {
     if (!user) return;
@@ -117,6 +118,12 @@ export const StudentProfile: React.FC = () => {
 
   useEffect(() => {
     loadUserPosts();
+    if (user) {
+      fetchConnections(user.id).then(conns => {
+        const accepted = conns.filter(c => c.status === 'accepted').length;
+        setLiveConnectionsCount(accepted);
+      }).catch(() => {});
+    }
   }, [user?.id, user?.uid]);
 
   if (!user) return null;
@@ -377,19 +384,21 @@ export const StudentProfile: React.FC = () => {
           {/* Stats Bar */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 py-4 mt-6 border-y border-gray-100 dark:border-[#1e3325] text-center bg-gray-50/50 dark:bg-[#16251c]/50 rounded-2xl">
             <div>
-              <div className="text-xl font-black text-gray-900 dark:text-gray-100">{user.stats?.connections || 128}</div>
+              <div className="text-xl font-black text-gray-900 dark:text-gray-100">
+                {liveConnectionsCount !== null ? liveConnectionsCount : (user.stats?.connections ?? 0)}
+              </div>
               <div className="text-xs font-semibold text-gray-500 dark:text-gray-400">Connections</div>
             </div>
             <div>
-              <div className="text-xl font-black text-gray-900 dark:text-gray-100">{userPosts.length > 0 ? userPosts.length : (user.stats?.posts || 0)}</div>
+              <div className="text-xl font-black text-gray-900 dark:text-gray-100">{userPosts.length > 0 ? userPosts.length : (user.stats?.posts ?? 0)}</div>
               <div className="text-xs font-semibold text-gray-500 dark:text-gray-400">Posts</div>
             </div>
             <div>
-              <div className="text-xl font-black text-gray-900 dark:text-gray-100">{user.stats?.clubs || 4}</div>
+              <div className="text-xl font-black text-gray-900 dark:text-gray-100">{user.stats?.clubs ?? 0}</div>
               <div className="text-xs font-semibold text-gray-500 dark:text-gray-400">Clubs</div>
             </div>
             <div>
-              <div className="text-xl font-black text-gray-900 dark:text-gray-100">{user.stats?.achievements || 6}</div>
+              <div className="text-xl font-black text-gray-900 dark:text-gray-100">{user.stats?.achievements ?? 0}</div>
               <div className="text-xs font-semibold text-gray-500 dark:text-gray-400">Achievements</div>
             </div>
           </div>
