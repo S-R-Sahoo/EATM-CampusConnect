@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { UserProfile, UserRole } from '../types';
-import { loginWithEmail, registerWithEmail, loginWithGoogle as authGoogle, logoutUser } from '../firebase/auth';
+import { loginWithEmail, registerWithEmail, loginWithGoogle as authGoogle, loginWithGithub as authGithub, logoutUser } from '../firebase/auth';
 import { fetchUsers, updateUserProfile as firestoreUpdateProfile } from '../firebase/firestore';
 import { auth, isFirebaseConfigured } from '../firebase/config';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -13,6 +13,7 @@ interface AuthContextType {
   login: (email: string, pass: string) => Promise<void>;
   register: (data: any) => Promise<void>;
   loginWithGoogle: () => Promise<void>;
+  loginWithGithub: () => Promise<void>;
   logout: () => Promise<void>;
   switchDemoPersona: (role: UserRole) => Promise<void>;
   updateUser: (data: Partial<UserProfile>) => Promise<void>;
@@ -107,6 +108,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
+  const loginWithGithub = async () => {
+    setIsLoading(true);
+    try {
+      const githubUser = await authGithub();
+      setUser(githubUser);
+      localStorage.setItem('eatm_current_user', JSON.stringify(githubUser));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const logout = async () => {
     setIsLoading(true);
     try {
@@ -159,6 +171,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         login,
         register,
         loginWithGoogle,
+        loginWithGithub,
         logout,
         switchDemoPersona,
         updateUser

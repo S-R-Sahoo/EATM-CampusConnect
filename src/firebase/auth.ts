@@ -6,7 +6,7 @@ import {
   sendPasswordResetEmail,
   User as FirebaseUser
 } from 'firebase/auth';
-import { auth, googleProvider, isFirebaseConfigured } from './config';
+import { auth, googleProvider, githubProvider, isFirebaseConfigured } from './config';
 import { UserProfile, UserRole } from '../types';
 import { fetchUserById, updateUserProfile, fetchUsers } from './firestore';
 import { DEFAULT_ENGINEER_AVATAR } from '../constants/assets';
@@ -108,6 +108,28 @@ export async function loginWithGoogle(): Promise<UserProfile> {
       // Auto-create student profile
       profile = await registerWithEmail({
         email: cred.user.email || 'student@eatm.in',
+        displayName: cred.user.displayName || 'EATM Student',
+        role: 'student',
+        department: 'CSE',
+        photoURL: cred.user.photoURL || undefined
+      });
+    }
+    return profile;
+  }
+
+  // Fallback demo user
+  const users = await fetchUsers();
+  return users[0];
+}
+
+export async function loginWithGithub(): Promise<UserProfile> {
+  if (isFirebaseConfigured() && auth) {
+    const cred = await signInWithPopup(auth, githubProvider);
+    let profile = await fetchUserById(cred.user.uid);
+    if (!profile) {
+      // Auto-create student profile
+      profile = await registerWithEmail({
+        email: cred.user.email || `${cred.user.displayName?.toLowerCase().replace(/\s+/g, '') || 'developer'}@eatm.in`,
         displayName: cred.user.displayName || 'EATM Student',
         role: 'student',
         department: 'CSE',

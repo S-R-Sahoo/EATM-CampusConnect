@@ -8,7 +8,7 @@ import { Eye, EyeOff, Mail, Lock, UserCheck, ShieldCheck, GraduationCap } from '
 import { EATM_EMBLEM, EATM_OFFICIAL_LOGO } from '../../constants/assets';
 
 export const LoginPage: React.FC = () => {
-  const { login, loginWithGoogle, switchDemoPersona } = useAuth();
+  const { login, loginWithGoogle, loginWithGithub, switchDemoPersona } = useAuth();
   const { success, error } = useToast();
   const navigate = useNavigate();
 
@@ -44,6 +44,19 @@ export const LoginPage: React.FC = () => {
       navigate('/student/dashboard');
     } catch (err: any) {
       error(err.message || 'Google sign-in failed.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGithubLogin = async () => {
+    setLoading(true);
+    try {
+      await loginWithGithub();
+      success('Logged in successfully via GitHub Authentication.');
+      navigate('/student/dashboard');
+    } catch (err: any) {
+      error(err.message || 'GitHub sign-in failed.');
     } finally {
       setLoading(false);
     }
@@ -233,7 +246,7 @@ export const LoginPage: React.FC = () => {
 
             <button
               type="button"
-              onClick={() => handleQuickDemo('student')}
+              onClick={handleGithubLogin}
               className="flex items-center justify-center gap-2.5 px-4 py-2.5 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-xs font-semibold text-gray-700 shadow-sm transition"
             >
               <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
