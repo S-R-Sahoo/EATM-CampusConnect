@@ -34,11 +34,11 @@ export const Avatar: React.FC<AvatarProps> = ({
 
   const dotSizes = {
     xs: 'w-1.5 h-1.5 bottom-0 right-0 ring-1',
-    sm: 'w-1.5 h-1.5 bottom-0 right-0 ring-1',
-    md: 'w-2 h-2 bottom-0 right-0 ring-[1.5px]',
-    lg: 'w-2.5 h-2.5 bottom-0.5 right-0.5 ring-[1.5px]',
-    xl: 'w-3 h-3 bottom-0.5 right-0.5 ring-2',
-    '2xl': 'w-3.5 h-3.5 bottom-1 right-1 ring-2',
+    sm: 'w-2 h-2 bottom-0 right-0 ring-[1.5px]',
+    md: 'w-2.5 h-2.5 bottom-0 right-0 ring-[1.5px]',
+    lg: 'w-3 h-3 bottom-0.5 right-0.5 ring-2',
+    xl: 'w-3.5 h-3.5 bottom-0.5 right-0.5 ring-2',
+    '2xl': 'w-4 h-4 bottom-1 right-1 ring-2',
   };
 
   const hasPhoto = isCustomPhoto(src) && !imgError;
