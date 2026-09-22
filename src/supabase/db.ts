@@ -806,7 +806,7 @@ export function detectChatMessageMediaType(mediaUrl?: string, explicitType?: str
   return 'file';
 }
 
-export async function fetchMessages(conversationId: string): Promise<Message[]> {
+export async function fetchMessages(conversationId: string, currentUserId?: string): Promise<Message[]> {
   if (isSupabaseConfigured() && supabase) {
     try {
       const { data, error } = await supabase
@@ -836,7 +836,9 @@ export async function fetchMessages(conversationId: string): Promise<Message[]> 
         const remainingLocal = localMsgs.filter(m => m.conversationId !== conversationId || !serverIds.has(m.id));
         setLocalData('messages', [...remainingLocal, ...enriched]);
 
-        return enriched;
+        return currentUserId
+          ? enriched.filter(m => !(m.deletedFor && m.deletedFor.includes(currentUserId)))
+          : enriched;
       }
     } catch (err) {
       console.warn('Supabase fetchMessages error:', err);
@@ -844,12 +846,16 @@ export async function fetchMessages(conversationId: string): Promise<Message[]> 
   }
 
   const msgs = getLocalData<Message[]>('messages', SEED_MESSAGES);
-  return msgs
+  const convMsgs = msgs
     .filter(m => m.conversationId === conversationId)
     .map(m => ({
       ...m,
       mediaType: detectChatMessageMediaType(m.mediaUrl, m.mediaType)
     }));
+
+  return currentUserId
+    ? convMsgs.filter(m => !(m.deletedFor && m.deletedFor.includes(currentUserId)))
+    : convMsgs;
 }
 
 export async function sendChatMessage(msg: Omit<Message, 'id' | 'createdAt' | 'read'>): Promise<Message> {
@@ -961,6 +967,134 @@ export async function sendChatMessage(msg: Omit<Message, 'id' | 'createdAt' | 'r
   }
 
   return newMsg;
+}
+
+/**
+ * Deletes a chat message for all participants (WhatsApp "Delete for everyone").
+ * Strips out media and text, marks isDeleted as true, and notifies active peers.
+ */
+export async function deleteMessageForEveryone(messageId: string, conversationId: string): Promise<void> {
+  // 1. Update local cache
+  const msgs = getLocalData<Message[]>('messages', SEED_MESSAGES);
+  const updatedMsgs = msgs.map(m => {
+    if (m.id === messageId) {
+      return {
+        ...m,
+        isDeleted: true,
+        text: '',
+        mediaUrl: undefined,
+        mediaType: undefined,
+        fileName: undefined,
+        fileSize: undefined,
+        audioDuration: undefined
+      };
+    }
+    return m;
+  });
+  setLocalData('messages', updatedMsgs);
+
+  // Update conversation last message if this was the last message
+  const convs = getLocalData<Conversation[]>('conversations', SEED_CONVERSATIONS);
+  const conv = convs.find(c => c.id === conversationId);
+  if (conv) {
+    const remainingConvMsgs = updatedMsgs.filter(m => m.conversationId === conversationId);
+    const lastMsg = remainingConvMsgs[remainingConvMsgs.length - 1];
+    if (lastMsg && lastMsg.id === messageId) {
+      conv.lastMessage = {
+        text: '🚫 This message was deleted',
+        senderId: lastMsg.senderId,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        read: true
+      };
+      setLocalData('conversations', [...convs]);
+    }
+  }
+
+  // 2. Dispatch local window event for multi-tab / instant UI sync
+  window.dispatchEvent(new CustomEvent('eatm_chat_message_deleted', {
+    detail: { messageId, conversationId }
+  }));
+
+  // 3. Persist to Supabase Database & Realtime broadcast
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      await supabase.from('messages').update({
+        isDeleted: true,
+        text: '',
+        mediaUrl: null,
+        fileName: null,
+        fileSize: null
+      }).eq('id', messageId);
+
+      // Broadcast to active peers in chat room
+      const chatChannel = supabase.channel(`chat-room-${conversationId}`);
+      if (chatChannel.state === 'joined') {
+        chatChannel.send({
+          type: 'broadcast',
+          event: 'message_deleted_for_everyone',
+          payload: { messageId, conversationId }
+        }).catch(() => {});
+      } else {
+        chatChannel.subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            chatChannel.send({
+              type: 'broadcast',
+              event: 'message_deleted_for_everyone',
+              payload: { messageId, conversationId }
+            }).catch(() => {});
+          }
+        });
+      }
+    } catch (err) {
+      console.warn('Supabase deleteMessageForEveryone error:', err);
+    }
+  }
+}
+
+/**
+ * Deletes a chat message only for the current user (WhatsApp "Delete for me").
+ * Appends the user's ID to the message's deletedFor array.
+ */
+export async function deleteMessageForMe(messageId: string, conversationId: string, userId: string): Promise<void> {
+  // 1. Update local cache
+  const msgs = getLocalData<Message[]>('messages', SEED_MESSAGES);
+  const updatedMsgs = msgs.map(m => {
+    if (m.id === messageId) {
+      const existing = m.deletedFor || [];
+      return {
+        ...m,
+        deletedFor: existing.includes(userId) ? existing : [...existing, userId]
+      };
+    }
+    return m;
+  });
+  setLocalData('messages', updatedMsgs);
+
+  // 2. Dispatch local event
+  window.dispatchEvent(new CustomEvent('eatm_chat_message_deleted_for_me', {
+    detail: { messageId, conversationId, userId }
+  }));
+
+  // 3. Persist to Supabase if configured
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      const { data: existing } = await supabase
+        .from('messages')
+        .select('deletedFor')
+        .eq('id', messageId)
+        .single();
+
+      const existingArr: string[] = existing?.deletedFor || [];
+      if (!existingArr.includes(userId)) {
+        await supabase
+          .from('messages')
+          .update({ deletedFor: [...existingArr, userId] })
+          .eq('id', messageId);
+      }
+    } catch (err) {
+      console.warn('Supabase deleteMessageForMe error:', err);
+    }
+  }
 }
 
 // ---------------------------------------------
@@ -1087,19 +1221,28 @@ export function subscribeToComments(
  */
 export function subscribeToMessages(
   conversationId: string,
-  onInsert: (newMsg: Message) => void
+  onInsert: (newMsg: Message) => void,
+  onDeleteForEveryone?: (messageId: string) => void
 ): () => void {
-  // 1. Listen to local window event (syncs instant updates across tabs/components)
+  // 1. Listen to local window events (syncs instant updates across tabs/components)
   const windowListener = (e: CustomEvent<Message>) => {
     if (e.detail && e.detail.conversationId === conversationId) {
       onInsert(e.detail);
     }
   };
+  const deleteListener = (e: CustomEvent<{ messageId: string; conversationId: string }>) => {
+    if (e.detail && e.detail.conversationId === conversationId) {
+      onDeleteForEveryone?.(e.detail.messageId);
+    }
+  };
+
   window.addEventListener('eatm_chat_message', windowListener as EventListener);
+  window.addEventListener('eatm_chat_message_deleted', deleteListener as EventListener);
 
   if (!isSupabaseConfigured() || !supabase) {
     return () => {
       window.removeEventListener('eatm_chat_message', windowListener as EventListener);
+      window.removeEventListener('eatm_chat_message_deleted', deleteListener as EventListener);
     };
   }
 
@@ -1121,6 +1264,15 @@ export function subscribeToMessages(
       }
     )
     .on(
+      'broadcast',
+      { event: 'message_deleted_for_everyone' },
+      (event) => {
+        if (event.payload && event.payload.conversationId === conversationId) {
+          onDeleteForEveryone?.(event.payload.messageId);
+        }
+      }
+    )
+    .on(
       'postgres_changes',
       { event: 'INSERT', schema: 'public', table: 'messages' },
       (payload) => {
@@ -1133,10 +1285,22 @@ export function subscribeToMessages(
         }
       }
     )
+    .on(
+      'postgres_changes',
+      { event: 'UPDATE', schema: 'public', table: 'messages' },
+      (payload) => {
+        if (payload.new && (payload.new as any).conversationId === conversationId) {
+          if ((payload.new as any).isDeleted) {
+            onDeleteForEveryone?.((payload.new as any).id);
+          }
+        }
+      }
+    )
     .subscribe();
 
   return () => {
     window.removeEventListener('eatm_chat_message', windowListener as EventListener);
+    window.removeEventListener('eatm_chat_message_deleted', deleteListener as EventListener);
     if (client) client.removeChannel(channel);
   };
 }

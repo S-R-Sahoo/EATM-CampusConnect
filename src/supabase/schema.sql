@@ -235,6 +235,8 @@ alter table public.messages add column if not exists "mediaType" text;
 alter table public.messages add column if not exists "fileName" text;
 alter table public.messages add column if not exists "fileSize" text;
 alter table public.messages add column if not exists "audioDuration" numeric;
+alter table public.messages add column if not exists "isDeleted" boolean default false;
+alter table public.messages add column if not exists "deletedFor" text[] default '{}';
 
 -- 13. Reports Table
 create table if not exists public.reports (

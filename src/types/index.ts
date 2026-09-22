@@ -130,6 +130,8 @@ export interface Message {
   audioDuration?: number;
   createdAt: string;
   read: boolean;
+  isDeleted?: boolean;
+  deletedFor?: string[];
 }
 
 export interface Community {

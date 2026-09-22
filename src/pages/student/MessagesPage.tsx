@@ -3,7 +3,8 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { 
   fetchConversations, fetchMessages, sendChatMessage, fetchUsers, 
-  subscribeToMessages, getOrCreateConversation, fetchConnections 
+  subscribeToMessages, getOrCreateConversation, fetchConnections,
+  deleteMessageForEveryone, deleteMessageForMe
 } from '../../supabase/db';
 import { uploadFile } from '../../supabase/storage';
 import { Conversation, Message } from '../../types';
@@ -15,7 +16,7 @@ import {
   Search, Send, Paperclip, Smile, Phone, Video, 
   MoreVertical, CheckCheck, Image as ImageIcon, MessageSquare,
   ShieldCheck, Users, ArrowLeft, X, Download, FileText,
-  Film, Music, Mic, Trash2, Loader2, Sparkles, Camera, Pause
+  Film, Music, Mic, Trash2, Loader2, Sparkles, Camera, Pause, Ban
 } from 'lucide-react';
 import { useLocation, useSearchParams, Link } from 'react-router-dom';
 
@@ -53,6 +54,7 @@ export const MessagesPage: React.FC = () => {
   const [lightboxImage, setLightboxImage] = useState<{ src: string; alt?: string } | null>(null);
   const [showCameraModal, setShowCameraModal] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [messageToDelete, setMessageToDelete] = useState<Message | null>(null);
 
   // WhatsApp style Live Audio Voice Recording states
   const [isRecording, setIsRecording] = useState(false);
@@ -166,7 +168,7 @@ export const MessagesPage: React.FC = () => {
     if (activeConvId) {
       let isSubscribed = true;
 
-      fetchMessages(activeConvId).then(msgs => {
+      fetchMessages(activeConvId, user?.id).then(msgs => {
         if (!isSubscribed) return;
         setMessages(msgs);
         setTimeout(() => {
@@ -174,37 +176,44 @@ export const MessagesPage: React.FC = () => {
         }, 100);
       });
 
-      // Realtime subscription for incoming chat messages in this conversation
-      const unsubscribe = subscribeToMessages(activeConvId, (newMsg) => {
-        if (!isSubscribed) return;
-        setMessages(prev => {
-          if (prev.some(m => m.id === newMsg.id)) return prev;
-          return [...prev, newMsg];
-        });
-        setTimeout(() => {
-          messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-        }, 80);
-      });
+      // Realtime subscription for incoming chat messages & live deletions in this conversation
+      const unsubscribe = subscribeToMessages(
+        activeConvId,
+        (newMsg) => {
+          if (!isSubscribed) return;
+          setMessages(prev => {
+            if (prev.some(m => m.id === newMsg.id)) return prev;
+            return [...prev, newMsg];
+          });
+          setTimeout(() => {
+            messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+          }, 80);
+        },
+        (deletedMsgId) => {
+          if (!isSubscribed) return;
+          setMessages(prev =>
+            prev.map(m =>
+              m.id === deletedMsgId
+                ? { ...m, isDeleted: true, text: '', mediaUrl: undefined, mediaType: undefined }
+                : m
+            )
+          );
+        }
+      );
 
       // Live Heartbeat Sync (every 2.5s) to guarantee zero missed messages
       const heartbeatInterval = setInterval(async () => {
         if (!isSubscribed) return;
         try {
-          const freshMsgs = await fetchMessages(activeConvId);
+          const freshMsgs = await fetchMessages(activeConvId, user?.id);
           if (!isSubscribed) return;
           setMessages(prev => {
-            if (freshMsgs.length === prev.length && freshMsgs[freshMsgs.length - 1]?.id === prev[prev.length - 1]?.id) {
-              return prev;
-            }
             const map = new Map<string, Message>();
             prev.forEach(m => map.set(m.id, m));
             freshMsgs.forEach(m => map.set(m.id, m));
-            const merged = Array.from(map.values()).sort(
-              (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-            );
-            setTimeout(() => {
-              messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-            }, 50);
+            const merged = Array.from(map.values())
+              .filter(m => !(m.deletedFor && user?.id && m.deletedFor.includes(user.id)))
+              .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
             return merged;
           });
         } catch {
@@ -218,7 +227,7 @@ export const MessagesPage: React.FC = () => {
         unsubscribe();
       };
     }
-  }, [activeConvId]);
+  }, [activeConvId, user?.id]);
 
   // Clean up any ongoing audio recording when unmounting or switching chats
   useEffect(() => {
@@ -594,6 +603,35 @@ export const MessagesPage: React.FC = () => {
     }
   };
 
+  // WhatsApp Style Message Deletion Handlers
+  const handleDeleteForEveryone = async (messageId: string) => {
+    if (!activeConvId) return;
+    try {
+      setMessages(prev =>
+        prev.map(m =>
+          m.id === messageId
+            ? { ...m, isDeleted: true, text: '', mediaUrl: undefined, mediaType: undefined }
+            : m
+        )
+      );
+      await deleteMessageForEveryone(messageId, activeConvId);
+      success('Message deleted for everyone.');
+    } catch (err) {
+      error('Failed to delete message for everyone.');
+    }
+  };
+
+  const handleDeleteForMe = async (messageId: string) => {
+    if (!activeConvId || !user) return;
+    try {
+      setMessages(prev => prev.filter(m => m.id !== messageId));
+      await deleteMessageForMe(messageId, activeConvId, user.id);
+      success('Message deleted for you.');
+    } catch (err) {
+      error('Failed to delete message.');
+    }
+  };
+
   const filteredConversations = conversations.filter(c => {
     if (activeTab === 'chats' && c.isGroup) return false;
     if (activeTab === 'groups' && !c.isGroup) return false;
@@ -659,6 +697,74 @@ export const MessagesPage: React.FC = () => {
           cameraInputRef.current?.click();
         }}
       />
+
+      {/* WhatsApp Style Delete Confirmation Modal */}
+      {messageToDelete && (
+        <div 
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150"
+          onClick={() => setMessageToDelete(null)}
+        >
+          <div 
+            className="bg-white dark:bg-[#1f2c34] rounded-2xl p-5 max-w-sm w-full shadow-2xl border border-gray-100 dark:border-gray-800 space-y-4 animate-in zoom-in-95"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-950/60 text-red-600 dark:text-red-400 flex items-center justify-center shrink-0">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-gray-900 dark:text-white">Delete message?</h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                  {messageToDelete.senderId === user?.id
+                    ? 'You can delete this message for everyone or only for yourself.'
+                    : 'This will remove the message from your view.'}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2 pt-1">
+              {/* Option 1: Delete for everyone (Only if I am sender and message not already deleted) */}
+              {messageToDelete.senderId === user?.id && !messageToDelete.isDeleted && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const id = messageToDelete.id;
+                    setMessageToDelete(null);
+                    await handleDeleteForEveryone(id);
+                  }}
+                  className="w-full py-2.5 px-4 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-xl shadow-xs transition active:scale-98 flex items-center justify-center gap-2"
+                >
+                  <Users className="w-4 h-4" />
+                  <span>Delete for everyone</span>
+                </button>
+              )}
+
+              {/* Option 2: Delete for me (Always available) */}
+              <button
+                type="button"
+                onClick={async () => {
+                  const id = messageToDelete.id;
+                  setMessageToDelete(null);
+                  await handleDeleteForMe(id);
+                }}
+                className="w-full py-2.5 px-4 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200 font-bold text-xs rounded-xl transition active:scale-98 flex items-center justify-center gap-2"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>Delete for me</span>
+              </button>
+
+              {/* Option 3: Cancel */}
+              <button
+                type="button"
+                onClick={() => setMessageToDelete(null)}
+                className="w-full py-2 text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 text-xs font-semibold transition"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Left Column: Official Campus Conversations Directory */}
       <div className={`w-full sm:w-80 md:w-96 border-r border-gray-200/80 dark:border-[#1e3325] flex flex-col bg-white dark:bg-[#111d15] shrink-0 ${activeConvId ? 'hidden sm:flex' : 'flex'}`}>
@@ -921,7 +1027,7 @@ export const MessagesPage: React.FC = () => {
                 return (
                   <div
                     key={msg.id}
-                    className={`flex items-end gap-2 ${isMe ? 'justify-end' : 'justify-start'}`}
+                    className={`group flex items-end gap-1.5 sm:gap-2 ${isMe ? 'justify-end' : 'justify-start'} relative`}
                   >
                     {!isMe && (
                       <Link
@@ -937,109 +1043,152 @@ export const MessagesPage: React.FC = () => {
                       </Link>
                     )}
 
+                    {/* Delete button on other user's message (Delete for me) */}
+                    {!isMe && (
+                      <button
+                        type="button"
+                        onClick={() => setMessageToDelete(msg)}
+                        className="opacity-0 group-hover:opacity-100 sm:opacity-0 focus:opacity-100 mb-1.5 p-1 text-gray-400 hover:text-red-500 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition"
+                        title="Delete message"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+
                     {/* Speech Bubble with WhatsApp-like feeling and official EATM branding */}
                     <div
                       className={`${
-                        isAudio && !msg.text
+                        msg.isDeleted
+                          ? isMe
+                            ? 'bg-[#0b4627]/40 dark:bg-[#0f5132]/40 text-emerald-100/80 border border-emerald-800/30'
+                            : 'bg-gray-50/80 dark:bg-[#16251c]/60 text-gray-500 dark:text-gray-400 border border-gray-200/60 dark:border-[#1e3325]'
+                          : isAudio && !msg.text
                           ? 'px-3 py-1.5 rounded-2xl max-w-fit'
                           : 'max-w-xs sm:max-w-md px-3.5 py-2.5 rounded-2xl leading-relaxed'
-                      } shadow-sm text-xs ${
+                      } shadow-sm text-xs rounded-2xl ${
                         isMe
                           ? 'bg-[#0b4627] dark:bg-[#0f5132] text-white rounded-br-xs'
                           : 'bg-white dark:bg-[#16251c] text-gray-900 dark:text-gray-100 border border-gray-200/80 dark:border-[#1e3325] rounded-bl-xs'
                       }`}
                     >
                       {/* Sender name for group chats */}
-                      {!isMe && activeConv.isGroup && (
+                      {!isMe && activeConv.isGroup && !msg.isDeleted && (
                         <p className="text-[11px] font-bold text-[#0b4627] dark:text-emerald-400 mb-1">
                           {msg.senderName}
                         </p>
                       )}
 
-                      {/* 1. Image Media */}
-                      {isImage && msg.mediaUrl && (
-                        <div className="mb-2">
-                          <img
-                            src={msg.mediaUrl}
-                            alt={msg.fileName || 'Photo'}
-                            onClick={() => setLightboxImage({ src: msg.mediaUrl!, alt: msg.fileName || 'Photo' })}
-                            className="rounded-xl max-h-72 w-full object-cover cursor-pointer hover:opacity-95 transition shadow-sm"
-                            loading="lazy"
-                          />
+                      {/* WhatsApp Style Deleted Message Bubble */}
+                      {msg.isDeleted ? (
+                        <div className="flex items-center gap-2 py-0.5 text-xs italic select-none">
+                          <Ban className={`w-3.5 h-3.5 shrink-0 ${isMe ? 'text-emerald-200/70' : 'text-gray-400'}`} />
+                          <span className={isMe ? 'text-emerald-100/90' : 'text-gray-500 dark:text-gray-400'}>
+                            {isMe ? 'You deleted this message' : 'This message was deleted'}
+                          </span>
+                          <span className={`text-[9px] font-mono ml-2 ${isMe ? 'text-emerald-200/60' : 'text-gray-400 dark:text-gray-500'}`}>
+                            {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
                         </div>
-                      )}
+                      ) : (
+                        <>
+                          {/* 1. Image Media */}
+                          {isImage && msg.mediaUrl && (
+                            <div className="mb-2">
+                              <img
+                                src={msg.mediaUrl}
+                                alt={msg.fileName || 'Photo'}
+                                onClick={() => setLightboxImage({ src: msg.mediaUrl!, alt: msg.fileName || 'Photo' })}
+                                className="rounded-xl max-h-72 w-full object-cover cursor-pointer hover:opacity-95 transition shadow-sm"
+                                loading="lazy"
+                              />
+                            </div>
+                          )}
 
-                      {/* 2. Video Media */}
-                      {isVideo && msg.mediaUrl && (
-                        <div className="mb-2">
-                          <video
-                            src={msg.mediaUrl}
-                            controls
-                            playsInline
-                            className="rounded-xl max-h-72 w-full bg-black shadow-sm"
-                          />
-                        </div>
-                      )}
+                          {/* 2. Video Media */}
+                          {isVideo && msg.mediaUrl && (
+                            <div className="mb-2">
+                              <video
+                                src={msg.mediaUrl}
+                                controls
+                                playsInline
+                                className="rounded-xl max-h-72 w-full bg-black shadow-sm"
+                              />
+                            </div>
+                          )}
 
-                      {/* 3. Audio / Voice Note Media - Only clean inline audio player, NO BIG BOX */}
-                      {isAudio && msg.mediaUrl && (
-                        <ChatAudioPlayer
-                          src={msg.mediaUrl}
-                          isMe={isMe}
-                          duration={msg.audioDuration}
-                        />
-                      )}
+                          {/* 3. Audio / Voice Note Media - Only clean inline audio player, NO BIG BOX */}
+                          {isAudio && msg.mediaUrl && (
+                            <ChatAudioPlayer
+                              src={msg.mediaUrl}
+                              isMe={isMe}
+                              duration={msg.audioDuration}
+                            />
+                          )}
 
-                      {/* 4. Document / File Media */}
-                      {isFile && msg.mediaUrl && (
-                        <div className={`flex items-center gap-3 p-2.5 rounded-xl mb-2 border ${
-                          isMe
-                            ? 'bg-white/10 border-white/20 text-white'
-                            : 'bg-gray-50 dark:bg-[#111d15] border-gray-200 dark:border-[#1e3325] text-gray-900 dark:text-gray-100'
-                        }`}>
-                          <div className={`p-2 rounded-lg ${
-                            isMe ? 'bg-white/20 text-white' : 'bg-emerald-50 dark:bg-[#1e3325] text-[#0b4627] dark:text-emerald-400'
-                          }`}>
-                            <FileText className="w-5 h-5" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="font-bold text-xs truncate">{msg.fileName || 'Document'}</p>
-                            <p className="text-[10px] opacity-75">{msg.fileSize || 'Attachment'}</p>
-                          </div>
-                          <a
-                            href={msg.mediaUrl}
-                            download={msg.fileName || 'document'}
-                            className={`p-2 rounded-lg transition active:scale-95 ${
+                          {/* 4. Document / File Media */}
+                          {isFile && msg.mediaUrl && (
+                            <div className={`flex items-center gap-3 p-2.5 rounded-xl mb-2 border ${
                               isMe
-                                ? 'bg-white text-[#0b4627] hover:bg-emerald-50'
-                                : 'bg-[#0b4627] hover:bg-[#0f5132] text-white dark:bg-emerald-600'
-                            }`}
-                            title="Download Document"
-                          >
-                            <Download className="w-3.5 h-3.5" />
-                          </a>
-                        </div>
-                      )}
+                                ? 'bg-white/10 border-white/20 text-white'
+                                : 'bg-gray-50 dark:bg-[#111d15] border-gray-200 dark:border-[#1e3325] text-gray-900 dark:text-gray-100'
+                            }`}>
+                              <div className={`p-2 rounded-lg ${
+                                isMe ? 'bg-white/20 text-white' : 'bg-emerald-50 dark:bg-[#1e3325] text-[#0b4627] dark:text-emerald-400'
+                              }`}>
+                                <FileText className="w-5 h-5" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="font-bold text-xs truncate">{msg.fileName || 'Document'}</p>
+                                <p className="text-[10px] opacity-75">{msg.fileSize || 'Attachment'}</p>
+                              </div>
+                              <a
+                                href={msg.mediaUrl}
+                                download={msg.fileName || 'document'}
+                                className={`p-2 rounded-lg transition active:scale-95 ${
+                                  isMe
+                                    ? 'bg-white text-[#0b4627] hover:bg-emerald-50'
+                                    : 'bg-[#0b4627] hover:bg-[#0f5132] text-white dark:bg-emerald-600'
+                                }`}
+                                title="Download Document"
+                              >
+                                <Download className="w-3.5 h-3.5" />
+                              </a>
+                            </div>
+                          )}
 
-                      {/* Text content */}
-                      {msg.text && (
-                        <p className="whitespace-pre-wrap leading-relaxed text-xs sm:text-sm font-normal mt-1">
-                          {msg.text}
-                        </p>
-                      )}
+                          {/* Text content */}
+                          {msg.text && (
+                            <p className="whitespace-pre-wrap leading-relaxed text-xs sm:text-sm font-normal mt-1">
+                              {msg.text}
+                            </p>
+                          )}
 
-                      {/* Timestamp & Double Checkmarks */}
-                      <div className={`flex items-center justify-end gap-1 ${
-                        isAudio && !msg.text ? 'mt-0.5' : 'mt-1'
-                      } text-[9px] font-mono ${
-                        isMe ? 'text-emerald-200' : 'text-gray-400 dark:text-gray-500'
-                      }`}>
-                        <span>
-                          {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </span>
-                        {isMe && <CheckCheck className="w-3.5 h-3.5" />}
-                      </div>
+                          {/* Timestamp & Double Checkmarks */}
+                          <div className={`flex items-center justify-end gap-1 ${
+                            isAudio && !msg.text ? 'mt-0.5' : 'mt-1'
+                          } text-[9px] font-mono ${
+                            isMe ? 'text-emerald-200' : 'text-gray-400 dark:text-gray-500'
+                          }`}>
+                            <span>
+                              {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                            {isMe && <CheckCheck className="w-3.5 h-3.5" />}
+                          </div>
+                        </>
+                      )}
                     </div>
+
+                    {/* Delete button on my message (Delete for everyone or Delete for me) */}
+                    {isMe && (
+                      <button
+                        type="button"
+                        onClick={() => setMessageToDelete(msg)}
+                        className="opacity-0 group-hover:opacity-100 sm:opacity-0 focus:opacity-100 mb-1.5 p-1 text-gray-400 hover:text-red-500 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition"
+                        title="Delete message"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </div>
                 );
               })}
