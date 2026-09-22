@@ -94,17 +94,17 @@ export const RegisterPage: React.FC = () => {
     setLoading(true);
     try {
       await register({
-        displayName: fullName,
-        email,
+        displayName: fullName.trim(),
+        email: email.trim(),
         password,
         role,
         department,
         year: role === 'student' ? year : undefined,
         semester: role === 'student' ? semester : undefined,
-        rollNumber: role === 'student' ? rollNumber : undefined,
-        employeeId: role === 'faculty' ? employeeId : undefined,
+        rollNumber: role === 'student' ? rollNumber.trim().toUpperCase() : undefined,
+        employeeId: role === 'faculty' ? employeeId.trim().toUpperCase() : undefined,
         designation: role === 'faculty' ? designation : undefined,
-        phone
+        phone: phone ? phone.trim() : undefined
       });
 
       success('Account created successfully! Welcome to EATM CampusConnect.', 'Registration Complete');

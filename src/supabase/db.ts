@@ -396,7 +396,16 @@ export async function updateUserProfile(userId: string, data: Partial<UserProfil
   let updatedUser: UserProfile;
 
   if (index !== -1) {
-    updatedUser = { ...users[index], ...data, updatedAt: new Date().toISOString() };
+    const existing = users[index];
+    updatedUser = {
+      ...existing,
+      ...data,
+      socialLinks: {
+        ...(existing.socialLinks || {}),
+        ...(data.socialLinks || {})
+      },
+      updatedAt: new Date().toISOString()
+    };
     users[index] = updatedUser;
   } else {
     updatedUser = { ...(data as UserProfile), id: userId, uid: userId, updatedAt: new Date().toISOString() };

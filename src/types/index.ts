@@ -40,6 +40,7 @@ export interface UserProfile {
     linkedin?: string;
     twitter?: string;
     portfolio?: string;
+    passHash?: string;
   };
   status: 'active' | 'disabled';
   verified?: boolean;

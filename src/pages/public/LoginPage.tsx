@@ -18,24 +18,25 @@ export const LoginPage: React.FC = () => {
   const [rememberMe, setRememberMe] = useState(true);
   const [loading, setLoading] = useState(false);
 
-  // Auto-redirect if already signed in with a cloud Supabase account
+  // Auto-redirect if already signed in
   React.useEffect(() => {
-    if (user && user.uid && user.uid !== 'user_soumya') {
-      navigate('/student/dashboard');
+    if (user && user.id) {
+      const targetPath = user.role === 'faculty' ? '/faculty/dashboard' : user.role === 'admin' ? '/admin/dashboard' : '/student/dashboard';
+      navigate(targetPath, { replace: true });
     }
   }, [user, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!emailOrRoll || !password) {
-      error('Please enter your campus email/roll number and password.');
+    const cleanInput = emailOrRoll.trim();
+    if (!cleanInput || !password) {
+      error('Please enter your campus email or roll number and password.');
       return;
     }
     setLoading(true);
     try {
-      await login(emailOrRoll, password);
+      await login(cleanInput, password);
       success('Welcome back to EATM CampusConnect!', 'Authentication Successful');
-      navigate('/student/dashboard');
     } catch (err: any) {
       error(err.message || 'Login failed. Please check credentials.');
     } finally {
