@@ -564,6 +564,54 @@ export const MessagesPage: React.FC = () => {
       setTimeout(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
       }, 50);
+
+      // Interactive campus peer typing & response if chatting with Priya Sharma
+      if (other.id === 'user_priya' && !activeConv?.isGroup) {
+        setTimeout(() => {
+          setIsOtherTyping(true);
+        }, 1000);
+
+        setTimeout(async () => {
+          setIsOtherTyping(false);
+          const replyText = type === 'audio' 
+            ? "Got your voice note! Listening to it now 👍" 
+            : type === 'image' 
+            ? "Nice! Thanks for sharing the photo 👍"
+            : "Received the document, checking it now 👍";
+          try {
+            const replyMsg = await sendChatMessage({
+              conversationId: activeConvId,
+              senderId: 'user_priya',
+              senderName: other.name || 'Priya Sharma',
+              senderAvatar: other.avatar,
+              text: replyText,
+            });
+            setMessages(prev => {
+              if (prev.some(m => m.id === replyMsg.id)) return prev;
+              return [...prev, replyMsg];
+            });
+            setConversations(prev =>
+              prev.map(c => {
+                if (c.id === activeConvId) {
+                  return {
+                    ...c,
+                    lastMessage: {
+                      text: replyText,
+                      senderId: 'user_priya',
+                      timestamp: 'Just now',
+                      read: true
+                    }
+                  };
+                }
+                return c;
+              })
+            );
+            setTimeout(() => {
+              messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+            }, 60);
+          } catch {}
+        }, 2600);
+      }
     } catch (err) {
       error(`Failed to send ${type === 'audio' ? 'voice note' : 'media'}.`);
     } finally {
@@ -653,6 +701,56 @@ export const MessagesPage: React.FC = () => {
       setTimeout(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
       }, 50);
+
+      // Interactive campus peer typing & response if chatting with Priya Sharma
+      if (other.id === 'user_priya' && !activeConv?.isGroup) {
+        setTimeout(() => {
+          setIsOtherTyping(true);
+        }, 800);
+
+        setTimeout(async () => {
+          setIsOtherTyping(false);
+          const replies = [
+            "Hey! Got your message, let's meet at the lab tomorrow 👍",
+            "Thanks for sharing! I'm reviewing the notes right now.",
+            "Sounds good! Let's connect after the lecture.",
+            "Got it! I'll check with our study group and update you."
+          ];
+          const randomReply = replies[Math.floor(Math.random() * replies.length)];
+          try {
+            const replyMsg = await sendChatMessage({
+              conversationId: activeConvId,
+              senderId: 'user_priya',
+              senderName: other.name || 'Priya Sharma',
+              senderAvatar: other.avatar,
+              text: randomReply,
+            });
+            setMessages(prev => {
+              if (prev.some(m => m.id === replyMsg.id)) return prev;
+              return [...prev, replyMsg];
+            });
+            setConversations(prev =>
+              prev.map(c => {
+                if (c.id === activeConvId) {
+                  return {
+                    ...c,
+                    lastMessage: {
+                      text: randomReply,
+                      senderId: 'user_priya',
+                      timestamp: 'Just now',
+                      read: true
+                    }
+                  };
+                }
+                return c;
+              })
+            );
+            setTimeout(() => {
+              messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+            }, 60);
+          } catch {}
+        }, 2600);
+      }
     } catch (err: any) {
       error('Failed to deliver message.');
     }
@@ -846,10 +944,14 @@ export const MessagesPage: React.FC = () => {
                 src={user?.photoURL}
                 name={user?.displayName || 'User'}
                 size="sm"
+                online={true}
               />
               <div>
                 <h2 className="font-black text-sm text-gray-900 dark:text-gray-100 leading-tight">Campus Messages</h2>
-                <p className="text-[11px] text-gray-500 dark:text-gray-400 font-medium">EATM Institutional Network</p>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">You are Online</p>
+                </div>
               </div>
             </div>
             <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-[#0b4627] dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 px-2.5 py-1 rounded-full border border-emerald-200/80 dark:border-emerald-800/60 shadow-xs">

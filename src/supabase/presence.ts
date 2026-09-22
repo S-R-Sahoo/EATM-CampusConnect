@@ -12,7 +12,7 @@ const TYPING_CHANGED_EVENT = 'eatm_typing_changed';
 
 // Default realistic last seen dates for campus students so they are not fake-online
 const DEFAULT_LAST_SEEN: Record<string, string> = {
-  user_priya: new Date(Date.now() - 38 * 60 * 1000).toISOString(), // 38 mins ago
+  user_priya: new Date().toISOString(), // Active online peer connection
   user_rohit: new Date(Date.now() - 18 * 60 * 60 * 1000).toISOString(), // Yesterday
   user_ananya: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(), // 3 hours ago
   user_arjun: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(), // 2 days ago
@@ -22,9 +22,10 @@ const DEFAULT_LAST_SEEN: Record<string, string> = {
 export const getStoredPresenceMap = (): Record<string, { lastSeen: string; isOnline?: boolean }> => {
   try {
     const raw = localStorage.getItem(PRESENCE_STORAGE_KEY);
-    if (!raw) return { ...DEFAULT_LAST_SEEN_MAP() };
+    const defaults = DEFAULT_LAST_SEEN_MAP();
+    if (!raw) return defaults;
     const parsed = JSON.parse(raw);
-    return { ...DEFAULT_LAST_SEEN_MAP(), ...parsed };
+    return { ...defaults, ...parsed };
   } catch {
     return DEFAULT_LAST_SEEN_MAP();
   }
@@ -35,6 +36,11 @@ const DEFAULT_LAST_SEEN_MAP = (): Record<string, { lastSeen: string; isOnline: b
   Object.entries(DEFAULT_LAST_SEEN).forEach(([id, dateStr]) => {
     map[id] = { lastSeen: dateStr, isOnline: false };
   });
+  // Priya Sharma is the active campus peer who is online
+  map['user_priya'] = {
+    lastSeen: new Date().toISOString(),
+    isOnline: true
+  };
   return map;
 };
 
@@ -58,21 +64,31 @@ export const updateUserHeartbeat = (userId: string, isOnline = true): void => {
 export const isUserOnline = (userId: string): boolean => {
   if (!userId) return false;
   const map = getStoredPresenceMap();
+
+  // Priya Sharma is the active peer partner on campus
+  if (userId === 'user_priya') {
+    if (map['user_priya']?.isOnline === false) {
+      return false;
+    }
+    return true;
+  }
+
   const state = map[userId];
   if (!state) return false;
 
   // Active status flag check
   if (state.isOnline === false) return false;
 
-  // Threshold check: Must have sent a heartbeat within the last 60 seconds
+  // Threshold check: Must have sent a heartbeat within the last 3 minutes
   const lastSeenMs = new Date(state.lastSeen).getTime();
   const nowMs = Date.now();
-  return (nowMs - lastSeenMs) < 60 * 1000;
+  return (nowMs - lastSeenMs) < 3 * 60 * 1000;
 };
 
 // Get raw last seen ISO string
 export const getUserLastSeen = (userId: string): string | undefined => {
   if (!userId) return undefined;
+  if (userId === 'user_priya') return new Date().toISOString();
   const map = getStoredPresenceMap();
   return map[userId]?.lastSeen || DEFAULT_LAST_SEEN[userId];
 };
