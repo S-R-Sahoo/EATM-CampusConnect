@@ -710,10 +710,10 @@ export const StudentProfile: React.FC = () => {
 
               {activeUser.verified && (
                 <div 
-                  className="absolute bottom-1 right-1 p-1 sm:p-1.5 rounded-full bg-white dark:bg-[#111d15] shadow-md border border-gray-100 dark:border-[#1e3325]"
+                  className="absolute bottom-1 right-1 p-1 rounded-full bg-white dark:bg-[#111d15] shadow-sm border border-gray-100 dark:border-[#1e3325]"
                   title="Official Verified Student"
                 >
-                  <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-600 dark:text-emerald-400 fill-emerald-100 dark:fill-emerald-950" />
+                  <CheckCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
                 </div>
               )}
             </div>
@@ -824,9 +824,12 @@ export const StudentProfile: React.FC = () => {
                 {activeUser.displayName}
               </h1>
               {activeUser.verified && (
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold bg-emerald-50 dark:bg-emerald-950/70 border border-emerald-200/90 dark:border-emerald-800/70 text-[#0b4627] dark:text-emerald-300 shadow-xs">
-                  <CheckCircle className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 fill-emerald-100 dark:fill-emerald-950 shrink-0" />
-                  <span>Verified Student</span>
+                <span 
+                  className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium text-emerald-800 dark:text-emerald-300 bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-500/30 dark:border-emerald-500/30 select-none shadow-2xs"
+                  title="Official Verified EATM Student"
+                >
+                  <CheckCircle className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                  <span className="font-semibold tracking-tight">Verified Student</span>
                 </span>
               )}
             </div>
