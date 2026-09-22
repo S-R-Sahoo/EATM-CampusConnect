@@ -14,7 +14,7 @@ import {
   Search, Send, Paperclip, Smile, Phone, Video, 
   MoreVertical, CheckCheck, Image as ImageIcon, MessageSquare,
   ShieldCheck, Users, ArrowLeft, X, Download, FileText,
-  Film, Music, Mic, Trash2, Loader2, Sparkles
+  Film, Music, Mic, Trash2, Loader2, Sparkles, Camera, Pause
 } from 'lucide-react';
 import { useLocation, useSearchParams, Link } from 'react-router-dom';
 
@@ -42,18 +42,27 @@ export const MessagesPage: React.FC = () => {
   const [lightboxImage, setLightboxImage] = useState<{ src: string; alt?: string } | null>(null);
   const [isUploading, setIsUploading] = useState(false);
 
-  // Live Audio Voice Recording states
+  // WhatsApp style Live Audio Voice Recording states
   const [isRecording, setIsRecording] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
+  const [waveHeights, setWaveHeights] = useState<number[]>([
+    25, 40, 65, 30, 85, 45, 60, 30, 90, 50, 75, 35, 60, 80, 45, 30, 70, 40, 55, 80, 35, 60, 45, 25
+  ]);
+
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const recordingTimerRef = useRef<any>(null);
   const isCancelledRef = useRef(false);
+  const isPausedRef = useRef(false);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const animFrameRef = useRef<number | null>(null);
 
-  // Hidden file input refs
-  const imageInputRef = useRef<HTMLInputElement>(null);
-  const videoInputRef = useRef<HTMLInputElement>(null);
+  // 4 Required Attachment File Pickers: Document, Photos & Video, Camera, Audio
   const docInputRef = useRef<HTMLInputElement>(null);
+  const mediaInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
   const audioInputRef = useRef<HTMLInputElement>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -203,7 +212,12 @@ export const MessagesPage: React.FC = () => {
   useEffect(() => {
     return () => {
       if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
-      if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+      if (audioContextRef.current) {
+        audioContextRef.current.close().catch(() => {});
+        audioContextRef.current = null;
+      }
+      if (mediaRecorderRef.current && (mediaRecorderRef.current.state === 'recording' || mediaRecorderRef.current.state === 'paused')) {
         isCancelledRef.current = true;
         mediaRecorderRef.current.stop();
       }
@@ -257,7 +271,26 @@ export const MessagesPage: React.FC = () => {
     e.target.value = '';
   };
 
-  // Live audio recording handlers
+  // Combined Photos & Video picker handler
+  const handlePhotosAndVideosPicked = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 25 * 1024 * 1024) {
+      error('File size exceeds 25MB limit. Please upload a smaller file.');
+      e.target.value = '';
+      return;
+    }
+
+    const isVideo = file.type.startsWith('video/') || /\.(mp4|webm|mov|mkv)$/i.test(file.name);
+    const type: 'image' | 'video' = isVideo ? 'video' : 'image';
+    const previewUrl = URL.createObjectURL(file);
+    setStagedAttachment({ file, type, previewUrl });
+    setShowAttachmentMenu(false);
+    e.target.value = '';
+  };
+
+  // WhatsApp style Live audio recording handlers (with Pause, Resume, and real-time Waveform)
   const startVoiceRecording = async () => {
     try {
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -268,6 +301,45 @@ export const MessagesPage: React.FC = () => {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       audioChunksRef.current = [];
       isCancelledRef.current = false;
+      isPausedRef.current = false;
+      setIsPaused(false);
+
+      // Web Audio API for real-time waveform visualization
+      try {
+        const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+        if (AudioCtx) {
+          const audioCtx = new AudioCtx();
+          audioContextRef.current = audioCtx;
+          const source = audioCtx.createMediaStreamSource(stream);
+          const analyser = audioCtx.createAnalyser();
+          analyser.fftSize = 64;
+          source.connect(analyser);
+          analyserRef.current = analyser;
+
+          const updateWave = () => {
+            if (analyserRef.current && !isPausedRef.current) {
+              const bufferLength = analyserRef.current.frequencyBinCount;
+              const dataArray = new Uint8Array(bufferLength);
+              analyserRef.current.getByteFrequencyData(dataArray);
+
+              const barsCount = 24;
+              const newBars: number[] = [];
+              for (let i = 0; i < barsCount; i++) {
+                const val = dataArray[i % bufferLength];
+                // Scale to height percentage (min 15%, max 95%)
+                const pct = Math.max(15, Math.min(95, Math.round((val / 255) * 100)));
+                newBars.push(pct);
+              }
+              setWaveHeights(newBars);
+            }
+            animFrameRef.current = requestAnimationFrame(updateWave);
+          };
+          animFrameRef.current = requestAnimationFrame(updateWave);
+        }
+      } catch (e) {
+        console.warn('AudioContext visualization fallback:', e);
+      }
+
       const mediaRecorder = new MediaRecorder(stream);
       mediaRecorderRef.current = mediaRecorder;
 
@@ -279,6 +351,12 @@ export const MessagesPage: React.FC = () => {
 
       mediaRecorder.onstop = async () => {
         stream.getTracks().forEach(track => track.stop());
+        if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+        if (audioContextRef.current) {
+          audioContextRef.current.close().catch(() => {});
+          audioContextRef.current = null;
+        }
+
         if (isCancelledRef.current) {
           audioChunksRef.current = [];
           return;
@@ -303,22 +381,53 @@ export const MessagesPage: React.FC = () => {
     }
   };
 
+  const pauseVoiceRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      mediaRecorderRef.current.pause();
+      isPausedRef.current = true;
+      setIsPaused(true);
+      if (recordingTimerRef.current) {
+        clearInterval(recordingTimerRef.current);
+        recordingTimerRef.current = null;
+      }
+    }
+  };
+
+  const resumeVoiceRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'paused') {
+      mediaRecorderRef.current.resume();
+      isPausedRef.current = false;
+      setIsPaused(false);
+      recordingTimerRef.current = setInterval(() => {
+        setRecordingSeconds(s => s + 1);
+      }, 1000);
+    }
+  };
+
   const stopAndSendVoiceRecording = () => {
     if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+    if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
     isCancelledRef.current = false;
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+    if (mediaRecorderRef.current && (mediaRecorderRef.current.state === 'recording' || mediaRecorderRef.current.state === 'paused')) {
       mediaRecorderRef.current.stop();
     }
     setIsRecording(false);
+    setIsPaused(false);
   };
 
   const cancelVoiceRecording = () => {
     if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+    if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+    if (audioContextRef.current) {
+      audioContextRef.current.close().catch(() => {});
+      audioContextRef.current = null;
+    }
     isCancelledRef.current = true;
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+    if (mediaRecorderRef.current && (mediaRecorderRef.current.state === 'recording' || mediaRecorderRef.current.state === 'paused')) {
       mediaRecorderRef.current.stop();
     }
     setIsRecording(false);
+    setIsPaused(false);
     setRecordingSeconds(0);
   };
 
@@ -454,27 +563,28 @@ export const MessagesPage: React.FC = () => {
 
   return (
     <div className="max-w-6xl mx-auto h-[calc(100vh-130px)] min-h-[580px] bg-white dark:bg-[#111d15] rounded-3xl border border-gray-200/80 dark:border-[#1e3325] shadow-card flex overflow-hidden transition-colors">
-      {/* Hidden File Pickers */}
-      <input
-        type="file"
-        ref={imageInputRef}
-        accept="image/*"
-        className="hidden"
-        onChange={handleFilePicked('image')}
-      />
-      <input
-        type="file"
-        ref={videoInputRef}
-        accept="video/*"
-        className="hidden"
-        onChange={handleFilePicked('video')}
-      />
+      {/* Hidden File Pickers: Document, Photos & Video, Camera, Audio */}
       <input
         type="file"
         ref={docInputRef}
         accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.zip,.csv"
         className="hidden"
         onChange={handleFilePicked('file')}
+      />
+      <input
+        type="file"
+        ref={mediaInputRef}
+        accept="image/*,video/*"
+        className="hidden"
+        onChange={handlePhotosAndVideosPicked}
+      />
+      <input
+        type="file"
+        ref={cameraInputRef}
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={handleFilePicked('image')}
       />
       <input
         type="file"
@@ -900,52 +1010,68 @@ export const MessagesPage: React.FC = () => {
                 </div>
               )}
 
-              {/* Attachment Popover Menu */}
+              {/* Attachment Popover Menu (WhatsApp style: Document, Photos & Video, Camera, Audio) */}
               {showAttachmentMenu && (
-                <div className="absolute bottom-full mb-3 left-12 bg-white dark:bg-[#16251c] rounded-2xl shadow-2xl border border-gray-200/80 dark:border-[#1e3325] p-2 z-30 min-w-[200px] animate-in fade-in slide-in-from-bottom-2">
+                <div className="absolute bottom-full mb-3 left-12 bg-white dark:bg-[#16251c] rounded-2xl shadow-2xl border border-gray-200/80 dark:border-[#1e3325] p-2 z-30 min-w-[210px] animate-in fade-in slide-in-from-bottom-2">
                   <div className="space-y-1">
+                    {/* 1. Document */}
                     <button
                       type="button"
-                      onClick={() => imageInputRef.current?.click()}
+                      onClick={() => {
+                        setShowAttachmentMenu(false);
+                        docInputRef.current?.click();
+                      }}
                       className="w-full flex items-center gap-3 px-3 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-emerald-50 dark:hover:bg-[#1f3326] hover:text-[#0b4627] dark:hover:text-emerald-400 rounded-xl transition"
                     >
-                      <div className="w-7 h-7 rounded-lg bg-emerald-100 dark:bg-[#1e3325] text-[#0b4627] dark:text-emerald-400 flex items-center justify-center">
-                        <ImageIcon className="w-4 h-4" />
-                      </div>
-                      <span>Photos & Images</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => videoInputRef.current?.click()}
-                      className="w-full flex items-center gap-3 px-3 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-emerald-50 dark:hover:bg-[#1f3326] hover:text-[#0b4627] dark:hover:text-emerald-400 rounded-xl transition"
-                    >
-                      <div className="w-7 h-7 rounded-lg bg-blue-100 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center">
-                        <Film className="w-4 h-4" />
-                      </div>
-                      <span>Video Recording</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => docInputRef.current?.click()}
-                      className="w-full flex items-center gap-3 px-3 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-emerald-50 dark:hover:bg-[#1f3326] hover:text-[#0b4627] dark:hover:text-emerald-400 rounded-xl transition"
-                    >
-                      <div className="w-7 h-7 rounded-lg bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+                      <div className="w-8 h-8 rounded-xl bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center">
                         <FileText className="w-4 h-4" />
                       </div>
-                      <span>Document (PDF, Word)</span>
+                      <span className="font-medium">Document</span>
                     </button>
 
+                    {/* 2. Photos & Video */}
                     <button
                       type="button"
-                      onClick={() => audioInputRef.current?.click()}
+                      onClick={() => {
+                        setShowAttachmentMenu(false);
+                        mediaInputRef.current?.click();
+                      }}
                       className="w-full flex items-center gap-3 px-3 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-emerald-50 dark:hover:bg-[#1f3326] hover:text-[#0b4627] dark:hover:text-emerald-400 rounded-xl transition"
                     >
-                      <div className="w-7 h-7 rounded-lg bg-purple-100 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 flex items-center justify-center">
+                      <div className="w-8 h-8 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 text-[#0b4627] dark:text-emerald-400 flex items-center justify-center">
+                        <ImageIcon className="w-4 h-4" />
+                      </div>
+                      <span className="font-medium">Photos & Video</span>
+                    </button>
+
+                    {/* 3. Camera */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowAttachmentMenu(false);
+                        cameraInputRef.current?.click();
+                      }}
+                      className="w-full flex items-center gap-3 px-3 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-emerald-50 dark:hover:bg-[#1f3326] hover:text-[#0b4627] dark:hover:text-emerald-400 rounded-xl transition"
+                    >
+                      <div className="w-8 h-8 rounded-xl bg-blue-100 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+                        <Camera className="w-4 h-4" />
+                      </div>
+                      <span className="font-medium">Camera</span>
+                    </button>
+
+                    {/* 4. Audio */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowAttachmentMenu(false);
+                        audioInputRef.current?.click();
+                      }}
+                      className="w-full flex items-center gap-3 px-3 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-emerald-50 dark:hover:bg-[#1f3326] hover:text-[#0b4627] dark:hover:text-emerald-400 rounded-xl transition"
+                    >
+                      <div className="w-8 h-8 rounded-xl bg-purple-100 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 flex items-center justify-center">
                         <Music className="w-4 h-4" />
                       </div>
-                      <span>Audio File</span>
+                      <span className="font-medium">Audio</span>
                     </button>
                   </div>
                 </div>
@@ -1000,36 +1126,65 @@ export const MessagesPage: React.FC = () => {
                 </div>
               )}
 
-              {/* Dynamic Input Bar: Live Voice Note Recording vs Normal Message Dock */}
+              {/* Dynamic Input Bar: WhatsApp style Audio Recording (only timing, wave, pause/resume, send) vs Message Dock */}
               {isRecording ? (
-                <div className="flex items-center justify-between gap-3 bg-red-50/90 dark:bg-red-950/30 border border-red-200/80 dark:border-red-900/50 rounded-xl py-2 px-3.5 animate-pulse">
-                  <div className="flex items-center gap-2 text-red-600 dark:text-red-400">
-                    <span className="w-2.5 h-2.5 rounded-full bg-red-600 animate-ping" />
-                    <span className="text-xs font-bold">Recording...</span>
-                    <span className="text-xs font-mono font-bold ml-1">
+                <div className="flex items-center gap-2.5 w-full bg-gray-100/95 dark:bg-[#16251c] border border-gray-200 dark:border-[#1e3325] rounded-2xl py-2 px-3 shadow-xs animate-in fade-in duration-150">
+                  {/* 1. Delete / Discard (Trash) */}
+                  <button
+                    type="button"
+                    onClick={cancelVoiceRecording}
+                    className="p-1.5 rounded-full text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 transition active:scale-90"
+                    title="Discard recording"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+
+                  {/* 2. Pause / Resume recording like WhatsApp */}
+                  <button
+                    type="button"
+                    onClick={isPaused ? resumeVoiceRecording : pauseVoiceRecording}
+                    className={`p-1.5 rounded-full transition active:scale-90 ${
+                      isPaused 
+                        ? 'bg-red-100 dark:bg-red-950/60 text-red-600 dark:text-red-400 ring-2 ring-red-400/50' 
+                        : 'text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30'
+                    }`}
+                    title={isPaused ? 'Resume recording' : 'Pause recording'}
+                  >
+                    {isPaused ? <Mic className="w-4 h-4 animate-pulse" /> : <Pause className="w-4 h-4" />}
+                  </button>
+
+                  {/* 3. Live Sound Wave Bars during recording (freezes when paused) */}
+                  <div className="flex-1 flex items-center justify-center gap-[3px] h-7 px-2 overflow-hidden select-none">
+                    {waveHeights.map((h, i) => (
+                      <span
+                        key={i}
+                        style={{ height: `${h}%` }}
+                        className={`w-[2.5px] rounded-full transition-all duration-75 ${
+                          isPaused 
+                            ? 'bg-gray-400 dark:bg-gray-600' 
+                            : 'bg-[#0b4627] dark:bg-emerald-400 animate-pulse'
+                        }`}
+                      />
+                    ))}
+                  </div>
+
+                  {/* 4. Live Timing only */}
+                  <div className="flex items-center gap-1.5 shrink-0 font-mono text-xs font-semibold text-gray-800 dark:text-gray-200">
+                    <span className={`w-2 h-2 rounded-full ${isPaused ? 'bg-amber-500' : 'bg-red-500 animate-ping'}`} />
+                    <span>
                       {Math.floor(recordingSeconds / 60)}:{(recordingSeconds % 60).toString().padStart(2, '0')}
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      type="button"
-                      onClick={cancelVoiceRecording}
-                      className="p-1.5 rounded-lg text-gray-500 hover:text-red-600 hover:bg-red-100 dark:hover:bg-red-900/40 transition"
-                      title="Discard Voice Note"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={stopAndSendVoiceRecording}
-                      className="px-3 py-1.5 rounded-lg bg-[#0b4627] hover:bg-[#0f5132] text-white text-xs font-bold flex items-center gap-1.5 shadow-xs transition active:scale-95"
-                      title="Send Voice Note"
-                    >
-                      <Send className="w-3.5 h-3.5" />
-                      <span>Send</span>
-                    </button>
-                  </div>
+                  {/* 5. Send button */}
+                  <button
+                    type="button"
+                    onClick={stopAndSendVoiceRecording}
+                    className="w-8 h-8 rounded-full bg-[#0b4627] hover:bg-[#0f5132] text-white flex items-center justify-center shrink-0 shadow-xs transition active:scale-95"
+                    title="Send Voice Note"
+                  >
+                    <Send className="w-4 h-4" />
+                  </button>
                 </div>
               ) : (
                 <form onSubmit={handleSend} className="flex items-center gap-2">
