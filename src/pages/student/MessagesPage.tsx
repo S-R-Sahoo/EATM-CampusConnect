@@ -944,14 +944,10 @@ export const MessagesPage: React.FC = () => {
                 src={user?.photoURL}
                 name={user?.displayName || 'User'}
                 size="sm"
-                online={true}
               />
               <div>
                 <h2 className="font-black text-sm text-gray-900 dark:text-gray-100 leading-tight">Campus Messages</h2>
-                <div className="flex items-center gap-1.5 mt-0.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">You are Online</p>
-                </div>
+                <p className="text-[11px] text-gray-500 dark:text-gray-400 font-medium">EATM Institutional Network</p>
               </div>
             </div>
             <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-[#0b4627] dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 px-2.5 py-1 rounded-full border border-emerald-200/80 dark:border-emerald-800/60 shadow-xs">
