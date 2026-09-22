@@ -3,7 +3,7 @@ import { UserProfile, UserRole } from '../types';
 import { loginWithEmail, registerWithEmail, loginWithGoogle as authGoogle, loginWithGithub as authGithub, logoutUser } from '../supabase/auth';
 import { fetchUsers, updateUserProfile as firestoreUpdateProfile } from '../supabase/db';
 import { supabase, isSupabaseConfigured } from '../supabase/client';
-import { DEFAULT_ENGINEER_AVATAR } from '../constants/assets';
+import { isCustomPhoto } from '../constants/assets';
 
 interface AuthContextType {
   user: UserProfile | null;
@@ -37,8 +37,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           try {
             const parsed = JSON.parse(storedUser);
             if (parsed && parsed.id) {
-              if (parsed.role === 'student' && (!parsed.photoURL || parsed.photoURL.includes('photo-1534528741775-53994a69daeb'))) {
-                parsed.photoURL = DEFAULT_ENGINEER_AVATAR;
+              if (!isCustomPhoto(parsed.photoURL)) {
+                parsed.photoURL = undefined;
               }
               setUser(parsed);
             }
@@ -65,7 +65,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 rollNumber: 'EATM' + new Date().getFullYear().toString().slice(-2) + 'CSE' + Math.floor(100 + Math.random() * 900),
                 year: '2nd Year',
                 semester: '4th Semester',
-                photoURL: meta.avatar_url || meta.picture || DEFAULT_ENGINEER_AVATAR,
+                photoURL: isCustomPhoto(meta.avatar_url || meta.picture) ? (meta.avatar_url || meta.picture) : undefined,
                 coverURL: 'https://images.unsplash.com/photo-1562774053-701939374585?w=1600&auto=format&fit=crop&q=80',
                 bio: 'Student at Einstein Academy of Technology and Management (EATM).',
                 skills: ['Computer Science', 'Engineering', 'Problem Solving'],
@@ -189,8 +189,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       let targetUser = users.find(u => u.role === role);
       if (role === 'student') {
         targetUser = users.find(u => u.id === 'user_soumya') || targetUser;
-        if (targetUser && (!targetUser.photoURL || targetUser.photoURL.includes('photo-1534528741775-53994a69daeb'))) {
-          targetUser.photoURL = DEFAULT_ENGINEER_AVATAR;
+        if (targetUser && !isCustomPhoto(targetUser.photoURL)) {
+          targetUser.photoURL = undefined;
         }
       } else if (role === 'faculty') {
         targetUser = users.find(u => u.id === 'faculty_mohapatra') || targetUser;

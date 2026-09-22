@@ -3,7 +3,6 @@ import {
   StudyMaterial, Opportunity, Announcement, NotificationItem, 
   Conversation, Message, Report, Assignment 
 } from '../types';
-import { DEFAULT_ENGINEER_AVATAR } from '../constants/assets';
 
 export const SEED_USERS: UserProfile[] = [
   {
@@ -17,7 +16,7 @@ export const SEED_USERS: UserProfile[] = [
     semester: '6th',
     rollNumber: 'EATM23CSE001',
     phone: '+91 98765 43210',
-    photoURL: DEFAULT_ENGINEER_AVATAR,
+    photoURL: undefined,
     coverURL: 'https://images.unsplash.com/photo-1562774053-701939374585?w=1600&auto=format&fit=crop&q=80',
     bio: 'Passionate about building innovative solutions and love to learn new technologies. EATM Hackathon 2024 Winner.',
     skills: ['C++', 'Java', 'Python', 'React', 'Web Dev', 'UI/UX', 'Node.js', 'Firebase'],
@@ -680,7 +679,7 @@ export const SEED_CONVERSATIONS: Conversation[] = [
     participantDetails: {
       user_soumya: {
         name: 'Soumyaranjan Sahoo',
-        avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80',
+        avatar: undefined,
         role: 'student',
         online: true
       },
@@ -761,7 +760,7 @@ export const SEED_MESSAGES: Message[] = [
     conversationId: 'conv_soumya_priya',
     senderId: 'user_soumya',
     senderName: 'Soumyaranjan Sahoo',
-    senderAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80',
+    senderAvatar: undefined,
     text: "Yes! I'm already registered!",
     createdAt: '2025-02-20T14:32:00Z',
     read: true
@@ -781,7 +780,7 @@ export const SEED_MESSAGES: Message[] = [
     conversationId: 'conv_soumya_priya',
     senderId: 'user_soumya',
     senderName: 'Soumyaranjan Sahoo',
-    senderAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80',
+    senderAvatar: undefined,
     text: "Sure! I'll share the details doc right away 🚀",
     createdAt: '2025-02-20T14:34:00Z',
     read: true

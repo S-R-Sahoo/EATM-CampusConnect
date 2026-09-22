@@ -7,7 +7,8 @@ import {
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { useAuth } from '../../contexts/AuthContext';
-import { EATM_OFFICIAL_LOGO, EATM_EMBLEM, DEFAULT_ENGINEER_AVATAR } from '../../constants/assets';
+import { Avatar } from '../../components/ui/Avatar';
+import { EATM_OFFICIAL_LOGO, EATM_EMBLEM } from '../../constants/assets';
 
 // Authentic 12 sliding banners from official https://www.eatm.in/
 const HERO_SLIDES = [
@@ -190,14 +191,12 @@ export const LandingPage: React.FC = () => {
                 to={user.role === 'faculty' ? '/faculty/dashboard' : user.role === 'admin' ? '/admin/dashboard' : '/student/dashboard'}
                 className="group flex items-center gap-2 sm:gap-2.5 pl-1.5 sm:pl-2 pr-3 sm:pr-4 py-1.5 rounded-full bg-emerald-50/90 hover:bg-emerald-100/90 border border-emerald-200/90 text-gray-800 transition-all duration-200 shadow-sm hover:shadow"
               >
-                <div className="relative shrink-0">
-                  <img
-                    src={user.photoURL || DEFAULT_ENGINEER_AVATAR}
-                    alt={user.displayName}
-                    className="w-7 h-7 sm:w-8 sm:h-8 rounded-full object-cover ring-2 ring-emerald-500/30"
-                  />
-                  <span className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-emerald-500 ring-1.5 ring-white" />
-                </div>
+                <Avatar
+                  src={user.photoURL}
+                  name={user.displayName}
+                  size="sm"
+                  online={true}
+                />
                 <div className="flex flex-col text-left leading-tight">
                   <span className="text-xs font-bold text-gray-900 group-hover:text-[#0b4627] max-w-[90px] sm:max-w-[130px] truncate">
                     {user.displayName}

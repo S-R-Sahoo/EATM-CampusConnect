@@ -1,7 +1,6 @@
 import { supabase, isSupabaseConfigured } from './client';
 import { UserProfile, UserRole } from '../types';
 import { fetchUserById, updateUserProfile, fetchUsers } from './db';
-import { DEFAULT_ENGINEER_AVATAR } from '../constants/assets';
 
 export async function hashPassword(password: string): Promise<string> {
   const normalized = (password || '').trim();
@@ -245,7 +244,7 @@ export async function registerWithEmail(
     employeeId: userData.employeeId?.toUpperCase(),
     designation: userData.designation,
     phone: userData.phone,
-    photoURL: userData.photoURL || (userData.role === 'student' ? DEFAULT_ENGINEER_AVATAR : 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=400&auto=format&fit=crop&q=80'),
+    photoURL: userData.photoURL || undefined,
     coverURL: existing?.coverURL || 'https://images.unsplash.com/photo-1562774053-701939374585?w=1600&auto=format&fit=crop&q=80',
     bio: existing?.bio || `${userData.role === 'student' ? 'Student' : 'Faculty'} at Einstein Academy of Technology and Management (EATM).`,
     skills: existing?.skills || (userData.role === 'student' ? ['Problem Solving', 'Engineering'] : ['Mentorship', 'Teaching']),

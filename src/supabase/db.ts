@@ -10,7 +10,7 @@ import {
   SEED_NOTIFICATIONS, SEED_CONVERSATIONS, SEED_MESSAGES, 
   SEED_REPORTS, SEED_ASSIGNMENTS 
 } from './seedData';
-import { DEFAULT_ENGINEER_AVATAR } from '../constants/assets';
+import { isCustomPhoto } from '../constants/assets';
 
 // Local storage key for sandbox/demo persistence
 const STORAGE_PREFIX = 'eatm_campus_';
@@ -38,6 +38,7 @@ function setLocalData<T>(key: string, data: T): void {
 // POSTS
 // ---------------------------------------------
 export async function fetchPosts(): Promise<Post[]> {
+  let list: Post[] = [];
   if (isSupabaseConfigured() && supabase) {
     try {
       const { data, error } = await supabase
@@ -47,16 +48,36 @@ export async function fetchPosts(): Promise<Post[]> {
 
       if (!error && data && data.length > 0) {
         setLocalData('posts', data);
-        return data as Post[];
+        list = data as Post[];
       }
     } catch (err) {
       console.warn('Supabase fetchPosts error, using local fallback:', err);
     }
   }
-  return getLocalData<Post[]>('posts', SEED_POSTS);
+  if (list.length === 0) {
+    list = getLocalData<Post[]>('posts', SEED_POSTS);
+  }
+
+  // Enrich authorAvatar from live user directory so newly uploaded photos automatically reflect everywhere
+  const allUsers = await fetchUsers();
+  const userMap = new Map(allUsers.map(u => [u.id, u]));
+
+  return list.map(p => {
+    const author = p.authorId ? userMap.get(p.authorId) : null;
+    const authorPhoto = author?.photoURL;
+    const resolvedAvatar = isCustomPhoto(authorPhoto)
+      ? authorPhoto
+      : (isCustomPhoto(p.authorAvatar) ? p.authorAvatar : undefined);
+
+    return {
+      ...p,
+      authorAvatar: resolvedAvatar
+    };
+  });
 }
 
 export async function fetchPostById(postId: string): Promise<Post | null> {
+  let post: Post | null = null;
   if (isSupabaseConfigured() && supabase) {
     try {
       const { data, error } = await supabase
@@ -66,14 +87,31 @@ export async function fetchPostById(postId: string): Promise<Post | null> {
         .single();
 
       if (!error && data) {
-        return data as Post;
+        post = data as Post;
       }
     } catch (err) {
       console.warn('Supabase fetchPostById error:', err);
     }
   }
-  const posts = getLocalData<Post[]>('posts', SEED_POSTS);
-  return posts.find(p => p.id === postId) || null;
+  if (!post) {
+    const posts = getLocalData<Post[]>('posts', SEED_POSTS);
+    post = posts.find(p => p.id === postId) || null;
+  }
+
+  if (post && post.authorId) {
+    const author = await fetchUserById(post.authorId);
+    const authorPhoto = author?.photoURL;
+    const resolvedAvatar = isCustomPhoto(authorPhoto)
+      ? authorPhoto
+      : (isCustomPhoto(post.authorAvatar) ? post.authorAvatar : undefined);
+
+    return {
+      ...post,
+      authorAvatar: resolvedAvatar
+    };
+  }
+
+  return post;
 }
 
 export function getPostShareUrl(postId: string): string {
@@ -288,6 +326,7 @@ export async function addPostComment(postId: string, commentData: { authorId: st
 }
 
 export async function fetchPostComments(postId: string): Promise<Comment[]> {
+  let comments: Comment[] = [];
   if (isSupabaseConfigured() && supabase) {
     try {
       const { data, error } = await supabase
@@ -295,13 +334,31 @@ export async function fetchPostComments(postId: string): Promise<Comment[]> {
         .select('*')
         .eq('postId', postId)
         .order('createdAt', { ascending: true });
-      if (!error && data) return data as Comment[];
+      if (!error && data) comments = data as Comment[];
     } catch (err) {
       console.warn('Supabase fetchPostComments error:', err);
     }
   }
-  const allComments = getLocalData<Comment[]>('comments', []);
-  return allComments.filter(c => c.postId === postId);
+  if (comments.length === 0) {
+    const allComments = getLocalData<Comment[]>('comments', []);
+    comments = allComments.filter(c => c.postId === postId);
+  }
+
+  // Enrich comment author avatar with live user photo
+  const allUsers = await fetchUsers();
+  const userMap = new Map(allUsers.map(u => [u.id, u]));
+
+  return comments.map(c => {
+    const author = c.authorId ? userMap.get(c.authorId) : null;
+    const authorPhoto = author?.photoURL;
+    const resolvedAvatar = isCustomPhoto(authorPhoto)
+      ? authorPhoto
+      : (isCustomPhoto(c.authorAvatar) ? c.authorAvatar : undefined);
+    return {
+      ...c,
+      authorAvatar: resolvedAvatar
+    };
+  });
 }
 
 export async function votePoll(postId: string, optionId: string, userId: string): Promise<Post | null> {
@@ -374,20 +431,23 @@ export async function fetchUsers(): Promise<UserProfile[]> {
   }
 
   return list.map(u => {
-    if (u.role === 'student' && (!u.photoURL || u.photoURL.includes('photo-1534528741775-53994a69daeb'))) {
-      return { ...u, photoURL: DEFAULT_ENGINEER_AVATAR };
-    }
-    return u;
+    return {
+      ...u,
+      photoURL: isCustomPhoto(u.photoURL) ? u.photoURL : undefined
+    };
   });
 }
 
 export async function fetchUserById(userId: string): Promise<UserProfile | null> {
   const users = await fetchUsers();
   const found = users.find(u => u.id === userId || u.uid === userId) || null;
-  if (found && found.role === 'student' && (!found.photoURL || found.photoURL.includes('photo-1534528741775-53994a69daeb'))) {
-    return { ...found, photoURL: DEFAULT_ENGINEER_AVATAR };
+  if (found) {
+    return {
+      ...found,
+      photoURL: isCustomPhoto(found.photoURL) ? found.photoURL : undefined
+    };
   }
-  return found;
+  return null;
 }
 
 export async function updateUserProfile(userId: string, data: Partial<UserProfile>): Promise<UserProfile> {
@@ -750,10 +810,15 @@ export async function fetchConversations(userId: string): Promise<Conversation[]
     conv.participants.forEach(pId => {
       const u = userMap.get(pId);
       if (u) {
+        const userPhoto = u.photoURL;
+        const resolvedAvatar = isCustomPhoto(userPhoto)
+          ? userPhoto
+          : (isCustomPhoto(details[pId]?.avatar) ? details[pId]?.avatar : undefined);
+
         details[pId] = {
           ...(details[pId] || {}),
-          name: details[pId]?.name || u.displayName,
-          avatar: details[pId]?.avatar || u.photoURL,
+          name: u.displayName || details[pId]?.name,
+          avatar: resolvedAvatar,
           role: details[pId]?.role || u.role,
           online: true
         };
@@ -850,7 +915,9 @@ export async function fetchMessages(conversationId: string, currentUserId?: stri
             mediaUrl: isDeletedMsg ? undefined : m.mediaUrl,
             mediaType: isDeletedMsg ? undefined : detectChatMessageMediaType(m.mediaUrl, m.mediaType),
             senderName: m.senderName || u?.displayName || (m.senderId === 'system' ? 'CampusConnect' : 'Student'),
-            senderAvatar: m.senderAvatar || u?.photoURL
+            senderAvatar: isCustomPhoto(u?.photoURL)
+              ? u?.photoURL
+              : (isCustomPhoto(m.senderAvatar) ? m.senderAvatar : undefined)
           };
         });
 
@@ -871,17 +938,26 @@ export async function fetchMessages(conversationId: string, currentUserId?: stri
     }
   }
 
+  const allUsers = await fetchUsers();
+  const userMap = new Map(allUsers.map(u => [u.id, u]));
   const msgs = getLocalData<Message[]>('messages', SEED_MESSAGES);
   const convMsgs = msgs
     .filter(m => m.conversationId === conversationId)
     .map(m => {
       const isDeletedMsg = m.isDeleted === true || m.text === '__DELETED_FOR_EVERYONE__';
+      const u = userMap.get(m.senderId);
+      const userPhoto = u?.photoURL;
+      const resolvedAvatar = isCustomPhoto(userPhoto)
+        ? userPhoto
+        : (isCustomPhoto(m.senderAvatar) ? m.senderAvatar : undefined);
       return {
         ...m,
         isDeleted: isDeletedMsg,
         text: isDeletedMsg ? '' : m.text,
         mediaUrl: isDeletedMsg ? undefined : m.mediaUrl,
-        mediaType: isDeletedMsg ? undefined : detectChatMessageMediaType(m.mediaUrl, m.mediaType)
+        mediaType: isDeletedMsg ? undefined : detectChatMessageMediaType(m.mediaUrl, m.mediaType),
+        senderName: m.senderName || u?.displayName || (m.senderId === 'system' ? 'CampusConnect' : 'Student'),
+        senderAvatar: resolvedAvatar
       };
     });
 

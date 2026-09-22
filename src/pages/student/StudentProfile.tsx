@@ -21,7 +21,8 @@ import {
   User, Cpu, Compass, Trophy, BookOpen, Radio,
   ArrowLeft, Check, Clock, UserPlus, MessageSquare, X
 } from 'lucide-react';
-import { DEFAULT_ENGINEER_AVATAR } from '../../constants/assets';
+import { isCustomPhoto } from '../../constants/assets';
+import { Avatar } from '../../components/ui/Avatar';
 
 const DEPARTMENT_OPTIONS = [
   { label: 'Computer Science & Engineering (CSE)', value: 'CSE' },
@@ -253,9 +254,7 @@ export const StudentProfile: React.FC = () => {
     }
   };
 
-  const effectivePhoto = (activeUser?.photoURL && !activeUser.photoURL.includes('photo-1534528741775-53994a69daeb'))
-    ? activeUser.photoURL
-    : DEFAULT_ENGINEER_AVATAR;
+  const effectivePhoto = isCustomPhoto(activeUser?.photoURL) ? activeUser?.photoURL : undefined;
 
   const handleOpenEdit = () => {
     if (!user) return;
@@ -267,27 +266,25 @@ export const StudentProfile: React.FC = () => {
     setBio(user.bio || '');
     setSkillsStr(user.skills?.join(', ') || '');
     setInterestsStr(user.interests?.join(', ') || '');
-    setPhotoURL(effectivePhoto);
+    setPhotoURL(isCustomPhoto(user.photoURL) ? (user.photoURL || '') : '');
     setCoverURL(user.coverURL || '');
     setEditModalOpen(true);
   };
+
   const handleAvatarUpload = async (file: File, isModal = false) => {
     if (!file || !user) return;
     setUploadingPhoto(true);
     setPhotoProgress(0);
     try {
+      const sanitizedName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
       const url = await uploadFile(
-        `profiles/${user.id}/avatar_${Date.now()}_${file.name}`,
+        `profiles/${user.id}/avatar_${Date.now()}_${sanitizedName}`,
         file,
         (p) => setPhotoProgress(p)
       );
       setPhotoURL(url);
-      if (!isModal) {
-        await updateUser({ photoURL: url });
-        success('Profile photo updated successfully!', 'Photo Updated');
-      } else {
-        success('Photo uploaded and ready to save!', 'Upload Complete');
-      }
+      await updateUser({ photoURL: url });
+      success('Profile photo updated successfully! It is now visible everywhere.', 'Photo Updated');
     } catch (err) {
       console.error(err);
       toastError('Failed to upload profile photo');
@@ -325,6 +322,7 @@ export const StudentProfile: React.FC = () => {
 
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user) return;
     setSaving(true);
     try {
       await updateUser({
@@ -336,7 +334,7 @@ export const StudentProfile: React.FC = () => {
         bio,
         skills: skillsStr.split(',').map(s => s.trim()).filter(Boolean),
         interests: interestsStr.split(',').map(i => i.trim()).filter(Boolean),
-        photoURL,
+        photoURL: isCustomPhoto(photoURL) ? photoURL : (isCustomPhoto(user.photoURL) ? user.photoURL : undefined),
         coverURL
       });
       success('Official student credentials and profile saved!', 'Changes Saved');
@@ -460,13 +458,14 @@ export const StudentProfile: React.FC = () => {
                 />
               )}
               <div className="w-28 h-28 sm:w-36 sm:h-36 rounded-full ring-4 ring-white dark:ring-[#111d15] shadow-xl overflow-hidden bg-white dark:bg-[#16251c] flex items-center justify-center relative">
-                <img
+                <Avatar
                   src={effectivePhoto}
-                  alt={activeUser.displayName}
-                  className="w-full h-full object-cover"
+                  name={activeUser.displayName}
+                  size="2xl"
+                  className="w-full h-full"
                 />
                 {uploadingPhoto && (
-                  <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center text-white text-[10px] font-bold">
+                  <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center text-white text-[10px] font-bold z-10">
                     <Loader2 className="w-5 h-5 animate-spin text-emerald-400 mb-1" />
                     <span>{photoProgress}%</span>
                   </div>
@@ -864,14 +863,14 @@ export const StudentProfile: React.FC = () => {
                 Student Profile Photo
               </label>
               <div className="flex items-center gap-4">
-                <div className="w-16 h-16 rounded-full ring-2 ring-emerald-600/30 overflow-hidden bg-gray-200 dark:bg-gray-800 shrink-0 relative">
-                  <img
-                    src={photoURL || DEFAULT_ENGINEER_AVATAR}
-                    alt="Preview"
-                    className="w-full h-full object-cover"
+                <div className="w-16 h-16 rounded-full ring-2 ring-emerald-600/30 overflow-hidden bg-gray-200 dark:bg-gray-800 shrink-0 relative flex items-center justify-center">
+                  <Avatar
+                    src={photoURL}
+                    name={displayName || user?.displayName || 'User'}
+                    size="lg"
                   />
                   {uploadingPhoto && (
-                    <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                    <div className="absolute inset-0 bg-black/60 flex items-center justify-center z-10">
                       <Loader2 className="w-5 h-5 text-emerald-400 animate-spin" />
                     </div>
                   )}
