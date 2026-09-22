@@ -10,6 +10,7 @@ import { Conversation, Message } from '../../types';
 import { Avatar } from '../../components/ui/Avatar';
 import { ChatAudioPlayer } from '../../components/chat/ChatAudioPlayer';
 import { MediaLightbox } from '../../components/chat/MediaLightbox';
+import { CameraModal } from '../../components/chat/CameraModal';
 import { 
   Search, Send, Paperclip, Smile, Phone, Video, 
   MoreVertical, CheckCheck, Image as ImageIcon, MessageSquare,
@@ -40,6 +41,7 @@ export const MessagesPage: React.FC = () => {
   const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
   const [stagedAttachment, setStagedAttachment] = useState<StagedAttachment | null>(null);
   const [lightboxImage, setLightboxImage] = useState<{ src: string; alt?: string } | null>(null);
+  const [showCameraModal, setShowCameraModal] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
 
   // WhatsApp style Live Audio Voice Recording states
@@ -603,6 +605,19 @@ export const MessagesPage: React.FC = () => {
         />
       )}
 
+      {/* Live Camera Viewfinder Modal */}
+      <CameraModal
+        isOpen={showCameraModal}
+        onClose={() => setShowCameraModal(false)}
+        onCapture={(file) => {
+          const previewUrl = URL.createObjectURL(file);
+          setStagedAttachment({ file, type: 'image', previewUrl });
+        }}
+        onFallbackToFilePicker={() => {
+          cameraInputRef.current?.click();
+        }}
+      />
+
       {/* Left Column: Official Campus Conversations Directory */}
       <div className={`w-full sm:w-80 md:w-96 border-r border-gray-200/80 dark:border-[#1e3325] flex flex-col bg-white dark:bg-[#111d15] shrink-0 ${activeConvId ? 'hidden sm:flex' : 'flex'}`}>
         <div className="p-4 border-b border-gray-100 dark:border-[#1e3325] space-y-3">
@@ -1049,7 +1064,7 @@ export const MessagesPage: React.FC = () => {
                       type="button"
                       onClick={() => {
                         setShowAttachmentMenu(false);
-                        cameraInputRef.current?.click();
+                        setShowCameraModal(true);
                       }}
                       className="w-full flex items-center gap-3 px-3 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-emerald-50 dark:hover:bg-[#1f3326] hover:text-[#0b4627] dark:hover:text-emerald-400 rounded-xl transition"
                     >
