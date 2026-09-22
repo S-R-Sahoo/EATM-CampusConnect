@@ -938,22 +938,16 @@ export const MessagesPage: React.FC = () => {
       {/* Left Column: Official Campus Conversations Directory */}
       <div className={`w-full sm:w-80 md:w-96 border-r border-gray-200/80 dark:border-[#1e3325] flex flex-col bg-white dark:bg-[#111d15] shrink-0 ${activeConvId ? 'hidden sm:flex' : 'flex'}`}>
         <div className="p-4 border-b border-gray-100 dark:border-[#1e3325] space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <Avatar
-                src={user?.photoURL}
-                name={user?.displayName || 'User'}
-                size="sm"
-              />
-              <div>
-                <h2 className="font-black text-sm text-gray-900 dark:text-gray-100 leading-tight">Campus Messages</h2>
-                <p className="text-[11px] text-gray-500 dark:text-gray-400 font-medium">EATM Institutional Network</p>
-              </div>
+          <div className="flex items-center gap-2.5">
+            <Avatar
+              src={user?.photoURL}
+              name={user?.displayName || 'User'}
+              size="sm"
+            />
+            <div>
+              <h2 className="font-black text-sm text-gray-900 dark:text-gray-100 leading-tight">Campus Messages</h2>
+              <p className="text-[11px] text-gray-500 dark:text-gray-400 font-medium">EATM Institutional Network</p>
             </div>
-            <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-[#0b4627] dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 px-2.5 py-1 rounded-full border border-emerald-200/80 dark:border-emerald-800/60 shadow-xs">
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-              Verified
-            </span>
           </div>
 
           {/* Chats / Groups Tabs */}
