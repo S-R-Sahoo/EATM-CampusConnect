@@ -25,6 +25,16 @@ interface StagedAttachment {
   previewUrl: string;
 }
 
+// Mobile device detection (smartphones & tablets vs desktop/laptop)
+const isMobileDevice = (): boolean => {
+  if (typeof window === 'undefined' || typeof navigator === 'undefined') return false;
+  const ua = navigator.userAgent || navigator.vendor || (window as any).opera || '';
+  const isMobileUA = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
+  const isTouchDevice = 'ontouchstart' in window || (navigator.maxTouchPoints && navigator.maxTouchPoints > 0);
+  const isSmallScreen = window.innerWidth <= 768;
+  return Boolean(isMobileUA || (isTouchDevice && isSmallScreen));
+};
+
 export const MessagesPage: React.FC = () => {
   const { user } = useAuth();
   const { error, success } = useToast();
@@ -433,8 +443,13 @@ export const MessagesPage: React.FC = () => {
     setRecordingSeconds(0);
   };
 
-  // Directly send an audio recording or direct file
-  const sendAttachmentDirect = async (file: File, type: 'image' | 'video' | 'file' | 'audio', audioDuration?: number) => {
+  // Directly send media (e.g. voice notes, audio files, or desktop camera captures) without staging box
+  const sendAttachmentDirect = async (
+    file: File,
+    type: 'image' | 'video' | 'file' | 'audio',
+    audioDuration?: number,
+    captionText?: string
+  ) => {
     if (!user || !activeConvId) return;
     setIsUploading(true);
     try {
@@ -446,7 +461,7 @@ export const MessagesPage: React.FC = () => {
         senderId: user.id,
         senderName: user.displayName,
         senderAvatar: user.photoURL,
-        text: '',
+        text: captionText || '',
         mediaUrl: uploadedUrl,
         mediaType: type,
         fileName: file.name,
@@ -455,11 +470,39 @@ export const MessagesPage: React.FC = () => {
       });
 
       setMessages(prev => [...prev, newMsg]);
+
+      // Update last message preview in conversations list
+      let lastText = captionText;
+      if (!lastText) {
+        if (type === 'image') lastText = '📷 Photo';
+        else if (type === 'video') lastText = '🎥 Video';
+        else if (type === 'audio') lastText = '🎤 Voice Note';
+        else if (type === 'file') lastText = `📄 ${file.name || 'Document'}`;
+        else lastText = 'Attachment';
+      }
+
+      setConversations(prev =>
+        prev.map(c => {
+          if (c.id === activeConvId) {
+            return {
+              ...c,
+              lastMessage: {
+                text: lastText,
+                senderId: user.id,
+                timestamp: 'Just now',
+                read: true
+              }
+            };
+          }
+          return c;
+        })
+      );
+
       setTimeout(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
       }, 50);
     } catch (err) {
-      error('Failed to send voice note.');
+      error(`Failed to send ${type === 'audio' ? 'voice note' : 'media'}.`);
     } finally {
       setIsUploading(false);
     }
@@ -605,13 +648,12 @@ export const MessagesPage: React.FC = () => {
         />
       )}
 
-      {/* Live Camera Viewfinder Modal */}
+      {/* WhatsApp Web Style Desktop Camera Modal */}
       <CameraModal
         isOpen={showCameraModal}
         onClose={() => setShowCameraModal(false)}
-        onCapture={(file) => {
-          const previewUrl = URL.createObjectURL(file);
-          setStagedAttachment({ file, type: 'image', previewUrl });
+        onCapture={async (file, caption) => {
+          await sendAttachmentDirect(file, 'image', undefined, caption);
         }}
         onFallbackToFilePicker={() => {
           cameraInputRef.current?.click();
@@ -1064,7 +1106,13 @@ export const MessagesPage: React.FC = () => {
                       type="button"
                       onClick={() => {
                         setShowAttachmentMenu(false);
-                        setShowCameraModal(true);
+                        if (isMobileDevice()) {
+                          // Mobile: Open native full-screen camera app directly
+                          cameraInputRef.current?.click();
+                        } else {
+                          // Laptop/Desktop: Open WhatsApp Web style full-screen camera overlay
+                          setShowCameraModal(true);
+                        }
                       }}
                       className="w-full flex items-center gap-3 px-3 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-emerald-50 dark:hover:bg-[#1f3326] hover:text-[#0b4627] dark:hover:text-emerald-400 rounded-xl transition"
                     >
