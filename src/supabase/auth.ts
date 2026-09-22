@@ -161,14 +161,19 @@ export async function loginWithEmail(emailOrRoll: string, pass: string): Promise
     throw new Error('Your account has been temporarily disabled. Please contact the college administrator.');
   }
 
+  // Always update login timestamp in users table
+  authenticatedProfile.updatedAt = new Date().toISOString();
+  authenticatedProfile.lastSeen = new Date().toISOString();
+
   // Upgrade user's passHash in users table if missing or updated
   if (!authenticatedProfile.socialLinks?.passHash || authenticatedProfile.socialLinks.passHash !== enteredHash) {
     authenticatedProfile.socialLinks = {
       ...(authenticatedProfile.socialLinks || {}),
       passHash: enteredHash
     };
-    updateUserProfile(authenticatedProfile.id, authenticatedProfile).catch(() => {});
   }
+
+  updateUserProfile(authenticatedProfile.id, authenticatedProfile).catch(() => {});
 
   return authenticatedProfile;
 }
