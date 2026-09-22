@@ -286,7 +286,7 @@ export const DiscoverPeople: React.FC = () => {
                     src={student.photoURL}
                     name={student.displayName}
                     size="lg"
-                    online={isUserOnline(student.id) ? true : undefined}
+                    online={(student.id !== user?.id && isUserOnline(student.id)) ? true : undefined}
                   />
                   <div className="min-w-0">
                     {/* Name & Official Verified Student Tick */}
