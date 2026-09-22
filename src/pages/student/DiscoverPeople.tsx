@@ -9,7 +9,7 @@ import { UserProfile, Connection } from '../../types';
 import { Avatar } from '../../components/ui/Avatar';
 import { 
   Search, UserPlus, Clock, MessageSquare, ArrowRight, 
-  Loader2, Building2, X, RotateCcw, ChevronDown, UserCheck, Users 
+  Loader2, Building2, X, RotateCcw, ChevronDown, UserCheck, Users, SlidersHorizontal 
 } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
 import confetti from 'canvas-confetti';
@@ -144,24 +144,24 @@ export const DiscoverPeople: React.FC = () => {
           </p>
         </div>
 
-        {/* Search & Department Filter Bar (Side-by-Side on Mobile & Desktop) */}
+        {/* Search & Department Filter Bar */}
         <div className="flex flex-row items-center gap-2 sm:gap-3">
           
-          {/* Search Input */}
+          {/* Search Input (Full width on mobile, flexible on desktop) */}
           <div className="relative flex-1 min-w-0">
-            <Search className="absolute left-2.5 sm:left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-400 pointer-events-none" />
+            <Search className="absolute left-3 sm:left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search students..."
-              className="w-full pl-8 sm:pl-10 pr-7 sm:pr-9 py-2 sm:py-2.5 bg-gray-50 dark:bg-[#16251c] border border-gray-200 dark:border-[#1e3325] rounded-xl text-xs sm:text-sm text-gray-800 dark:text-gray-100 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0b4627] dark:focus:ring-emerald-500 focus:bg-white dark:focus:bg-[#16251c] transition truncate"
+              placeholder="Search students by name, skills..."
+              className="w-full pl-9 sm:pl-10 pr-8 sm:pr-9 py-2.5 bg-gray-50 dark:bg-[#16251c] border border-gray-200 dark:border-[#1e3325] rounded-xl text-xs sm:text-sm text-gray-800 dark:text-gray-100 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0b4627] dark:focus:ring-emerald-500 focus:bg-white dark:focus:bg-[#16251c] transition"
             />
             {searchQuery.length > 0 && (
               <button
                 type="button"
                 onClick={() => setSearchQuery('')}
-                className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-0.5 rounded-full cursor-pointer"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-0.5 rounded-full cursor-pointer"
                 title="Clear search"
               >
                 <X className="w-3.5 h-3.5" />
@@ -169,13 +169,42 @@ export const DiscoverPeople: React.FC = () => {
             )}
           </div>
 
-          {/* Clean Department Dropdown Filter */}
-          <div className="relative w-[135px] xs:w-[145px] sm:w-60 md:w-64 shrink-0">
-            <Building2 className="absolute left-2.5 sm:left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600 dark:text-emerald-400 pointer-events-none" />
+          {/* Mobile Little Filter Button (No text, compact, triggers native picker) */}
+          <div className="relative sm:hidden shrink-0">
+            <div
+              className={`w-10 h-10 rounded-xl border flex items-center justify-center transition ${
+                selectedDept !== 'All'
+                  ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-400/80 dark:border-emerald-700/80 shadow-2xs'
+                  : 'bg-gray-50 dark:bg-[#16251c] text-gray-600 dark:text-gray-300 border-gray-200 dark:border-[#1e3325]'
+              }`}
+            >
+              <SlidersHorizontal className="w-4 h-4" />
+              {selectedDept !== 'All' && (
+                <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-emerald-600 ring-2 ring-white dark:ring-[#111d15]" />
+              )}
+            </div>
+            {/* Transparent Select over the button to open native mobile picker directly */}
             <select
               value={selectedDept}
               onChange={(e) => setSelectedDept(e.target.value)}
-              className="w-full pl-7 sm:pl-10 pr-6 sm:pr-9 py-2 sm:py-2.5 bg-gray-50 dark:bg-[#16251c] border border-gray-200 dark:border-[#1e3325] hover:border-emerald-500/60 dark:hover:border-emerald-500/60 rounded-xl text-xs sm:text-sm font-semibold text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#0b4627] dark:focus:ring-emerald-500 transition cursor-pointer appearance-none truncate"
+              aria-label="Filter by department"
+              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+            >
+              {DEPARTMENTS.map(d => (
+                <option key={d.id} value={d.id}>
+                  {d.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Desktop Department Dropdown Filter */}
+          <div className="relative hidden sm:block sm:w-60 md:w-64 shrink-0">
+            <Building2 className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-600 dark:text-emerald-400 pointer-events-none" />
+            <select
+              value={selectedDept}
+              onChange={(e) => setSelectedDept(e.target.value)}
+              className="w-full pl-10 pr-9 py-2.5 bg-gray-50 dark:bg-[#16251c] border border-gray-200 dark:border-[#1e3325] hover:border-emerald-500/60 dark:hover:border-emerald-500/60 rounded-xl text-xs sm:text-sm font-semibold text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#0b4627] dark:focus:ring-emerald-500 transition cursor-pointer appearance-none truncate"
             >
               {DEPARTMENTS.map(d => (
                 <option key={d.id} value={d.id} className="bg-white dark:bg-[#16251c] text-gray-900 dark:text-gray-100 py-1">
@@ -183,7 +212,7 @@ export const DiscoverPeople: React.FC = () => {
                 </option>
               ))}
             </select>
-            <ChevronDown className="absolute right-2 sm:right-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-400 pointer-events-none" />
+            <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
           </div>
         </div>
 
