@@ -42,6 +42,50 @@ export interface UserProfile {
     portfolio?: string;
     passHash?: string;
   };
+  settings?: {
+    account?: {
+      phone?: string;
+      alternateEmail?: string;
+    };
+    privacy?: {
+      profileVisibility?: string;
+      searchDiscoverability?: boolean;
+      showContactInfo?: boolean;
+      activityStatus?: boolean;
+    };
+    connections?: {
+      whoCanConnect?: string;
+      autoAcceptDepartment?: boolean;
+      showMutualConnections?: boolean;
+    };
+    messages?: {
+      whoCanMessage?: string;
+      readReceipts?: boolean;
+      typingIndicators?: boolean;
+      hdMedia?: boolean;
+    };
+    notifications?: {
+      emailDigest?: boolean;
+      chatAlerts?: boolean;
+      eventReminders?: boolean;
+      placementAlerts?: boolean;
+      soundEffects?: boolean;
+      peerAlerts?: boolean;
+    };
+    appearance?: {
+      fontSize?: 'normal' | 'large' | 'compact';
+      reducedMotion?: boolean;
+    };
+    groups?: {
+      communityInvites?: boolean;
+      publicMemberBadges?: boolean;
+      studyGroupDiscovery?: boolean;
+    };
+    safety?: {
+      blockedUserIds?: string[];
+      profanityFilter?: boolean;
+    };
+  };
   status: 'active' | 'disabled';
   verified?: boolean;
   createdAt: string;
