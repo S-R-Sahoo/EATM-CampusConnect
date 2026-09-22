@@ -806,7 +806,27 @@ export function detectChatMessageMediaType(mediaUrl?: string, explicitType?: str
   return 'file';
 }
 
+const DELETED_FOR_ME_PREFIX = 'eatm_deleted_for_me_';
+
+export function getDeletedForMeIds(userId: string): Set<string> {
+  try {
+    const raw = localStorage.getItem(DELETED_FOR_ME_PREFIX + userId);
+    if (raw) return new Set(JSON.parse(raw));
+  } catch (e) {}
+  return new Set();
+}
+
+export function markMessageDeletedForMe(userId: string, messageId: string): void {
+  try {
+    const set = getDeletedForMeIds(userId);
+    set.add(messageId);
+    localStorage.setItem(DELETED_FOR_ME_PREFIX + userId, JSON.stringify(Array.from(set)));
+  } catch (e) {}
+}
+
 export async function fetchMessages(conversationId: string, currentUserId?: string): Promise<Message[]> {
+  const deletedForMeSet = currentUserId ? getDeletedForMeIds(currentUserId) : new Set<string>();
+
   if (isSupabaseConfigured() && supabase) {
     try {
       const { data, error } = await supabase
@@ -821,10 +841,14 @@ export async function fetchMessages(conversationId: string, currentUserId?: stri
         const userMap = new Map(allUsers.map(u => [u.id, u]));
 
         const enriched = (data as Message[]).map(m => {
+          const isDeletedMsg = m.isDeleted === true || m.text === '__DELETED_FOR_EVERYONE__';
           const u = userMap.get(m.senderId);
           return {
             ...m,
-            mediaType: detectChatMessageMediaType(m.mediaUrl, m.mediaType),
+            isDeleted: isDeletedMsg,
+            text: isDeletedMsg ? '' : m.text,
+            mediaUrl: isDeletedMsg ? undefined : m.mediaUrl,
+            mediaType: isDeletedMsg ? undefined : detectChatMessageMediaType(m.mediaUrl, m.mediaType),
             senderName: m.senderName || u?.displayName || (m.senderId === 'system' ? 'CampusConnect' : 'Student'),
             senderAvatar: m.senderAvatar || u?.photoURL
           };
@@ -836,9 +860,11 @@ export async function fetchMessages(conversationId: string, currentUserId?: stri
         const remainingLocal = localMsgs.filter(m => m.conversationId !== conversationId || !serverIds.has(m.id));
         setLocalData('messages', [...remainingLocal, ...enriched]);
 
-        return currentUserId
-          ? enriched.filter(m => !(m.deletedFor && m.deletedFor.includes(currentUserId)))
-          : enriched;
+        return enriched.filter(m => {
+          if (deletedForMeSet.has(m.id)) return false;
+          if (currentUserId && m.deletedFor && m.deletedFor.includes(currentUserId)) return false;
+          return true;
+        });
       }
     } catch (err) {
       console.warn('Supabase fetchMessages error:', err);
@@ -848,14 +874,22 @@ export async function fetchMessages(conversationId: string, currentUserId?: stri
   const msgs = getLocalData<Message[]>('messages', SEED_MESSAGES);
   const convMsgs = msgs
     .filter(m => m.conversationId === conversationId)
-    .map(m => ({
-      ...m,
-      mediaType: detectChatMessageMediaType(m.mediaUrl, m.mediaType)
-    }));
+    .map(m => {
+      const isDeletedMsg = m.isDeleted === true || m.text === '__DELETED_FOR_EVERYONE__';
+      return {
+        ...m,
+        isDeleted: isDeletedMsg,
+        text: isDeletedMsg ? '' : m.text,
+        mediaUrl: isDeletedMsg ? undefined : m.mediaUrl,
+        mediaType: isDeletedMsg ? undefined : detectChatMessageMediaType(m.mediaUrl, m.mediaType)
+      };
+    });
 
-  return currentUserId
-    ? convMsgs.filter(m => !(m.deletedFor && m.deletedFor.includes(currentUserId)))
-    : convMsgs;
+  return convMsgs.filter(m => {
+    if (deletedForMeSet.has(m.id)) return false;
+    if (currentUserId && m.deletedFor && m.deletedFor.includes(currentUserId)) return false;
+    return true;
+  });
 }
 
 export async function sendChatMessage(msg: Omit<Message, 'id' | 'createdAt' | 'read'>): Promise<Message> {
@@ -1018,13 +1052,39 @@ export async function deleteMessageForEveryone(messageId: string, conversationId
   // 3. Persist to Supabase Database & Realtime broadcast
   if (isSupabaseConfigured() && supabase) {
     try {
-      await supabase.from('messages').update({
-        isDeleted: true,
-        text: '',
-        mediaUrl: null,
-        fileName: null,
-        fileSize: null
-      }).eq('id', messageId);
+      // First attempt full update with isDeleted column
+      let updateError = null;
+      try {
+        const res = await supabase.from('messages').update({
+          isDeleted: true,
+          text: '__DELETED_FOR_EVERYONE__',
+          mediaUrl: null,
+          fileName: null,
+          fileSize: null
+        }).eq('id', messageId);
+        updateError = res.error;
+      } catch (e) {
+        updateError = e;
+      }
+
+      // If isDeleted/fileName columns don't exist yet in Supabase schema, fall back to base columns text and mediaUrl
+      if (updateError) {
+        await supabase.from('messages').update({
+          text: '__DELETED_FOR_EVERYONE__',
+          mediaUrl: null
+        }).eq('id', messageId);
+      }
+
+      // Update conversations table lastMessage in Supabase
+      await supabase.from('conversations').update({
+        lastMessage: {
+          text: '🚫 This message was deleted',
+          senderId: '',
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          read: true
+        },
+        updatedAt: new Date().toISOString()
+      }).eq('id', conversationId);
 
       // Broadcast to active peers in chat room
       const chatChannel = supabase.channel(`chat-room-${conversationId}`);
@@ -1053,10 +1113,13 @@ export async function deleteMessageForEveryone(messageId: string, conversationId
 
 /**
  * Deletes a chat message only for the current user (WhatsApp "Delete for me").
- * Appends the user's ID to the message's deletedFor array.
+ * Appends the user's ID to the message's deletedFor array and persists in localStorage.
  */
 export async function deleteMessageForMe(messageId: string, conversationId: string, userId: string): Promise<void> {
-  // 1. Update local cache
+  // 1. Mark in permanent localStorage deletedForMe set (guarantees zero resurrection by heartbeats)
+  markMessageDeletedForMe(userId, messageId);
+
+  // 2. Update local cache
   const msgs = getLocalData<Message[]>('messages', SEED_MESSAGES);
   const updatedMsgs = msgs.map(m => {
     if (m.id === messageId) {
@@ -1070,29 +1133,31 @@ export async function deleteMessageForMe(messageId: string, conversationId: stri
   });
   setLocalData('messages', updatedMsgs);
 
-  // 2. Dispatch local event
+  // 3. Dispatch local event
   window.dispatchEvent(new CustomEvent('eatm_chat_message_deleted_for_me', {
     detail: { messageId, conversationId, userId }
   }));
 
-  // 3. Persist to Supabase if configured
+  // 4. Persist to Supabase if column exists
   if (isSupabaseConfigured() && supabase) {
     try {
-      const { data: existing } = await supabase
+      const { data: existing, error } = await supabase
         .from('messages')
         .select('deletedFor')
         .eq('id', messageId)
         .single();
 
-      const existingArr: string[] = existing?.deletedFor || [];
-      if (!existingArr.includes(userId)) {
-        await supabase
-          .from('messages')
-          .update({ deletedFor: [...existingArr, userId] })
-          .eq('id', messageId);
+      if (!error && existing) {
+        const existingArr: string[] = existing?.deletedFor || [];
+        if (!existingArr.includes(userId)) {
+          await supabase
+            .from('messages')
+            .update({ deletedFor: [...existingArr, userId] })
+            .eq('id', messageId);
+        }
       }
     } catch (err) {
-      console.warn('Supabase deleteMessageForMe error:', err);
+      // Ignored if deletedFor column doesn't exist
     }
   }
 }

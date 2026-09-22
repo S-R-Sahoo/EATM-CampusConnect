@@ -16,7 +16,8 @@ import {
   Search, Send, Paperclip, Smile, Phone, Video, 
   MoreVertical, CheckCheck, Image as ImageIcon, MessageSquare,
   ShieldCheck, Users, ArrowLeft, X, Download, FileText,
-  Film, Music, Mic, Trash2, Loader2, Sparkles, Camera, Pause, Ban
+  Film, Music, Mic, Trash2, Loader2, Sparkles, Camera, Pause, Ban,
+  ChevronDown, Copy
 } from 'lucide-react';
 import { useLocation, useSearchParams, Link } from 'react-router-dom';
 
@@ -55,6 +56,7 @@ export const MessagesPage: React.FC = () => {
   const [showCameraModal, setShowCameraModal] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [messageToDelete, setMessageToDelete] = useState<Message | null>(null);
+  const [activeMenuMsgId, setActiveMenuMsgId] = useState<string | null>(null);
 
   // WhatsApp style Live Audio Voice Recording states
   const [isRecording, setIsRecording] = useState(false);
@@ -244,6 +246,13 @@ export const MessagesPage: React.FC = () => {
       }
     };
   }, [activeConvId]);
+
+  // Close open message context menu on click outside
+  useEffect(() => {
+    const handleOutsideClick = () => setActiveMenuMsgId(null);
+    window.addEventListener('click', handleOutsideClick);
+    return () => window.removeEventListener('click', handleOutsideClick);
+  }, []);
 
   const activeConv = conversations.find(c => c.id === activeConvId);
 
@@ -613,6 +622,22 @@ export const MessagesPage: React.FC = () => {
             ? { ...m, isDeleted: true, text: '', mediaUrl: undefined, mediaType: undefined }
             : m
         )
+      );
+      setConversations(prev =>
+        prev.map(c => {
+          if (c.id === activeConvId) {
+            return {
+              ...c,
+              lastMessage: {
+                text: '🚫 This message was deleted',
+                senderId: user?.id || '',
+                timestamp: 'Just now',
+                read: true
+              }
+            };
+          }
+          return c;
+        })
       );
       await deleteMessageForEveryone(messageId, activeConvId);
       success('Message deleted for everyone.');
@@ -1027,7 +1052,7 @@ export const MessagesPage: React.FC = () => {
                 return (
                   <div
                     key={msg.id}
-                    className={`group flex items-end gap-1.5 sm:gap-2 ${isMe ? 'justify-end' : 'justify-start'} relative`}
+                    className={`flex items-end gap-2 ${isMe ? 'justify-end' : 'justify-start'} relative`}
                   >
                     {!isMe && (
                       <Link
@@ -1043,25 +1068,13 @@ export const MessagesPage: React.FC = () => {
                       </Link>
                     )}
 
-                    {/* Delete button on other user's message (Delete for me) */}
-                    {!isMe && (
-                      <button
-                        type="button"
-                        onClick={() => setMessageToDelete(msg)}
-                        className="opacity-0 group-hover:opacity-100 sm:opacity-0 focus:opacity-100 mb-1.5 p-1 text-gray-400 hover:text-red-500 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition"
-                        title="Delete message"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-
-                    {/* Speech Bubble with WhatsApp-like feeling and official EATM branding */}
+                    {/* Speech Bubble with authentic WhatsApp Web styling */}
                     <div
-                      className={`${
+                      className={`relative group ${
                         msg.isDeleted
                           ? isMe
-                            ? 'bg-[#0b4627]/40 dark:bg-[#0f5132]/40 text-emerald-100/80 border border-emerald-800/30'
-                            : 'bg-gray-50/80 dark:bg-[#16251c]/60 text-gray-500 dark:text-gray-400 border border-gray-200/60 dark:border-[#1e3325]'
+                            ? 'bg-[#0b4627]/50 dark:bg-[#0f5132]/50 text-emerald-100/80 border border-emerald-800/30'
+                            : 'bg-gray-100/90 dark:bg-[#16251c]/80 text-gray-500 dark:text-gray-400 border border-gray-200/60 dark:border-[#1e3325]'
                           : isAudio && !msg.text
                           ? 'px-3 py-1.5 rounded-2xl max-w-fit'
                           : 'max-w-xs sm:max-w-md px-3.5 py-2.5 rounded-2xl leading-relaxed'
@@ -1071,21 +1084,79 @@ export const MessagesPage: React.FC = () => {
                           : 'bg-white dark:bg-[#16251c] text-gray-900 dark:text-gray-100 border border-gray-200/80 dark:border-[#1e3325] rounded-bl-xs'
                       }`}
                     >
+                      {/* WhatsApp Chevron Action Button (Appears top-right of bubble on hover/tap) */}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveMenuMsgId(activeMenuMsgId === msg.id ? null : msg.id);
+                        }}
+                        className={`absolute top-1.5 right-1.5 p-1 rounded-full transition z-20 ${
+                          isMe
+                            ? 'text-emerald-100/80 hover:text-white hover:bg-black/20'
+                            : 'text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-200/70 dark:hover:bg-gray-700/60'
+                        } ${
+                          activeMenuMsgId === msg.id 
+                            ? 'opacity-100 bg-black/20' 
+                            : 'opacity-0 group-hover:opacity-100 focus:opacity-100 sm:opacity-0 max-sm:opacity-40'
+                        }`}
+                        title="Message options"
+                      >
+                        <ChevronDown className="w-3.5 h-3.5" />
+                      </button>
+
+                      {/* WhatsApp Dropdown Context Menu */}
+                      {activeMenuMsgId === msg.id && (
+                        <div
+                          onClick={(e) => e.stopPropagation()}
+                          className={`absolute top-7 ${
+                            isMe ? 'right-0' : 'left-0'
+                          } z-30 bg-white dark:bg-[#233138] rounded-2xl shadow-2xl border border-gray-200/80 dark:border-gray-700/80 py-1.5 min-w-[155px] animate-in fade-in zoom-in-95`}
+                        >
+                          {msg.text && !msg.isDeleted && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                navigator.clipboard.writeText(msg.text);
+                                success('Message text copied to clipboard.');
+                                setActiveMenuMsgId(null);
+                              }}
+                              className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-medium text-gray-700 dark:text-gray-200 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 hover:text-[#0b4627] dark:hover:text-emerald-400 transition text-left"
+                            >
+                              <Copy className="w-3.5 h-3.5 opacity-70" />
+                              <span>Copy text</span>
+                            </button>
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setActiveMenuMsgId(null);
+                              setMessageToDelete(msg);
+                            }}
+                            className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 transition text-left"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>Delete message</span>
+                          </button>
+                        </div>
+                      )}
+
                       {/* Sender name for group chats */}
                       {!isMe && activeConv.isGroup && !msg.isDeleted && (
-                        <p className="text-[11px] font-bold text-[#0b4627] dark:text-emerald-400 mb-1">
+                        <p className="text-[11px] font-bold text-[#0b4627] dark:text-emerald-400 mb-1 pr-6">
                           {msg.senderName}
                         </p>
                       )}
 
                       {/* WhatsApp Style Deleted Message Bubble */}
                       {msg.isDeleted ? (
-                        <div className="flex items-center gap-2 py-0.5 text-xs italic select-none">
-                          <Ban className={`w-3.5 h-3.5 shrink-0 ${isMe ? 'text-emerald-200/70' : 'text-gray-400'}`} />
+                        <div className="flex items-center gap-2 py-0.5 pr-6 text-xs italic select-none">
+                          <Ban className={`w-3.5 h-3.5 shrink-0 ${isMe ? 'text-emerald-200/80' : 'text-gray-400'}`} />
                           <span className={isMe ? 'text-emerald-100/90' : 'text-gray-500 dark:text-gray-400'}>
                             {isMe ? 'You deleted this message' : 'This message was deleted'}
                           </span>
-                          <span className={`text-[9px] font-mono ml-2 ${isMe ? 'text-emerald-200/60' : 'text-gray-400 dark:text-gray-500'}`}>
+                          <span className={`text-[9px] font-mono ml-auto pl-2 ${isMe ? 'text-emerald-200/60' : 'text-gray-400 dark:text-gray-500'}`}>
                             {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </span>
                         </div>
@@ -1116,7 +1187,7 @@ export const MessagesPage: React.FC = () => {
                             </div>
                           )}
 
-                          {/* 3. Audio / Voice Note Media - Only clean inline audio player, NO BIG BOX */}
+                          {/* 3. Audio / Voice Note Media */}
                           {isAudio && msg.mediaUrl && (
                             <ChatAudioPlayer
                               src={msg.mediaUrl}
@@ -1158,7 +1229,7 @@ export const MessagesPage: React.FC = () => {
 
                           {/* Text content */}
                           {msg.text && (
-                            <p className="whitespace-pre-wrap leading-relaxed text-xs sm:text-sm font-normal mt-1">
+                            <p className="whitespace-pre-wrap leading-relaxed text-xs sm:text-sm font-normal mt-1 pr-6">
                               {msg.text}
                             </p>
                           )}
@@ -1177,18 +1248,6 @@ export const MessagesPage: React.FC = () => {
                         </>
                       )}
                     </div>
-
-                    {/* Delete button on my message (Delete for everyone or Delete for me) */}
-                    {isMe && (
-                      <button
-                        type="button"
-                        onClick={() => setMessageToDelete(msg)}
-                        className="opacity-0 group-hover:opacity-100 sm:opacity-0 focus:opacity-100 mb-1.5 p-1 text-gray-400 hover:text-red-500 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition"
-                        title="Delete message"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    )}
                   </div>
                 );
               })}
