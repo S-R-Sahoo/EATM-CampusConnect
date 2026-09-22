@@ -20,7 +20,7 @@ import {
   Camera, Upload, Image as ImageIcon, Loader2,
   User, Cpu, Compass, Trophy, BookOpen, Radio,
   ArrowLeft, Check, Clock, UserPlus, MessageSquare, X,
-  Plus, Trash2, Globe, Pencil, Share2
+  Plus, Trash2, Globe, Pencil, UserCheck
 } from 'lucide-react';
 import { isCustomPhoto } from '../../constants/assets';
 import { Avatar } from '../../components/ui/Avatar';
@@ -284,17 +284,6 @@ export const StudentProfile: React.FC = () => {
   };
 
   const effectivePhoto = isCustomPhoto(activeUser?.photoURL) ? activeUser?.photoURL : undefined;
-
-  const handleShareProfile = () => {
-    try {
-      if (navigator.clipboard) {
-        navigator.clipboard.writeText(window.location.href);
-        success('Profile link copied to clipboard!', 'Link Copied');
-      }
-    } catch {
-      // ignore
-    }
-  };
 
   const handleOpenEdit = () => {
     if (!user) return;
@@ -675,11 +664,11 @@ export const StudentProfile: React.FC = () => {
         </div>
 
         {/* Profile Content Section (Completely Below Banner - Zero Overlap) */}
-        <div className="px-5 sm:px-8 pb-6 sm:pb-8 pt-0">
+        <div className="px-4 sm:px-8 pb-6 sm:pb-8 pt-0">
           {/* Row 1: Floating Avatar & Edit Profile / Connect Button */}
-          <div className="flex items-end justify-between -mt-14 sm:-mt-20 mb-4 sm:mb-5">
+          <div className="flex items-end justify-between -mt-12 sm:-mt-20 mb-4 sm:mb-5 gap-2 sm:gap-4">
             {/* Avatar with Thick Border & Quick Upload Button */}
-            <div className="relative group">
+            <div className="relative group shrink-0">
               {isOwnProfile && (
                 <input
                   type="file"
@@ -691,7 +680,7 @@ export const StudentProfile: React.FC = () => {
                   className="hidden"
                 />
               )}
-              <div className="w-28 h-28 sm:w-36 sm:h-36 rounded-full ring-4 ring-white dark:ring-[#111d15] shadow-xl overflow-hidden bg-white dark:bg-[#16251c] flex items-center justify-center relative">
+              <div className="w-24 h-24 sm:w-36 sm:h-36 rounded-full ring-4 ring-white dark:ring-[#111d15] shadow-xl overflow-hidden bg-white dark:bg-[#16251c] flex items-center justify-center relative">
                 <Avatar
                   src={effectivePhoto}
                   name={activeUser.displayName}
@@ -729,41 +718,31 @@ export const StudentProfile: React.FC = () => {
               )}
             </div>
 
-            {/* Action Buttons (Social Media Pill Style) */}
-            <div className="pb-1 sm:pb-2">
+            {/* Action Buttons (Official Fancy Style) */}
+            <div className="pb-1 sm:pb-2 shrink-0">
               {isOwnProfile ? (
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={handleOpenEdit}
-                    className="inline-flex items-center gap-1.5 px-3.5 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-semibold text-gray-800 dark:text-gray-100 bg-white dark:bg-[#16251c] border border-gray-300 dark:border-[#2a4533] hover:bg-gray-50 dark:hover:bg-[#1f3527] hover:border-gray-400 dark:hover:border-emerald-600/50 shadow-2xs active:scale-95 transition-all duration-150 cursor-pointer"
-                  >
-                    <Edit3 className="w-3.5 h-3.5 text-gray-600 dark:text-gray-400" />
-                    <span>Edit Profile</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleShareProfile}
-                    title="Share profile link"
-                    className="inline-flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-full text-gray-700 dark:text-gray-300 bg-white dark:bg-[#16251c] border border-gray-300 dark:border-[#2a4533] hover:bg-gray-50 dark:hover:bg-[#1f3527] hover:border-gray-400 dark:hover:border-emerald-600/50 shadow-2xs active:scale-95 transition-all duration-150 cursor-pointer"
-                  >
-                    <Share2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={handleOpenEdit}
+                  className="inline-flex items-center gap-1.5 sm:gap-2 px-3.5 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-semibold text-gray-800 dark:text-gray-100 bg-white dark:bg-[#16251c] border border-gray-300/90 dark:border-emerald-700/40 hover:bg-gray-50 dark:hover:bg-[#1e3426] hover:border-emerald-600/60 shadow-2xs active:scale-95 transition-all duration-150 cursor-pointer"
+                >
+                  <Edit3 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#0b4627] dark:text-emerald-400" />
+                  <span>Edit Profile</span>
+                </button>
               ) : (
-                <div className="flex items-center gap-1.5 sm:gap-2">
+                <div className="flex items-center gap-1.5 sm:gap-2.5">
                   {connectionInfo.status === 'connected' ? (
                     <>
-                      <div className="inline-flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-semibold text-emerald-800 dark:text-emerald-300 bg-emerald-50/90 dark:bg-emerald-950/60 border border-emerald-300/80 dark:border-emerald-800/80 shadow-2xs select-none">
-                        <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 stroke-[2.5]" />
+                      <div className="inline-flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-semibold text-emerald-800 dark:text-emerald-300 bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-500/40 dark:border-emerald-500/30 shadow-2xs select-none">
+                        <UserCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600 dark:text-emerald-400 stroke-[2.2]" />
                         <span>Connected</span>
                       </div>
                       <button
                         type="button"
                         onClick={handleStartDirectChat}
-                        className="inline-flex items-center gap-1.5 px-3.5 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-semibold bg-[#0b4627] hover:bg-[#08351d] text-white shadow-xs active:scale-95 transition-all duration-150 cursor-pointer"
+                        className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-semibold bg-gradient-to-r from-[#0b4627] via-[#0d4f2c] to-[#0b4627] hover:from-[#08351d] hover:to-[#093d22] text-white shadow-xs hover:shadow-sm active:scale-95 transition-all duration-150 cursor-pointer border border-emerald-600/30"
                       >
-                        <MessageSquare className="w-3.5 h-3.5" />
+                        <MessageSquare className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-200 fill-emerald-200/20" />
                         <span>Message</span>
                       </button>
                     </>
@@ -773,41 +752,41 @@ export const StudentProfile: React.FC = () => {
                         type="button"
                         disabled={connecting}
                         onClick={handleAcceptConnection}
-                        className="inline-flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-semibold bg-[#0b4627] hover:bg-[#08351d] text-white shadow-xs active:scale-95 transition-all duration-150 cursor-pointer disabled:opacity-50"
+                        className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-semibold bg-[#0b4627] hover:bg-[#08351d] text-white shadow-xs active:scale-95 transition-all duration-150 cursor-pointer disabled:opacity-50 border border-emerald-600/30"
                       >
-                        <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                        <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4 stroke-[2.5]" />
                         <span>Accept</span>
                       </button>
                       <button
                         type="button"
                         disabled={connecting}
                         onClick={handleRejectConnection}
-                        className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-300 bg-white dark:bg-[#16251c] border border-gray-300 dark:border-[#2a4533] hover:bg-gray-50 dark:hover:bg-[#1f3527] shadow-2xs active:scale-95 transition-all duration-150 cursor-pointer disabled:opacity-50"
+                        className="inline-flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-300 bg-white dark:bg-[#16251c] border border-gray-300 dark:border-[#2a4533] hover:bg-gray-50 dark:hover:bg-[#1f3527] shadow-2xs active:scale-95 transition-all duration-150 cursor-pointer disabled:opacity-50"
                       >
-                        <X className="w-3.5 h-3.5" />
+                        <X className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                         <span>Ignore</span>
                       </button>
                       <button
                         type="button"
                         onClick={handleStartDirectChat}
-                        className="inline-flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-semibold text-gray-800 dark:text-gray-200 bg-white dark:bg-[#16251c] border border-gray-300 dark:border-[#2a4533] hover:bg-gray-50 dark:hover:bg-[#1f3527] shadow-2xs active:scale-95 transition-all duration-150 cursor-pointer"
+                        className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-semibold text-gray-800 dark:text-gray-200 bg-white dark:bg-[#16251c] border border-gray-300 dark:border-[#2a4533] hover:bg-gray-50 dark:hover:bg-[#1f3527] shadow-2xs active:scale-95 transition-all duration-150 cursor-pointer"
                       >
-                        <MessageSquare className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                        <MessageSquare className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600 dark:text-emerald-400" />
                         <span>Message</span>
                       </button>
                     </>
                   ) : connectionInfo.status === 'pending_sent' ? (
                     <>
-                      <div className="inline-flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-semibold text-amber-800 dark:text-amber-300 bg-amber-50/90 dark:bg-amber-950/60 border border-amber-300/80 dark:border-amber-800/80 shadow-2xs select-none">
-                        <Clock className="w-3.5 h-3.5 stroke-[2.2]" />
+                      <div className="inline-flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-semibold text-amber-800 dark:text-amber-300 bg-amber-500/10 dark:bg-amber-500/15 border border-amber-500/40 dark:border-amber-500/30 shadow-2xs select-none">
+                        <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4 stroke-[2.2]" />
                         <span>Pending</span>
                       </div>
                       <button
                         type="button"
                         onClick={handleStartDirectChat}
-                        className="inline-flex items-center gap-1.5 px-3.5 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-semibold text-gray-800 dark:text-gray-200 bg-white dark:bg-[#16251c] border border-gray-300 dark:border-[#2a4533] hover:bg-gray-50 dark:hover:bg-[#1f3527] shadow-2xs active:scale-95 transition-all duration-150 cursor-pointer"
+                        className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-semibold text-gray-800 dark:text-gray-200 bg-white dark:bg-[#16251c] border border-gray-300 dark:border-[#2a4533] hover:bg-gray-50 dark:hover:bg-[#1f3527] shadow-2xs active:scale-95 transition-all duration-150 cursor-pointer"
                       >
-                        <MessageSquare className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                        <MessageSquare className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600 dark:text-emerald-400" />
                         <span>Message</span>
                       </button>
                     </>
@@ -817,30 +796,21 @@ export const StudentProfile: React.FC = () => {
                         type="button"
                         disabled={connecting}
                         onClick={handleConnect}
-                        className="inline-flex items-center gap-1.5 px-3.5 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-semibold bg-[#0b4627] hover:bg-[#08351d] text-white shadow-xs active:scale-95 transition-all duration-150 cursor-pointer disabled:opacity-50"
+                        className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-semibold bg-gradient-to-r from-[#0b4627] via-[#0d4f2c] to-[#0b4627] hover:from-[#08351d] hover:to-[#093d22] text-white shadow-xs hover:shadow-sm active:scale-95 transition-all duration-150 cursor-pointer disabled:opacity-50 border border-emerald-600/30"
                       >
-                        <UserPlus className="w-3.5 h-3.5" />
+                        <UserPlus className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-200" />
                         <span>Connect</span>
                       </button>
                       <button
                         type="button"
                         onClick={handleStartDirectChat}
-                        className="inline-flex items-center gap-1.5 px-3.5 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-semibold text-gray-800 dark:text-gray-200 bg-white dark:bg-[#16251c] border border-gray-300 dark:border-[#2a4533] hover:bg-gray-50 dark:hover:bg-[#1f3527] shadow-2xs active:scale-95 transition-all duration-150 cursor-pointer"
+                        className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-semibold text-gray-800 dark:text-gray-200 bg-white dark:bg-[#16251c] border border-gray-300 dark:border-[#2a4533] hover:bg-gray-50 dark:hover:bg-[#1f3527] shadow-2xs active:scale-95 transition-all duration-150 cursor-pointer"
                       >
-                        <MessageSquare className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                        <MessageSquare className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600 dark:text-emerald-400" />
                         <span>Message</span>
                       </button>
                     </>
                   )}
-
-                  <button
-                    type="button"
-                    onClick={handleShareProfile}
-                    title="Share profile link"
-                    className="inline-flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-full text-gray-700 dark:text-gray-300 bg-white dark:bg-[#16251c] border border-gray-300 dark:border-[#2a4533] hover:bg-gray-50 dark:hover:bg-[#1f3527] hover:border-gray-400 dark:hover:border-emerald-600/50 shadow-2xs active:scale-95 transition-all duration-150 cursor-pointer"
-                  >
-                    <Share2 className="w-3.5 h-3.5" />
-                  </button>
                 </div>
               )}
             </div>
