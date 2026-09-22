@@ -766,6 +766,15 @@ export async function fetchConversations(userId: string): Promise<Conversation[]
   });
 }
 
+export function detectChatMessageMediaType(mediaUrl?: string, explicitType?: string): 'image' | 'video' | 'file' | 'audio' | undefined {
+  if (explicitType) return explicitType as any;
+  if (!mediaUrl) return undefined;
+  if (mediaUrl.startsWith('data:image/') || /\.(jpe?g|png|gif|webp|svg)(\?.*)?$/i.test(mediaUrl)) return 'image';
+  if (mediaUrl.startsWith('data:video/') || /\.(mp4|webm|mov|ogg)(\?.*)?$/i.test(mediaUrl)) return 'video';
+  if (mediaUrl.startsWith('data:audio/') || /\.(mp3|wav|ogg|m4a|aac|webm)(\?.*)?$/i.test(mediaUrl)) return 'audio';
+  return 'file';
+}
+
 export async function fetchMessages(conversationId: string): Promise<Message[]> {
   if (isSupabaseConfigured() && supabase) {
     try {
@@ -784,6 +793,7 @@ export async function fetchMessages(conversationId: string): Promise<Message[]> 
           const u = userMap.get(m.senderId);
           return {
             ...m,
+            mediaType: detectChatMessageMediaType(m.mediaUrl, m.mediaType),
             senderName: m.senderName || u?.displayName || (m.senderId === 'system' ? 'CampusConnect' : 'Student'),
             senderAvatar: m.senderAvatar || u?.photoURL
           };
@@ -803,12 +813,19 @@ export async function fetchMessages(conversationId: string): Promise<Message[]> 
   }
 
   const msgs = getLocalData<Message[]>('messages', SEED_MESSAGES);
-  return msgs.filter(m => m.conversationId === conversationId);
+  return msgs
+    .filter(m => m.conversationId === conversationId)
+    .map(m => ({
+      ...m,
+      mediaType: detectChatMessageMediaType(m.mediaUrl, m.mediaType)
+    }));
 }
 
 export async function sendChatMessage(msg: Omit<Message, 'id' | 'createdAt' | 'read'>): Promise<Message> {
+  const mediaType = detectChatMessageMediaType(msg.mediaUrl, msg.mediaType);
   const newMsg: Message = {
     ...msg,
+    mediaType,
     id: 'msg_' + Date.now(),
     createdAt: new Date().toISOString(),
     read: true
@@ -817,10 +834,20 @@ export async function sendChatMessage(msg: Omit<Message, 'id' | 'createdAt' | 'r
   const msgs = getLocalData<Message[]>('messages', SEED_MESSAGES);
   setLocalData('messages', [...msgs, newMsg]);
 
+  let previewText = msg.text;
+  if (!previewText) {
+    if (mediaType === 'image') previewText = '📷 Photo';
+    else if (mediaType === 'video') previewText = '🎥 Video';
+    else if (mediaType === 'audio') previewText = '🎤 Voice Note';
+    else if (mediaType === 'file') previewText = `📄 ${msg.fileName || 'Document'}`;
+    else if (msg.mediaUrl) previewText = '📎 Attachment';
+    else previewText = 'Message';
+  }
+
   const convs = getLocalData<Conversation[]>('conversations', SEED_CONVERSATIONS);
   const conv = convs.find(c => c.id === msg.conversationId);
   const lastMessagePayload = {
-    text: msg.text || (msg.mediaUrl ? 'Attachment' : 'Message'),
+    text: previewText,
     senderId: msg.senderId,
     timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     read: true
@@ -837,18 +864,40 @@ export async function sendChatMessage(msg: Omit<Message, 'id' | 'createdAt' | 'r
 
   if (isSupabaseConfigured() && supabase) {
     try {
-      const { error: insertError } = await supabase.from('messages').insert([{
-        id: newMsg.id,
-        conversationId: newMsg.conversationId,
-        senderId: newMsg.senderId,
-        text: newMsg.text,
-        mediaUrl: newMsg.mediaUrl || null,
-        read: newMsg.read,
-        createdAt: newMsg.createdAt
-      }]);
+      // Attempt insert with mediaType / fileName / fileSize if table columns exist
+      let insertError = null;
+      try {
+        const fullInsert = await supabase.from('messages').insert([{
+          id: newMsg.id,
+          conversationId: newMsg.conversationId,
+          senderId: newMsg.senderId,
+          text: newMsg.text || null,
+          mediaUrl: newMsg.mediaUrl || null,
+          mediaType: newMsg.mediaType || null,
+          fileName: newMsg.fileName || null,
+          fileSize: newMsg.fileSize || null,
+          read: newMsg.read,
+          createdAt: newMsg.createdAt
+        }]);
+        insertError = fullInsert.error;
+      } catch (e) {
+        insertError = e;
+      }
 
+      // If columns don't exist yet in PostgreSQL, gracefully fall back to base columns
       if (insertError) {
-        console.error('❌ Supabase message insert error:', insertError.message);
+        const { error: fallbackError } = await supabase.from('messages').insert([{
+          id: newMsg.id,
+          conversationId: newMsg.conversationId,
+          senderId: newMsg.senderId,
+          text: newMsg.text || null,
+          mediaUrl: newMsg.mediaUrl || null,
+          read: newMsg.read,
+          createdAt: newMsg.createdAt
+        }]);
+        if (fallbackError) {
+          console.error('❌ Supabase message fallback insert error:', fallbackError.message);
+        }
       }
 
       await supabase.from('conversations').update({

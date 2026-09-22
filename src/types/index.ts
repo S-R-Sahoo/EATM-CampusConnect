@@ -124,7 +124,10 @@ export interface Message {
   senderAvatar?: string;
   text: string;
   mediaUrl?: string;
+  mediaType?: 'image' | 'video' | 'file' | 'audio';
   fileName?: string;
+  fileSize?: string;
+  audioDuration?: number;
   createdAt: string;
   read: boolean;
 }

@@ -228,9 +228,13 @@ create table if not exists public.messages (
   "createdAt" timestamptz default now()
 );
 
--- Ensure existing messages installations have sender metadata columns
+-- Ensure existing messages installations have sender metadata and media columns
 alter table public.messages add column if not exists "senderName" text;
 alter table public.messages add column if not exists "senderAvatar" text;
+alter table public.messages add column if not exists "mediaType" text;
+alter table public.messages add column if not exists "fileName" text;
+alter table public.messages add column if not exists "fileSize" text;
+alter table public.messages add column if not exists "audioDuration" numeric;
 
 -- 13. Reports Table
 create table if not exists public.reports (
