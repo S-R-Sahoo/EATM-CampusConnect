@@ -188,14 +188,13 @@ export const LandingPage: React.FC = () => {
           {user && user.uid && user.uid !== 'user_soumya' ? (
             <div className="flex items-center gap-2 sm:gap-3">
               <Link
-                to={user.role === 'faculty' ? '/faculty/dashboard' : user.role === 'admin' ? '/admin/dashboard' : '/student/dashboard'}
+                to={user.role === 'faculty' ? '/faculty/dashboard' : '/student/dashboard'}
                 className="group flex items-center gap-2 sm:gap-2.5 pl-1.5 sm:pl-2 pr-3 sm:pr-4 py-1.5 rounded-full bg-emerald-50/90 hover:bg-emerald-100/90 border border-emerald-200/90 text-gray-800 transition-all duration-200 shadow-sm hover:shadow"
               >
                 <Avatar
                   src={user.photoURL}
                   name={user.displayName}
                   size="sm"
-                  online={true}
                 />
                 <div className="flex flex-col text-left leading-tight">
                   <span className="text-xs font-bold text-gray-900 group-hover:text-[#0b4627] max-w-[90px] sm:max-w-[130px] truncate">

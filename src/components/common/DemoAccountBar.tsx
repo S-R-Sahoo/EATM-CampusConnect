@@ -12,12 +12,11 @@ export const DemoAccountBar: React.FC = () => {
   const [collapsed, setCollapsed] = useState(false);
   const isLive = isSupabaseConfigured();
 
-  const handleSwitch = async (role: 'student' | 'faculty' | 'admin') => {
+  const handleSwitch = async (role: 'student' | 'faculty') => {
     await switchDemoPersona(role);
     success(`Switched active persona to ${role.toUpperCase()}`, 'Persona Changed');
     if (role === 'student') navigate('/student/dashboard');
     else if (role === 'faculty') navigate('/faculty/dashboard');
-    else if (role === 'admin') navigate('/admin/dashboard');
   };
 
   return (
@@ -60,18 +59,6 @@ export const DemoAccountBar: React.FC = () => {
           >
             <UserCheck className="w-3 h-3" />
             <span>Faculty</span>
-          </button>
-
-          <button
-            onClick={() => handleSwitch('admin')}
-            className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold transition ${
-              user?.role === 'admin'
-                ? 'bg-[#dc2626] text-white'
-                : 'bg-emerald-950/80 text-emerald-200 hover:bg-emerald-900'
-            }`}
-          >
-            <ShieldCheck className="w-3 h-3" />
-            <span>Admin</span>
           </button>
         </div>
       </div>

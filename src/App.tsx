@@ -8,7 +8,6 @@ import { NotificationProvider } from './contexts/NotificationContext';
 // Layouts
 import { StudentLayout } from './components/layout/StudentLayout';
 import { FacultyLayout } from './components/layout/FacultyLayout';
-import { AdminLayout } from './components/layout/AdminLayout';
 
 // Public Pages
 import { LandingPage } from './pages/public/LandingPage';
@@ -37,15 +36,10 @@ import { FacultyDashboard } from './pages/faculty/FacultyDashboard';
 import { FacultyStudents } from './pages/faculty/FacultyStudents';
 import { FacultyAssignments } from './pages/faculty/FacultyAssignments';
 
-// Admin Pages
-import { AdminDashboard } from './pages/admin/AdminDashboard';
-import { AdminUserManagement } from './pages/admin/AdminUserManagement';
-import { AdminReports } from './pages/admin/AdminReports';
-
 const ProfileRedirect: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
-  const role = user?.role === 'faculty' ? 'faculty' : user?.role === 'admin' ? 'admin' : 'student';
+  const role = user?.role === 'faculty' ? 'faculty' : 'student';
   return <Navigate to={`/${role}/profile/${id}`} replace />;
 };
 
@@ -63,7 +57,6 @@ const AppRoutes: React.FC = () => {
 
   const getDashboardPath = () => {
     if (user?.role === 'faculty') return '/faculty/dashboard';
-    if (user?.role === 'admin') return '/admin/dashboard';
     return '/student/dashboard';
   };
 
@@ -119,24 +112,8 @@ const AppRoutes: React.FC = () => {
               <Route path="post-:id" element={<PostDetailPage />} />
             </Route>
 
-            {/* Admin Routes */}
-            <Route path="/admin" element={<AdminLayout />}>
-              <Route index element={<Navigate to="/admin/dashboard" replace />} />
-              <Route path="dashboard" element={<AdminDashboard />} />
-              <Route path="students" element={<AdminUserManagement />} />
-              <Route path="faculty" element={<AdminUserManagement />} />
-              <Route path="posts" element={<StudentDashboard />} />
-              <Route path="communities" element={<CommunitiesPage />} />
-              <Route path="events" element={<EventsPage />} />
-              <Route path="opportunities" element={<OpportunitiesPage />} />
-              <Route path="reports" element={<AdminReports />} />
-              <Route path="announcements" element={<FacultyDashboard />} />
-              <Route path="profile" element={<StudentProfile />} />
-              <Route path="profile/:id" element={<StudentProfile />} />
-              <Route path="settings" element={<StudentSettings />} />
-              <Route path="post/:id" element={<PostDetailPage />} />
-              <Route path="post-:id" element={<PostDetailPage />} />
-            </Route>
+      {/* Legacy Admin Route Fallback */}
+      <Route path="/admin/*" element={<Navigate to="/" replace />} />
 
       {/* 404 Fallback */}
       <Route path="*" element={<NotFound />} />

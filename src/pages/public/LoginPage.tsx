@@ -21,7 +21,7 @@ export const LoginPage: React.FC = () => {
   // Auto-redirect if already signed in
   React.useEffect(() => {
     if (user && user.id) {
-      const targetPath = user.role === 'faculty' ? '/faculty/dashboard' : user.role === 'admin' ? '/admin/dashboard' : '/student/dashboard';
+      const targetPath = user.role === 'faculty' ? '/faculty/dashboard' : '/student/dashboard';
       navigate(targetPath, { replace: true });
     }
   }, [user, navigate]);

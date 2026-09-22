@@ -36,8 +36,7 @@ export const PostDetailPage: React.FC = () => {
   // Determine if this page is rendered inside a parent layout (e.g. /student/post/:id)
   const isNestedInsideLayout = 
     location.pathname.startsWith('/student/') || 
-    location.pathname.startsWith('/faculty/') || 
-    location.pathname.startsWith('/admin/');
+    location.pathname.startsWith('/faculty/');
 
   useEffect(() => {
     let isMounted = true;

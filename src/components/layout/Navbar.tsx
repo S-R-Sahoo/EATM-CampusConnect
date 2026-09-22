@@ -186,17 +186,6 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileMenu, onOpenSearch
                       Settings & Privacy
                     </Link>
                   )}
-
-                  {user?.role === 'admin' && (
-                    <Link
-                      to="/admin/dashboard"
-                      onClick={() => setDropdownOpen(false)}
-                      className="flex items-center gap-2.5 px-4 py-2 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#16251c] hover:text-[#0b4627] dark:hover:text-emerald-400 transition"
-                    >
-                      <Shield className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                      Admin Control Panel
-                    </Link>
-                  )}
                 </div>
 
                 <div className="border-t border-gray-100 dark:border-[#1e3326] py-1">

@@ -49,22 +49,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
     { to: '/faculty/profile', icon: User, label: 'Profile' },
   ];
 
-  const adminLinks = [
-    { to: '/admin/dashboard', icon: Home, label: 'Dashboard' },
-    { to: '/admin/students', icon: Users, label: 'Students' },
-    { to: '/admin/faculty', icon: Users, label: 'Faculty' },
-    { to: '/admin/posts', icon: FileText, label: 'Posts' },
-    { to: '/admin/communities', icon: Award, label: 'Clubs' },
-    { to: '/admin/events', icon: Calendar, label: 'Events' },
-    { to: '/admin/reports', icon: Shield, label: 'Reports' },
-    { to: '/admin/announcements', icon: Bell, label: 'Announcements' },
-  ];
-
-  const links = user?.role === 'admin' 
-    ? adminLinks 
-    : user?.role === 'faculty' 
-    ? facultyLinks 
-    : studentLinks;
+  const links = user?.role === 'faculty' ? facultyLinks : studentLinks;
 
   return (
     <aside className="w-64 bg-white dark:bg-[#111d15] border-r border-gray-200/80 dark:border-[#1e3326] flex flex-col h-full select-none transition-colors duration-150">
