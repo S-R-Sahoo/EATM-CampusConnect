@@ -20,7 +20,7 @@ import {
   Camera, Upload, Image as ImageIcon, Loader2,
   User, Cpu, Compass, Trophy, BookOpen, Radio,
   ArrowLeft, Check, Clock, UserPlus, MessageSquare, X,
-  Plus, Trash2, Globe, Pencil
+  Plus, Trash2, Globe, Pencil, Share2
 } from 'lucide-react';
 import { isCustomPhoto } from '../../constants/assets';
 import { Avatar } from '../../components/ui/Avatar';
@@ -284,6 +284,17 @@ export const StudentProfile: React.FC = () => {
   };
 
   const effectivePhoto = isCustomPhoto(activeUser?.photoURL) ? activeUser?.photoURL : undefined;
+
+  const handleShareProfile = () => {
+    try {
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(window.location.href);
+        success('Profile link copied to clipboard!', 'Link Copied');
+      }
+    } catch {
+      // ignore
+    }
+  };
 
   const handleOpenEdit = () => {
     if (!user) return;
@@ -718,75 +729,118 @@ export const StudentProfile: React.FC = () => {
               )}
             </div>
 
-            {/* Action Buttons */}
+            {/* Action Buttons (Social Media Pill Style) */}
             <div className="pb-1 sm:pb-2">
               {isOwnProfile ? (
-                <Button
-                  variant="crimson"
-                  size="sm"
-                  onClick={handleOpenEdit}
-                  icon={<Edit3 className="w-3.5 h-3.5" />}
-                  className="shadow-sm font-bold text-xs sm:text-sm"
-                >
-                  Edit Profile
-                </Button>
-              ) : (
                 <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleOpenEdit}
+                    className="inline-flex items-center gap-1.5 px-3.5 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-semibold text-gray-800 dark:text-gray-100 bg-white dark:bg-[#16251c] border border-gray-300 dark:border-[#2a4533] hover:bg-gray-50 dark:hover:bg-[#1f3527] hover:border-gray-400 dark:hover:border-emerald-600/50 shadow-2xs active:scale-95 transition-all duration-150 cursor-pointer"
+                  >
+                    <Edit3 className="w-3.5 h-3.5 text-gray-600 dark:text-gray-400" />
+                    <span>Edit Profile</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleShareProfile}
+                    title="Share profile link"
+                    className="inline-flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-full text-gray-700 dark:text-gray-300 bg-white dark:bg-[#16251c] border border-gray-300 dark:border-[#2a4533] hover:bg-gray-50 dark:hover:bg-[#1f3527] hover:border-gray-400 dark:hover:border-emerald-600/50 shadow-2xs active:scale-95 transition-all duration-150 cursor-pointer"
+                  >
+                    <Share2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5 sm:gap-2">
                   {connectionInfo.status === 'connected' ? (
-                    <span className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-50 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 border border-emerald-200/90 dark:border-emerald-800/70 shadow-xs">
-                      <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                      <span>Connected</span>
-                    </span>
+                    <>
+                      <div className="inline-flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-semibold text-emerald-800 dark:text-emerald-300 bg-emerald-50/90 dark:bg-emerald-950/60 border border-emerald-300/80 dark:border-emerald-800/80 shadow-2xs select-none">
+                        <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 stroke-[2.5]" />
+                        <span>Connected</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleStartDirectChat}
+                        className="inline-flex items-center gap-1.5 px-3.5 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-semibold bg-[#0b4627] hover:bg-[#08351d] text-white shadow-xs active:scale-95 transition-all duration-150 cursor-pointer"
+                      >
+                        <MessageSquare className="w-3.5 h-3.5" />
+                        <span>Message</span>
+                      </button>
+                    </>
                   ) : connectionInfo.status === 'pending_received' ? (
-                    <div className="flex items-center gap-1.5">
-                      <Button
-                        variant="primary"
-                        size="sm"
+                    <>
+                      <button
+                        type="button"
                         disabled={connecting}
                         onClick={handleAcceptConnection}
-                        icon={<Check className="w-3.5 h-3.5" />}
-                        className="shadow-sm font-bold text-xs"
+                        className="inline-flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-semibold bg-[#0b4627] hover:bg-[#08351d] text-white shadow-xs active:scale-95 transition-all duration-150 cursor-pointer disabled:opacity-50"
                       >
-                        Accept
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
+                        <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                        <span>Accept</span>
+                      </button>
+                      <button
+                        type="button"
                         disabled={connecting}
                         onClick={handleRejectConnection}
-                        icon={<X className="w-3.5 h-3.5" />}
-                        className="shadow-sm font-bold text-xs"
+                        className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-300 bg-white dark:bg-[#16251c] border border-gray-300 dark:border-[#2a4533] hover:bg-gray-50 dark:hover:bg-[#1f3527] shadow-2xs active:scale-95 transition-all duration-150 cursor-pointer disabled:opacity-50"
                       >
-                        Ignore
-                      </Button>
-                    </div>
+                        <X className="w-3.5 h-3.5" />
+                        <span>Ignore</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleStartDirectChat}
+                        className="inline-flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-semibold text-gray-800 dark:text-gray-200 bg-white dark:bg-[#16251c] border border-gray-300 dark:border-[#2a4533] hover:bg-gray-50 dark:hover:bg-[#1f3527] shadow-2xs active:scale-95 transition-all duration-150 cursor-pointer"
+                      >
+                        <MessageSquare className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                        <span>Message</span>
+                      </button>
+                    </>
                   ) : connectionInfo.status === 'pending_sent' ? (
-                    <span className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-amber-50 dark:bg-amber-950/70 text-amber-800 dark:text-amber-300 border border-amber-200/90 dark:border-amber-800/70 shadow-xs">
-                      <Clock className="w-3.5 h-3.5" />
-                      <span>Pending</span>
-                    </span>
+                    <>
+                      <div className="inline-flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-semibold text-amber-800 dark:text-amber-300 bg-amber-50/90 dark:bg-amber-950/60 border border-amber-300/80 dark:border-amber-800/80 shadow-2xs select-none">
+                        <Clock className="w-3.5 h-3.5 stroke-[2.2]" />
+                        <span>Pending</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleStartDirectChat}
+                        className="inline-flex items-center gap-1.5 px-3.5 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-semibold text-gray-800 dark:text-gray-200 bg-white dark:bg-[#16251c] border border-gray-300 dark:border-[#2a4533] hover:bg-gray-50 dark:hover:bg-[#1f3527] shadow-2xs active:scale-95 transition-all duration-150 cursor-pointer"
+                      >
+                        <MessageSquare className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                        <span>Message</span>
+                      </button>
+                    </>
                   ) : (
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      disabled={connecting}
-                      onClick={handleConnect}
-                      icon={<UserPlus className="w-3.5 h-3.5" />}
-                      className="shadow-sm font-bold text-xs"
-                    >
-                      Connect
-                    </Button>
+                    <>
+                      <button
+                        type="button"
+                        disabled={connecting}
+                        onClick={handleConnect}
+                        className="inline-flex items-center gap-1.5 px-3.5 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-semibold bg-[#0b4627] hover:bg-[#08351d] text-white shadow-xs active:scale-95 transition-all duration-150 cursor-pointer disabled:opacity-50"
+                      >
+                        <UserPlus className="w-3.5 h-3.5" />
+                        <span>Connect</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleStartDirectChat}
+                        className="inline-flex items-center gap-1.5 px-3.5 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-semibold text-gray-800 dark:text-gray-200 bg-white dark:bg-[#16251c] border border-gray-300 dark:border-[#2a4533] hover:bg-gray-50 dark:hover:bg-[#1f3527] shadow-2xs active:scale-95 transition-all duration-150 cursor-pointer"
+                      >
+                        <MessageSquare className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                        <span>Message</span>
+                      </button>
+                    </>
                   )}
 
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleStartDirectChat}
-                    icon={<MessageSquare className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />}
-                    className="shadow-sm font-bold text-xs"
+                  <button
+                    type="button"
+                    onClick={handleShareProfile}
+                    title="Share profile link"
+                    className="inline-flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-full text-gray-700 dark:text-gray-300 bg-white dark:bg-[#16251c] border border-gray-300 dark:border-[#2a4533] hover:bg-gray-50 dark:hover:bg-[#1f3527] hover:border-gray-400 dark:hover:border-emerald-600/50 shadow-2xs active:scale-95 transition-all duration-150 cursor-pointer"
                   >
-                    Message
-                  </Button>
+                    <Share2 className="w-3.5 h-3.5" />
+                  </button>
                 </div>
               )}
             </div>
