@@ -961,7 +961,7 @@ export const MessagesPage: React.FC = () => {
                       </h3>
                       <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                        Online • Verified Campus Peer
+                        Online
                       </p>
                     </div>
                   </Link>
