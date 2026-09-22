@@ -48,26 +48,41 @@ export interface UserProfile {
       alternateEmail?: string;
     };
     privacy?: {
-      profileVisibility?: string;
+      profileVisibility?: 'everyone' | 'connections' | 'private' | string;
+      showSemester?: boolean;
+      showInterests?: boolean;
+      showProjects?: boolean;
+      showAchievements?: boolean;
       searchDiscoverability?: boolean;
       showContactInfo?: boolean;
       activityStatus?: boolean;
     };
     connections?: {
-      whoCanConnect?: string;
+      whoCanConnect?: 'everyone' | 'department' | 'none' | string;
       autoAcceptDepartment?: boolean;
       showMutualConnections?: boolean;
     };
     messages?: {
-      whoCanMessage?: string;
+      whoCanMessage?: 'everyone' | 'connections' | 'nobody' | string;
       readReceipts?: boolean;
       typingIndicators?: boolean;
       hdMedia?: boolean;
     };
     notifications?: {
+      connRequests?: boolean;
+      connAccepted?: boolean;
+      messages?: boolean;
+      messageRequests?: boolean;
+      postLikes?: boolean;
+      comments?: boolean;
+      groupActivity?: boolean;
+      groupAnnouncements?: boolean;
+      eventReminders?: boolean;
+      collegeAnnouncements?: boolean;
+      pushNotifications?: boolean;
+      emailNotifications?: boolean;
       emailDigest?: boolean;
       chatAlerts?: boolean;
-      eventReminders?: boolean;
       placementAlerts?: boolean;
       soundEffects?: boolean;
       peerAlerts?: boolean;

@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 
-export type Theme = 'light' | 'dark';
+export type Theme = 'light' | 'dark' | 'system';
 export type ResolvedTheme = 'light' | 'dark';
 
 interface ThemeContextType {
@@ -18,32 +18,57 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [theme, setThemeState] = useState<Theme>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved === 'dark') return 'dark';
-      if (saved === 'light') return 'light';
+      if (saved === 'dark' || saved === 'light' || saved === 'system') return saved as Theme;
     }
-    return 'light';
+    return 'system';
   });
 
-  const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved === 'dark') return 'dark';
+  const getSystemTheme = (): ResolvedTheme => {
+    if (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      return 'dark';
     }
     return 'light';
+  };
+
+  const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>(() => {
+    if (theme === 'dark') return 'dark';
+    if (theme === 'light') return 'light';
+    return getSystemTheme();
   });
 
   useEffect(() => {
     const root = document.documentElement;
-    const isDark = theme === 'dark';
+    const mediaQuery = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
 
-    setResolvedTheme(isDark ? 'dark' : 'light');
+    const applyTheme = () => {
+      let isDark = false;
+      if (theme === 'dark') isDark = true;
+      else if (theme === 'light') isDark = false;
+      else isDark = mediaQuery ? mediaQuery.matches : false;
 
-    if (isDark) {
-      root.classList.add('dark');
-      root.style.colorScheme = 'dark';
-    } else {
-      root.classList.remove('dark');
-      root.style.colorScheme = 'light';
+      const effective: ResolvedTheme = isDark ? 'dark' : 'light';
+      setResolvedTheme(effective);
+
+      if (isDark) {
+        root.classList.add('dark');
+        root.style.colorScheme = 'dark';
+      } else {
+        root.classList.remove('dark');
+        root.style.colorScheme = 'light';
+      }
+    };
+
+    applyTheme();
+
+    const handleChange = () => {
+      if (theme === 'system') {
+        applyTheme();
+      }
+    };
+
+    if (mediaQuery && mediaQuery.addEventListener) {
+      mediaQuery.addEventListener('change', handleChange);
+      return () => mediaQuery.removeEventListener('change', handleChange);
     }
   }, [theme]);
 
