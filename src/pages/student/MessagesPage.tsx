@@ -1112,9 +1112,9 @@ export const MessagesPage: React.FC = () => {
                           typing...
                         </p>
                       ) : other.online ? (
-                        <p className="text-[11px] text-[#009b40] dark:text-[#00d757] font-medium flex items-center gap-1.5">
-                          <span className="w-2 h-2 rounded-full bg-[#00d757] ring-1 ring-white dark:ring-[#111d15] shadow-xs" />
-                          <span>Active now</span>
+                        <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-[#22c55e] ring-1 ring-white dark:ring-[#111d15] shadow-xs" />
+                          <span>Online</span>
                         </p>
                       ) : (
                         <p className="text-[11px] text-gray-400 dark:text-gray-500 font-normal truncate">

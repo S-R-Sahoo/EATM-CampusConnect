@@ -33,12 +33,12 @@ export const Avatar: React.FC<AvatarProps> = ({
   };
 
   const dotSizes = {
-    xs: 'w-2 h-2 bottom-0 right-0 ring-[1.5px]',
-    sm: 'w-2.5 h-2.5 bottom-0 right-0 ring-2',
-    md: 'w-3.5 h-3.5 bottom-0 right-0 ring-2',
-    lg: 'w-4 h-4 bottom-0.5 right-0.5 ring-2',
-    xl: 'w-5 h-5 bottom-1 right-1 ring-[3px]',
-    '2xl': 'w-6 h-6 bottom-1.5 right-1.5 ring-4',
+    xs: 'w-1.5 h-1.5 bottom-0 right-0 ring-1',
+    sm: 'w-2 h-2 bottom-0 right-0 ring-[1.5px]',
+    md: 'w-2.5 h-2.5 bottom-0 right-0 ring-[1.5px]',
+    lg: 'w-3 h-3 bottom-0.5 right-0.5 ring-2',
+    xl: 'w-4 h-4 bottom-1 right-1 ring-2',
+    '2xl': 'w-5 h-5 bottom-1.5 right-1.5 ring-2',
   };
 
   const hasPhoto = isCustomPhoto(src) && !imgError;
@@ -65,9 +65,9 @@ export const Avatar: React.FC<AvatarProps> = ({
 
       {Boolean(online) && (
         <span
-          className={`absolute rounded-full ring-white dark:ring-[#111d15] bg-[#00d757] shadow-xs ${dotSizes[size]}`}
-          title="Active now"
-          aria-label="Active now"
+          className={`absolute rounded-full ring-white dark:ring-[#111d15] bg-[#22c55e] shadow-xs ${dotSizes[size]}`}
+          title="Online"
+          aria-label="Online"
         />
       )}
     </div>
