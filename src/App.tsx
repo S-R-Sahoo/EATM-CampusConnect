@@ -3,6 +3,7 @@ import { HashRouter, Routes, Route, Navigate, useParams } from 'react-router-dom
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ToastProvider } from './contexts/ToastContext';
 import { ThemeProvider } from './contexts/ThemeContext';
+import { NotificationProvider } from './contexts/NotificationContext';
 
 // Layouts
 import { StudentLayout } from './components/layout/StudentLayout';
@@ -149,7 +150,9 @@ export const App: React.FC = () => {
       <ThemeProvider>
         <ToastProvider>
           <AuthProvider>
-            <AppRoutes />
+            <NotificationProvider>
+              <AppRoutes />
+            </NotificationProvider>
           </AuthProvider>
         </ToastProvider>
       </ThemeProvider>

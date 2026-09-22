@@ -1,6 +1,7 @@
 import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { useNotifications } from '../../contexts/NotificationContext';
 import { 
   Home, Compass, Users, MessageSquare, 
   Calendar, BookOpen, Briefcase, Bell, 
@@ -14,6 +15,7 @@ interface SidebarProps {
 
 export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
   const { user, logout } = useAuth();
+  const { unreadCount } = useNotifications();
   const navigate = useNavigate();
 
   const handleLogout = async () => {
@@ -100,6 +102,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
                 <>
                   <Icon className={`w-4 h-4 transition-colors ${isActive ? 'text-white' : 'text-gray-400 dark:text-gray-500 group-hover:text-[#0b4627] dark:group-hover:text-emerald-400'}`} />
                   <span className="truncate">{link.label}</span>
+                  {link.to.includes('notifications') && unreadCount > 0 && (
+                    <span className="ml-auto px-1.5 py-0.5 text-[10px] font-bold text-white bg-[#dc2626] rounded-full">
+                      {unreadCount > 99 ? '99+' : unreadCount}
+                    </span>
+                  )}
                 </>
               )}
             </NavLink>

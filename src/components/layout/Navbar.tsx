@@ -2,13 +2,13 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useNotifications } from '../../contexts/NotificationContext';
 import { Avatar } from '../ui/Avatar';
 import { 
   Search, Bell, MessageSquare, Menu, LogOut, 
   User, Settings, ChevronDown, Check, Shield, BookOpen,
   Sun, Moon 
 } from 'lucide-react';
-import { fetchNotifications } from '../../supabase/db';
 import { EATM_EMBLEM } from '../../constants/assets';
 
 interface NavbarProps {
@@ -19,18 +19,12 @@ interface NavbarProps {
 export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileMenu, onOpenSearch }) => {
   const { user, logout } = useAuth();
   const { theme, resolvedTheme, toggleTheme } = useTheme();
+  const { unreadCount } = useNotifications();
   const navigate = useNavigate();
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [unreadNotifs, setUnreadNotifs] = useState<number>(0);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (user?.id) {
-      fetchNotifications(user.id).then(notifs => {
-        setUnreadNotifs(notifs.filter(n => !n.read).length);
-      });
-    }
-
     const handleClickOutside = (e: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
         setDropdownOpen(false);
@@ -133,9 +127,9 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileMenu, onOpenSearch
             aria-label="Notifications"
           >
             <Bell className="w-5 h-5" />
-            {unreadNotifs > 0 && (
+            {unreadCount > 0 && (
               <span className="absolute top-1 right-1 px-1.5 py-0.2 text-[10px] font-bold text-white bg-[#dc2626] rounded-full ring-2 ring-white dark:ring-[#0f1b14]">
-                {unreadNotifs}
+                {unreadCount > 99 ? '99+' : unreadCount}
               </span>
             )}
           </Link>

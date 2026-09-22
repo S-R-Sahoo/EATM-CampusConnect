@@ -653,6 +653,21 @@ export async function updateConnectionStatus(connectionId: string, status: 'acce
       console.warn('Error during post-accept friend linking:', postAcceptErr);
     }
   }
+
+  // Auto-mark pending connection_request notification as read so it no longer lingers
+  try {
+    const notifs = getLocalData<NotificationItem[]>('notifications', SEED_NOTIFICATIONS);
+    const reqNotif = notifs.find(n => 
+      n.type === 'connection_request' && 
+      n.recipientId === conn!.recipientId && 
+      n.senderId === conn!.requesterId
+    );
+    if (reqNotif && !reqNotif.read) {
+      await markNotificationAsRead(reqNotif.id);
+    }
+  } catch {
+    // ignore
+  }
 }
 
 // ---------------------------------------------
@@ -1004,6 +1019,27 @@ export async function sendChatMessage(msg: Omit<Message, 'id' | 'createdAt' | 'r
     conv.lastMessage = lastMessagePayload;
     conv.updatedAt = new Date().toISOString();
     setLocalData('conversations', [...convs]);
+
+    if (conv.participants) {
+      const recipientId = conv.participants.find(p => p !== msg.senderId);
+      if (recipientId) {
+        try {
+          const senderUser = await fetchUserById(msg.senderId);
+          await createNotification({
+            recipientId,
+            senderId: msg.senderId,
+            senderName: senderUser?.displayName || 'Campus Peer',
+            senderAvatar: senderUser?.photoURL,
+            type: 'message',
+            title: `New message from ${senderUser?.displayName || 'Campus Peer'}`,
+            message: previewText,
+            link: '/student/messages'
+          });
+        } catch (notifErr) {
+          console.warn('Failed to create chat notification:', notifErr);
+        }
+      }
+    }
   }
 
   // Dispatch local window event so other tabs/components on this client get instant update
@@ -1755,6 +1791,42 @@ export async function markAllNotificationsAsRead(userId: string): Promise<void> 
     if (n.recipientId === userId) n.read = true;
   });
   setLocalData('notifications', [...list]);
+}
+
+export async function deleteNotification(notifId: string): Promise<void> {
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      await supabase.from('notifications').delete().eq('id', notifId);
+    } catch (err) {
+      console.warn('Supabase deleteNotification error:', err);
+    }
+  }
+
+  const list = getLocalData<NotificationItem[]>('notifications', SEED_NOTIFICATIONS);
+  const updated = list.filter(n => n.id !== notifId);
+  setLocalData('notifications', updated);
+}
+
+export async function clearNotifications(userId: string, onlyRead: boolean = false): Promise<void> {
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      let query = supabase.from('notifications').delete().eq('recipientId', userId);
+      if (onlyRead) {
+        query = query.eq('read', true);
+      }
+      await query;
+    } catch (err) {
+      console.warn('Supabase clearNotifications error:', err);
+    }
+  }
+
+  const list = getLocalData<NotificationItem[]>('notifications', SEED_NOTIFICATIONS);
+  const updated = list.filter(n => {
+    if (n.recipientId !== userId) return true;
+    if (onlyRead) return !n.read;
+    return false;
+  });
+  setLocalData('notifications', updated);
 }
 
 // ---------------------------------------------

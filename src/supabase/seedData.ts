@@ -624,7 +624,7 @@ export const SEED_NOTIFICATIONS: NotificationItem[] = [
     title: 'Post Liked',
     message: 'Priya Sharma liked your post: "Excited to share our research paper on AI..."',
     link: '/student/dashboard',
-    read: false,
+    read: true,
     createdAt: '2025-02-20T08:00:00Z'
   },
   {
@@ -633,25 +633,15 @@ export const SEED_NOTIFICATIONS: NotificationItem[] = [
     senderId: 'user_rohit',
     senderName: 'Rohit Kumar',
     senderAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&auto=format&fit=crop&q=80',
-    type: 'connection_request',
-    title: 'Connection Request',
-    message: 'New connection request from Rohit Kumar (ECE • 3rd Year)',
-    link: '/student/connections',
-    read: false,
+    type: 'connection_accepted',
+    title: 'Connection Accepted! 🎉',
+    message: 'You and Rohit Kumar are now connected on EATM CampusConnect.',
+    link: '/student/messages',
+    read: true,
     createdAt: '2025-02-20T07:15:00Z'
   },
   {
     id: 'notif_3',
-    recipientId: 'user_soumya',
-    type: 'club_invite',
-    title: 'Club Invitation',
-    message: 'You have been invited to join Coding Club as a Technical Lead organizer.',
-    link: '/student/communities',
-    read: false,
-    createdAt: '2025-02-19T18:30:00Z'
-  },
-  {
-    id: 'notif_4',
     recipientId: 'user_soumya',
     type: 'event_registration',
     title: 'Registration Confirmed',
@@ -659,16 +649,6 @@ export const SEED_NOTIFICATIONS: NotificationItem[] = [
     link: '/student/events',
     read: true,
     createdAt: '2025-02-19T11:00:00Z'
-  },
-  {
-    id: 'notif_5',
-    recipientId: 'user_soumya',
-    type: 'system',
-    title: 'Assignment Deadline Approaching',
-    message: 'Assignment deadline approaching: Web Technologies Project submission due in 48 hours.',
-    link: '/student/study-materials',
-    read: true,
-    createdAt: '2025-02-18T16:00:00Z'
   }
 ];
 
