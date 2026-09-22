@@ -94,7 +94,7 @@ export const ChatAudioPlayer: React.FC<ChatAudioPlayerProps> = ({
     : (duration > 0 ? formatTime(duration) : '0:00');
 
   return (
-    <div className="flex items-center gap-2.5 w-[210px] sm:w-[250px] max-w-full select-none py-0.5">
+    <div className="flex items-center gap-2 w-[180px] sm:w-[220px] max-w-full select-none py-0.5">
       <audio ref={audioRef} src={src} preload="metadata" />
 
       {/* Play / Pause button */}

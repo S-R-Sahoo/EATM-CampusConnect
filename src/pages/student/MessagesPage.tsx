@@ -728,6 +728,29 @@ export const MessagesPage: React.FC = () => {
               {messages.map(msg => {
                 const isMe = msg.senderId === user?.id;
 
+                const isAudio = msg.mediaType === 'audio' || 
+                  (msg.mediaUrl && (
+                    msg.mediaUrl.startsWith('data:audio/') || 
+                    msg.mediaUrl.includes('voice-note') || 
+                    msg.mediaUrl.includes('audio') ||
+                    /\.(mp3|wav|ogg|m4a|aac|opus|weba)(\?.*)?$/i.test(msg.mediaUrl) ||
+                    (/\.webm(\?.*)?$/i.test(msg.mediaUrl) && !msg.mediaUrl.includes('video'))
+                  ));
+
+                const isImage = !isAudio && (msg.mediaType === 'image' || 
+                  (msg.mediaUrl && (
+                    msg.mediaUrl.startsWith('data:image/') || 
+                    /\.(jpe?g|png|gif|webp|svg|bmp)(\?.*)?$/i.test(msg.mediaUrl)
+                  )));
+
+                const isVideo = !isAudio && !isImage && (msg.mediaType === 'video' || 
+                  (msg.mediaUrl && (
+                    msg.mediaUrl.startsWith('data:video/') || 
+                    /\.(mp4|mov|avi|mkv)(\?.*)?$/i.test(msg.mediaUrl)
+                  )));
+
+                const isFile = !isAudio && !isImage && !isVideo && !!msg.mediaUrl;
+
                 return (
                   <div
                     key={msg.id}
@@ -750,8 +773,8 @@ export const MessagesPage: React.FC = () => {
                     {/* Speech Bubble with WhatsApp-like feeling and official EATM branding */}
                     <div
                       className={`${
-                        msg.mediaType === 'audio' && !msg.text
-                          ? 'px-3 py-1.5 rounded-2xl'
+                        isAudio && !msg.text
+                          ? 'px-3 py-1.5 rounded-2xl max-w-fit'
                           : 'max-w-xs sm:max-w-md px-3.5 py-2.5 rounded-2xl leading-relaxed'
                       } shadow-sm text-xs ${
                         isMe
@@ -767,7 +790,7 @@ export const MessagesPage: React.FC = () => {
                       )}
 
                       {/* 1. Image Media */}
-                      {msg.mediaType === 'image' && msg.mediaUrl && (
+                      {isImage && msg.mediaUrl && (
                         <div className="mb-2">
                           <img
                             src={msg.mediaUrl}
@@ -780,7 +803,7 @@ export const MessagesPage: React.FC = () => {
                       )}
 
                       {/* 2. Video Media */}
-                      {msg.mediaType === 'video' && msg.mediaUrl && (
+                      {isVideo && msg.mediaUrl && (
                         <div className="mb-2">
                           <video
                             src={msg.mediaUrl}
@@ -791,8 +814,8 @@ export const MessagesPage: React.FC = () => {
                         </div>
                       )}
 
-                      {/* 3. Audio / Voice Note Media - Only clean inline audio player */}
-                      {msg.mediaType === 'audio' && msg.mediaUrl && (
+                      {/* 3. Audio / Voice Note Media - Only clean inline audio player, NO BIG BOX */}
+                      {isAudio && msg.mediaUrl && (
                         <ChatAudioPlayer
                           src={msg.mediaUrl}
                           isMe={isMe}
@@ -801,7 +824,7 @@ export const MessagesPage: React.FC = () => {
                       )}
 
                       {/* 4. Document / File Media */}
-                      {msg.mediaType === 'file' && msg.mediaUrl && (
+                      {isFile && msg.mediaUrl && (
                         <div className={`flex items-center gap-3 p-2.5 rounded-xl mb-2 border ${
                           isMe
                             ? 'bg-white/10 border-white/20 text-white'
@@ -840,7 +863,7 @@ export const MessagesPage: React.FC = () => {
 
                       {/* Timestamp & Double Checkmarks */}
                       <div className={`flex items-center justify-end gap-1 ${
-                        msg.mediaType === 'audio' && !msg.text ? 'mt-0.5' : 'mt-1'
+                        isAudio && !msg.text ? 'mt-0.5' : 'mt-1'
                       } text-[9px] font-mono ${
                         isMe ? 'text-emerald-200' : 'text-gray-400 dark:text-gray-500'
                       }`}>

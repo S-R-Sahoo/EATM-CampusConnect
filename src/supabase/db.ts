@@ -767,11 +767,42 @@ export async function fetchConversations(userId: string): Promise<Conversation[]
 }
 
 export function detectChatMessageMediaType(mediaUrl?: string, explicitType?: string): 'image' | 'video' | 'file' | 'audio' | undefined {
-  if (explicitType) return explicitType as any;
+  if (explicitType === 'audio') return 'audio';
+  if (explicitType === 'video') return 'video';
+  if (explicitType === 'image') return 'image';
+  if (explicitType === 'file') return 'file';
+
   if (!mediaUrl) return undefined;
-  if (mediaUrl.startsWith('data:image/') || /\.(jpe?g|png|gif|webp|svg)(\?.*)?$/i.test(mediaUrl)) return 'image';
-  if (mediaUrl.startsWith('data:video/') || /\.(mp4|webm|mov|ogg)(\?.*)?$/i.test(mediaUrl)) return 'video';
-  if (mediaUrl.startsWith('data:audio/') || /\.(mp3|wav|ogg|m4a|aac|webm)(\?.*)?$/i.test(mediaUrl)) return 'audio';
+  const lower = mediaUrl.toLowerCase();
+
+  // 1. Audio check first - voice notes (.webm/.ogg/.wav/data:audio) must NEVER be classified as video
+  if (
+    lower.startsWith('data:audio/') || 
+    lower.includes('voice-note') || 
+    lower.includes('audio') ||
+    /\.(mp3|wav|ogg|m4a|aac|opus|weba)(\?.*)?$/i.test(lower) ||
+    (/\.webm(\?.*)?$/i.test(lower) && !lower.includes('video'))
+  ) {
+    return 'audio';
+  }
+
+  // 2. Image check
+  if (
+    lower.startsWith('data:image/') || 
+    /\.(jpe?g|png|gif|webp|svg|bmp|ico)(\?.*)?$/i.test(lower)
+  ) {
+    return 'image';
+  }
+
+  // 3. Video check (.mp4, .mov, etc.)
+  if (
+    lower.startsWith('data:video/') || 
+    (lower.includes('video') && !lower.includes('voice-note')) ||
+    /\.(mp4|mov|avi|mkv|flv|m4v)(\?.*)?$/i.test(lower)
+  ) {
+    return 'video';
+  }
+
   return 'file';
 }
 
@@ -1081,7 +1112,11 @@ export function subscribeToMessages(
       { event: 'new_message' },
       (event) => {
         if (event.payload && event.payload.conversationId === conversationId) {
-          onInsert(event.payload as Message);
+          const m = event.payload as Message;
+          onInsert({
+            ...m,
+            mediaType: detectChatMessageMediaType(m.mediaUrl, m.mediaType)
+          });
         }
       }
     )
@@ -1090,7 +1125,11 @@ export function subscribeToMessages(
       { event: 'INSERT', schema: 'public', table: 'messages' },
       (payload) => {
         if (payload.new && (payload.new as Message).conversationId === conversationId) {
-          onInsert(payload.new as Message);
+          const m = payload.new as Message;
+          onInsert({
+            ...m,
+            mediaType: detectChatMessageMediaType(m.mediaUrl, m.mediaType)
+          });
         }
       }
     )
