@@ -20,6 +20,10 @@ import {
   ChevronDown, Copy
 } from 'lucide-react';
 import { useLocation, useSearchParams, Link } from 'react-router-dom';
+import { 
+  isUserOnline, getUserLastSeen, formatLastSeen, 
+  subscribeToPresence, broadcastTyping, subscribeToTyping 
+} from '../../supabase/presence';
 
 interface StagedAttachment {
   file: File;
@@ -83,6 +87,25 @@ export const MessagesPage: React.FC = () => {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const emojis = ['👍', '❤️', '🔥', '🚀', '🎉', '😊', '🙌', '💯', '👏', '📚'];
+
+  // Real-time WhatsApp-style presence & typing states
+  const [, setPresenceTick] = useState(0);
+  const [isOtherTyping, setIsOtherTyping] = useState(false);
+  const typingTimeoutRef = useRef<any>(null);
+
+  // Subscribe to real-time presence changes and tick every 20s for dynamic last seen times
+  useEffect(() => {
+    const unsub = subscribeToPresence(() => {
+      setPresenceTick(t => t + 1);
+    });
+    const interval = setInterval(() => {
+      setPresenceTick(t => t + 1);
+    }, 20000);
+    return () => {
+      unsub();
+      clearInterval(interval);
+    };
+  }, []);
 
   const formatFileSize = (bytes: number): string => {
     if (!bytes) return '0 B';
@@ -256,23 +279,45 @@ export const MessagesPage: React.FC = () => {
 
   const activeConv = conversations.find(c => c.id === activeConvId);
 
-  // Get active other party info
+  // Subscribe to real-time typing events for active conversation
+  useEffect(() => {
+    if (!activeConvId || !user?.id) return;
+    setIsOtherTyping(false);
+    const unsub = subscribeToTyping(activeConvId, (typingUserId, isTyping) => {
+      if (typingUserId !== user.id) {
+        setIsOtherTyping(isTyping);
+      }
+    });
+    return () => {
+      unsub();
+      setIsOtherTyping(false);
+    };
+  }, [activeConvId, user?.id]);
+
+  // Get active other party info with authentic WhatsApp-style presence
   const getOtherParty = () => {
-    if (!activeConv || !user) return { name: 'Campus Chat', avatar: undefined, online: false };
+    if (!activeConv || !user) return { name: 'Campus Chat', avatar: undefined, online: false, lastSeen: undefined, isGroup: false };
     if (activeConv.isGroup) {
       return {
         name: activeConv.groupName || 'Study Group',
         avatar: activeConv.groupAvatar,
-        online: true
+        online: false,
+        lastSeen: undefined,
+        isGroup: true
       };
     }
     const otherId = activeConv.participants.find(id => id !== user.id) || '';
     const detail = activeConv.participantDetails?.[otherId];
+    const currentlyOnline = isUserOnline(otherId);
+    const lastSeenTime = getUserLastSeen(otherId) || detail?.lastSeen;
+
     return {
       id: otherId,
       name: detail?.name || 'Student Peer',
       avatar: detail?.avatar,
-      online: detail?.online ?? true
+      online: currentlyOnline,
+      lastSeen: lastSeenTime,
+      isGroup: false
     };
   };
 
@@ -561,6 +606,7 @@ export const MessagesPage: React.FC = () => {
     setTextInput('');
     setStagedAttachment(null);
     setIsUploading(false);
+    if (activeConvId && user?.id) broadcastTyping(activeConvId, user.id, false);
 
     try {
       const newMsg = await sendChatMessage({
@@ -882,6 +928,8 @@ export const MessagesPage: React.FC = () => {
               const avatar = conv.isGroup ? conv.groupAvatar : details?.avatar;
               const isActive = conv.id === activeConvId;
               const isSentByMe = conv.lastMessage?.senderId === user?.id;
+              const isOtherOnline = !conv.isGroup && otherId ? isUserOnline(otherId) : false;
+              const isThisConvTyping = conv.id === activeConvId && isOtherTyping;
 
               return (
                 <div
@@ -897,7 +945,7 @@ export const MessagesPage: React.FC = () => {
                     src={avatar}
                     name={title || 'Chat'}
                     size="md"
-                    online={conv.isGroup ? undefined : details?.online}
+                    online={conv.isGroup ? undefined : (isOtherOnline ? true : undefined)}
                   />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-0.5">
@@ -913,12 +961,20 @@ export const MessagesPage: React.FC = () => {
                       </span>
                     </div>
                     <div className="flex items-center gap-1">
-                      {isSentByMe && (
-                        <CheckCheck className="w-3.5 h-3.5 text-[#0b4627] dark:text-emerald-400 shrink-0" />
+                      {isThisConvTyping ? (
+                        <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium italic animate-pulse">
+                          typing...
+                        </p>
+                      ) : (
+                        <>
+                          {isSentByMe && (
+                            <CheckCheck className="w-3.5 h-3.5 text-[#0b4627] dark:text-emerald-400 shrink-0" />
+                          )}
+                          <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                            {conv.lastMessage?.text || 'Start chatting...'}
+                          </p>
+                        </>
                       )}
-                      <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                        {conv.lastMessage?.text || 'Start chatting...'}
-                      </p>
                     </div>
                   </div>
                 </div>
@@ -953,16 +1009,26 @@ export const MessagesPage: React.FC = () => {
                       src={other.avatar}
                       name={other.name}
                       size="md"
-                      online={other.online}
+                      online={other.online ? true : undefined}
                     />
                     <div className="min-w-0">
                       <h3 className="font-bold text-sm text-gray-900 dark:text-gray-100 group-hover/peer:text-[#0b4627] dark:group-hover/peer:text-emerald-400 transition-colors truncate">
                         {other.name}
                       </h3>
-                      <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                        Online
-                      </p>
+                      {isOtherTyping ? (
+                        <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold italic flex items-center gap-1 animate-pulse">
+                          typing...
+                        </p>
+                      ) : other.online ? (
+                        <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                          <span>Online</span>
+                        </p>
+                      ) : (
+                        <p className="text-[11px] text-gray-400 dark:text-gray-500 font-normal truncate">
+                          {formatLastSeen(other.lastSeen)}
+                        </p>
+                      )}
                     </div>
                   </Link>
                 ) : (
@@ -971,13 +1037,11 @@ export const MessagesPage: React.FC = () => {
                       src={other.avatar}
                       name={other.name}
                       size="md"
-                      online={other.online}
                     />
                     <div className="min-w-0">
                       <h3 className="font-bold text-sm text-gray-900 dark:text-gray-100 truncate">{other.name}</h3>
-                      <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                        Official EATM Group
+                      <p className="text-[11px] text-gray-500 dark:text-gray-400 font-normal">
+                        {activeConv.participants.length} members • Official EATM Group
                       </p>
                     </div>
                   </div>
@@ -1490,7 +1554,16 @@ export const MessagesPage: React.FC = () => {
                   <input
                     type="text"
                     value={textInput}
-                    onChange={(e) => setTextInput(e.target.value)}
+                    onChange={(e) => {
+                      setTextInput(e.target.value);
+                      if (activeConvId && user?.id) {
+                        broadcastTyping(activeConvId, user.id, true);
+                        if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+                        typingTimeoutRef.current = setTimeout(() => {
+                          broadcastTyping(activeConvId, user.id, false);
+                        }, 2000);
+                      }
+                    }}
                     placeholder={stagedAttachment ? "Add a caption or note..." : "Type a message or press mic to record..."}
                     className="flex-1 bg-gray-100/90 dark:bg-[#16251c] border border-gray-200 dark:border-[#1e3325] text-xs sm:text-sm rounded-xl px-4 py-2.5 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-[#0b4627] dark:focus:ring-emerald-500 focus:bg-white dark:focus:bg-[#111d15] transition"
                   />

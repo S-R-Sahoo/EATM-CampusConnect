@@ -4,6 +4,7 @@ import { loginWithEmail, registerWithEmail, loginWithGoogle as authGoogle, login
 import { fetchUsers, updateUserProfile as firestoreUpdateProfile } from '../supabase/db';
 import { supabase, isSupabaseConfigured } from '../supabase/client';
 import { isCustomPhoto } from '../constants/assets';
+import { initPresence } from '../supabase/presence';
 
 interface AuthContextType {
   user: UserProfile | null;
@@ -126,6 +127,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     initAuth();
     return () => unsubscribe();
   }, []);
+
+  // Maintain real presence & heartbeats for active authenticated user
+  useEffect(() => {
+    if (!user?.id) return;
+    const cleanup = initPresence(user.id);
+    return () => {
+      cleanup();
+    };
+  }, [user?.id]);
 
   const login = async (email: string, pass: string) => {
     setIsLoading(true);

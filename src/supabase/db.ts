@@ -694,13 +694,13 @@ export async function getOrCreateConversation(user1Id: string, user2Id: string):
                 name: u1?.displayName || 'Student',
                 avatar: u1?.photoURL,
                 role: u1?.role || 'student',
-                online: true
+                lastSeen: u1?.lastSeen || new Date().toISOString()
               },
               [user2Id]: {
                 name: u2?.displayName || 'Student',
                 avatar: u2?.photoURL,
                 role: u2?.role || 'student',
-                online: true
+                lastSeen: u2?.lastSeen || new Date().toISOString()
               }
             }
           };
@@ -732,13 +732,13 @@ export async function getOrCreateConversation(user1Id: string, user2Id: string):
         name: u1?.displayName || 'Student',
         avatar: u1?.photoURL,
         role: u1?.role || 'student',
-        online: true
+        lastSeen: u1?.lastSeen || now
       },
       [user2Id]: {
         name: u2?.displayName || 'Student',
         avatar: u2?.photoURL,
         role: u2?.role || 'student',
-        online: true
+        lastSeen: u2?.lastSeen || now
       }
     },
     lastMessage: {
@@ -835,7 +835,7 @@ export async function fetchConversations(userId: string): Promise<Conversation[]
           name: u.displayName || details[pId]?.name,
           avatar: resolvedAvatar,
           role: details[pId]?.role || u.role,
-          online: true
+          lastSeen: u.lastSeen || details[pId]?.lastSeen
         };
       }
     });

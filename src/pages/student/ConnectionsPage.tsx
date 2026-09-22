@@ -12,6 +12,7 @@ import { Button } from '../../components/ui/Button';
 import { Users, Check, X, Clock, MessageSquare, Loader2, Sparkles } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import confetti from 'canvas-confetti';
+import { isUserOnline } from '../../supabase/presence';
 
 export const ConnectionsPage: React.FC = () => {
   const { user, refreshUser } = useAuth();
@@ -170,7 +171,7 @@ export const ConnectionsPage: React.FC = () => {
                     className="flex items-center gap-3.5 min-w-0 group/friend hover:opacity-95 transition"
                     title="View Student Profile"
                   >
-                    <Avatar src={otherUser.photoURL} name={otherUser.displayName} size="md" online={true} />
+                    <Avatar src={otherUser.photoURL} name={otherUser.displayName} size="md" online={isUserOnline(otherId) ? true : undefined} />
                     <div className="min-w-0">
                       <h3 className="font-bold text-sm text-gray-900 dark:text-gray-100 group-hover/friend:text-[#0b4627] dark:group-hover/friend:text-emerald-400 transition-colors truncate">
                         {otherUser.displayName}

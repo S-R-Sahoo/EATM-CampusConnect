@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
 import confetti from 'canvas-confetti';
+import { isUserOnline } from '../../supabase/presence';
 
 const DEPARTMENTS = [
   { id: 'All', label: 'All Departments' },
@@ -285,7 +286,7 @@ export const DiscoverPeople: React.FC = () => {
                     src={student.photoURL}
                     name={student.displayName}
                     size="lg"
-                    online={true}
+                    online={isUserOnline(student.id) ? true : undefined}
                   />
                   <div className="min-w-0">
                     {/* Name & Official Verified Student Tick */}

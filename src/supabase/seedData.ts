@@ -660,14 +660,13 @@ export const SEED_CONVERSATIONS: Conversation[] = [
       user_soumya: {
         name: 'Soumyaranjan Sahoo',
         avatar: undefined,
-        role: 'student',
-        online: true
+        role: 'student'
       },
       user_priya: {
         name: 'Priya Sharma',
         avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&auto=format&fit=crop&q=80',
         role: 'student',
-        online: true
+        lastSeen: new Date(Date.now() - 35 * 60 * 1000).toISOString()
       }
     },
     lastMessage: {

@@ -80,7 +80,7 @@ export const FacultyStudents: React.FC = () => {
                 className="flex items-center gap-3.5 group/student hover:opacity-95 transition"
                 title="View Student Academic Profile"
               >
-                <Avatar src={st.photoURL} name={st.displayName} size="md" online={true} />
+                <Avatar src={st.photoURL} name={st.displayName} size="md" />
                 <div>
                   <div className="flex items-center gap-2">
                     <h3 className="font-bold text-sm text-gray-900 dark:text-gray-100 group-hover/student:text-[#0b4627] dark:group-hover/student:text-emerald-400 transition-colors">

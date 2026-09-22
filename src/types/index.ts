@@ -103,6 +103,8 @@ export interface UserProfile {
   };
   status: 'active' | 'disabled';
   verified?: boolean;
+  isOnline?: boolean;
+  lastSeen?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -163,6 +165,7 @@ export interface Conversation {
       avatar?: string;
       role?: string;
       online?: boolean;
+      lastSeen?: string;
     };
   };
   lastMessage?: {
