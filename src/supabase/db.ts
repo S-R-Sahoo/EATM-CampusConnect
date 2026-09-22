@@ -985,16 +985,19 @@ export async function fetchMessages(conversationId: string, currentUserId?: stri
 
 export async function sendChatMessage(msg: Omit<Message, 'id' | 'createdAt' | 'read'>): Promise<Message> {
   const mediaType = detectChatMessageMediaType(msg.mediaUrl, msg.mediaType);
+  const uniqueId = 'msg_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
   const newMsg: Message = {
     ...msg,
     mediaType,
-    id: 'msg_' + Date.now(),
+    id: uniqueId,
     createdAt: new Date().toISOString(),
     read: true
   };
 
   const msgs = getLocalData<Message[]>('messages', SEED_MESSAGES);
-  setLocalData('messages', [...msgs, newMsg]);
+  if (!msgs.some(m => m.id === newMsg.id)) {
+    setLocalData('messages', [...msgs, newMsg]);
+  }
 
   let previewText = msg.text;
   if (!previewText) {
@@ -1453,12 +1456,28 @@ export function subscribeToMessages(
       'postgres_changes',
       { event: 'INSERT', schema: 'public', table: 'messages' },
       (payload) => {
-        if (payload.new && (payload.new as Message).conversationId === conversationId) {
-          const m = payload.new as Message;
-          onInsert({
-            ...m,
-            mediaType: detectChatMessageMediaType(m.mediaUrl, m.mediaType)
-          });
+        const raw = payload.new as any;
+        if (!raw) return;
+        const convId = raw.conversationId || raw.conversationid;
+        if (convId === conversationId) {
+          const m: Message = {
+            id: raw.id,
+            conversationId: convId,
+            senderId: raw.senderId || raw.senderid,
+            senderName: raw.senderName || raw.sendername,
+            senderAvatar: raw.senderAvatar || raw.senderavatar,
+            text: raw.text || '',
+            mediaUrl: raw.mediaUrl || raw.mediaurl,
+            mediaType: detectChatMessageMediaType(raw.mediaUrl || raw.mediaurl, raw.mediaType || raw.mediatype),
+            fileName: raw.fileName || raw.filename,
+            fileSize: raw.fileSize || raw.filesize,
+            audioDuration: raw.audioDuration || raw.audioduration,
+            read: raw.read ?? false,
+            createdAt: raw.createdAt || raw.created_at || raw.createdat || new Date().toISOString(),
+            isDeleted: raw.isDeleted || raw.isdeleted || false,
+            deletedFor: raw.deletedFor || raw.deletedfor || []
+          };
+          onInsert(m);
         }
       }
     )
@@ -1466,9 +1485,12 @@ export function subscribeToMessages(
       'postgres_changes',
       { event: 'UPDATE', schema: 'public', table: 'messages' },
       (payload) => {
-        if (payload.new && (payload.new as any).conversationId === conversationId) {
-          if ((payload.new as any).isDeleted) {
-            onDeleteForEveryone?.((payload.new as any).id);
+        const raw = payload.new as any;
+        if (!raw) return;
+        const convId = raw.conversationId || raw.conversationid;
+        if (convId === conversationId) {
+          if (raw.isDeleted || raw.isdeleted) {
+            onDeleteForEveryone?.(raw.id);
           }
         }
       }

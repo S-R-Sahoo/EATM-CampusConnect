@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { 
@@ -41,6 +41,34 @@ const isMobileDevice = (): boolean => {
   return Boolean(isMobileUA || (isTouchDevice && isSmallScreen));
 };
 
+// Robust deduplication checker for chat messages (handles exact ID matches & rapid re-dispatches)
+export const isDuplicateMessage = (a: Message, b: Message): boolean => {
+  if (!a || !b) return false;
+  if (a.id && b.id && a.id === b.id) return true;
+  // Content & timestamp proximity deduplication for same sender within 4 seconds
+  if (
+    a.conversationId === b.conversationId &&
+    a.senderId === b.senderId &&
+    (a.text || '').trim() === (b.text || '').trim() &&
+    (a.mediaUrl || '') === (b.mediaUrl || '') &&
+    Math.abs(new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()) < 4000
+  ) {
+    return true;
+  }
+  return false;
+};
+
+// Deduplicates a list of messages preserving newest order
+export const dedupeMessageList = (list: Message[]): Message[] => {
+  const result: Message[] = [];
+  for (const m of list) {
+    if (!m || !m.id) continue;
+    if (result.some(existing => isDuplicateMessage(existing, m))) continue;
+    result.push(m);
+  }
+  return result;
+};
+
 export const MessagesPage: React.FC = () => {
   const { user } = useAuth();
   const { error, success } = useToast();
@@ -50,6 +78,7 @@ export const MessagesPage: React.FC = () => {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeConvId, setActiveConvId] = useState<string>('');
   const [messages, setMessages] = useState<Message[]>([]);
+  const displayedMessages = useMemo(() => dedupeMessageList(messages), [messages]);
   const [textInput, setTextInput] = useState('');
   const [activeTab, setActiveTab] = useState<'chats' | 'groups'>('chats');
   const [searchQuery, setSearchQuery] = useState('');
@@ -59,6 +88,8 @@ export const MessagesPage: React.FC = () => {
   const [lightboxImage, setLightboxImage] = useState<{ src: string; alt?: string } | null>(null);
   const [showCameraModal, setShowCameraModal] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [isSending, setIsSending] = useState(false);
+  const isSendingRef = useRef(false);
   const [messageToDelete, setMessageToDelete] = useState<Message | null>(null);
   const [activeMenuMsgId, setActiveMenuMsgId] = useState<string | null>(null);
 
@@ -195,7 +226,7 @@ export const MessagesPage: React.FC = () => {
 
       fetchMessages(activeConvId, user?.id).then(msgs => {
         if (!isSubscribed) return;
-        setMessages(msgs);
+        setMessages(dedupeMessageList(msgs));
         setTimeout(() => {
           messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
         }, 100);
@@ -207,7 +238,7 @@ export const MessagesPage: React.FC = () => {
         (newMsg) => {
           if (!isSubscribed) return;
           setMessages(prev => {
-            if (prev.some(m => m.id === newMsg.id)) return prev;
+            if (prev.some(m => isDuplicateMessage(m, newMsg))) return prev;
             return [...prev, newMsg];
           });
           setTimeout(() => {
@@ -233,13 +264,11 @@ export const MessagesPage: React.FC = () => {
           const freshMsgs = await fetchMessages(activeConvId, user?.id);
           if (!isSubscribed) return;
           setMessages(prev => {
-            const map = new Map<string, Message>();
-            prev.forEach(m => map.set(m.id, m));
-            freshMsgs.forEach(m => map.set(m.id, m));
-            const merged = Array.from(map.values())
+            const combined = [...prev, ...freshMsgs];
+            const deduped = dedupeMessageList(combined);
+            return deduped
               .filter(m => !(m.deletedFor && user?.id && m.deletedFor.includes(user.id)))
               .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-            return merged;
           });
         } catch {
           // ignore background heartbeat errors
@@ -532,7 +561,10 @@ export const MessagesPage: React.FC = () => {
         audioDuration
       });
 
-      setMessages(prev => [...prev, newMsg]);
+      setMessages(prev => {
+        if (prev.some(m => isDuplicateMessage(m, newMsg))) return prev;
+        return [...prev, newMsg];
+      });
 
       // Update last message preview in conversations list
       let lastText = captionText;
@@ -587,7 +619,7 @@ export const MessagesPage: React.FC = () => {
               text: replyText,
             });
             setMessages(prev => {
-              if (prev.some(m => m.id === replyMsg.id)) return prev;
+              if (prev.some(m => isDuplicateMessage(m, replyMsg))) return prev;
               return [...prev, replyMsg];
             });
             setConversations(prev =>
@@ -623,10 +655,13 @@ export const MessagesPage: React.FC = () => {
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user || !activeConvId) return;
+    if (isSendingRef.current) return;
 
     const trimmed = textInput.trim();
     if (!trimmed && !stagedAttachment) return;
 
+    isSendingRef.current = true;
+    setIsSending(true);
     setShowEmojiPicker(false);
     setShowAttachmentMenu(false);
 
@@ -635,28 +670,28 @@ export const MessagesPage: React.FC = () => {
     let fileNameToSend: string | undefined = undefined;
     let fileSizeToSend: string | undefined = undefined;
 
-    if (stagedAttachment) {
-      setIsUploading(true);
-      try {
-        const uploadPath = `chat-media/${activeConvId}/${Date.now()}_${stagedAttachment.file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
-        mediaUrlToSend = await uploadFile(uploadPath, stagedAttachment.file);
-        mediaTypeToSend = stagedAttachment.type;
-        fileNameToSend = stagedAttachment.file.name;
-        fileSizeToSend = formatFileSize(stagedAttachment.file.size);
-      } catch (uploadErr) {
-        error('Failed to upload attachment.');
-        setIsUploading(false);
-        return;
-      }
-    }
-
-    const textToSend = trimmed;
-    setTextInput('');
-    setStagedAttachment(null);
-    setIsUploading(false);
-    if (activeConvId && user?.id) broadcastTyping(activeConvId, user.id, false);
-
     try {
+      if (stagedAttachment) {
+        setIsUploading(true);
+        try {
+          const uploadPath = `chat-media/${activeConvId}/${Date.now()}_${stagedAttachment.file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+          mediaUrlToSend = await uploadFile(uploadPath, stagedAttachment.file);
+          mediaTypeToSend = stagedAttachment.type;
+          fileNameToSend = stagedAttachment.file.name;
+          fileSizeToSend = formatFileSize(stagedAttachment.file.size);
+        } catch (uploadErr) {
+          error('Failed to upload attachment.');
+          setIsUploading(false);
+          return;
+        }
+      }
+
+      const textToSend = trimmed;
+      setTextInput('');
+      setStagedAttachment(null);
+      setIsUploading(false);
+      if (activeConvId && user?.id) broadcastTyping(activeConvId, user.id, false);
+
       const newMsg = await sendChatMessage({
         conversationId: activeConvId,
         senderId: user.id,
@@ -669,7 +704,10 @@ export const MessagesPage: React.FC = () => {
         fileSize: fileSizeToSend
       });
 
-      setMessages(prev => [...prev, newMsg]);
+      setMessages(prev => {
+        if (prev.some(m => isDuplicateMessage(m, newMsg))) return prev;
+        return [...prev, newMsg];
+      });
 
       // Update last message preview in conversations list
       let lastText = textToSend;
@@ -726,7 +764,7 @@ export const MessagesPage: React.FC = () => {
               text: randomReply,
             });
             setMessages(prev => {
-              if (prev.some(m => m.id === replyMsg.id)) return prev;
+              if (prev.some(m => isDuplicateMessage(m, replyMsg))) return prev;
               return [...prev, replyMsg];
             });
             setConversations(prev =>
@@ -753,6 +791,9 @@ export const MessagesPage: React.FC = () => {
       }
     } catch (err: any) {
       error('Failed to deliver message.');
+    } finally {
+      isSendingRef.current = false;
+      setIsSending(false);
     }
   };
 
@@ -1179,7 +1220,7 @@ export const MessagesPage: React.FC = () => {
                 </span>
               </div>
 
-              {messages.map(msg => {
+              {displayedMessages.map(msg => {
                 const isMe = msg.senderId === user?.id;
 
                 const isAudio = msg.mediaType === 'audio' || 
@@ -1664,11 +1705,11 @@ export const MessagesPage: React.FC = () => {
                   {textInput.trim() || stagedAttachment ? (
                     <button
                       type="submit"
-                      disabled={isUploading}
+                      disabled={isUploading || isSending}
                       className="p-2.5 rounded-xl bg-[#0b4627] hover:bg-[#0f5132] text-white disabled:opacity-40 shadow-sm transition active:scale-95 shrink-0"
                       title="Send Message"
                     >
-                      {isUploading ? (
+                      {isUploading || isSending ? (
                         <Loader2 className="w-4 h-4 animate-spin" />
                       ) : (
                         <Send className="w-4 h-4" />
