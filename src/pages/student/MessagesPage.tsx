@@ -243,6 +243,14 @@ export const MessagesPage: React.FC = () => {
       return;
     }
 
+    // Directly send audio without showing bulky staging box
+    if (type === 'audio') {
+      setShowAttachmentMenu(false);
+      e.target.value = '';
+      sendAttachmentDirect(file, 'audio');
+      return;
+    }
+
     const previewUrl = URL.createObjectURL(file);
     setStagedAttachment({ file, type, previewUrl });
     setShowAttachmentMenu(false);
@@ -741,7 +749,11 @@ export const MessagesPage: React.FC = () => {
 
                     {/* Speech Bubble with WhatsApp-like feeling and official EATM branding */}
                     <div
-                      className={`max-w-xs sm:max-w-md px-3.5 py-2.5 rounded-2xl shadow-sm text-xs leading-relaxed ${
+                      className={`${
+                        msg.mediaType === 'audio' && !msg.text
+                          ? 'px-3 py-1.5 rounded-2xl'
+                          : 'max-w-xs sm:max-w-md px-3.5 py-2.5 rounded-2xl leading-relaxed'
+                      } shadow-sm text-xs ${
                         isMe
                           ? 'bg-[#0b4627] dark:bg-[#0f5132] text-white rounded-br-xs'
                           : 'bg-white dark:bg-[#16251c] text-gray-900 dark:text-gray-100 border border-gray-200/80 dark:border-[#1e3325] rounded-bl-xs'
@@ -779,16 +791,13 @@ export const MessagesPage: React.FC = () => {
                         </div>
                       )}
 
-                      {/* 3. Audio / Voice Note Media */}
+                      {/* 3. Audio / Voice Note Media - Only clean inline audio player */}
                       {msg.mediaType === 'audio' && msg.mediaUrl && (
-                        <div className="my-1">
-                          <ChatAudioPlayer
-                            src={msg.mediaUrl}
-                            isMe={isMe}
-                            fileName={msg.fileName || 'Voice Note'}
-                            duration={msg.audioDuration}
-                          />
-                        </div>
+                        <ChatAudioPlayer
+                          src={msg.mediaUrl}
+                          isMe={isMe}
+                          duration={msg.audioDuration}
+                        />
                       )}
 
                       {/* 4. Document / File Media */}
@@ -824,13 +833,15 @@ export const MessagesPage: React.FC = () => {
 
                       {/* Text content */}
                       {msg.text && (
-                        <p className="whitespace-pre-wrap leading-relaxed text-xs sm:text-sm font-normal">
+                        <p className="whitespace-pre-wrap leading-relaxed text-xs sm:text-sm font-normal mt-1">
                           {msg.text}
                         </p>
                       )}
 
                       {/* Timestamp & Double Checkmarks */}
-                      <div className={`flex items-center justify-end gap-1 mt-1 text-[9px] font-mono ${
+                      <div className={`flex items-center justify-end gap-1 ${
+                        msg.mediaType === 'audio' && !msg.text ? 'mt-0.5' : 'mt-1'
+                      } text-[9px] font-mono ${
                         isMe ? 'text-emerald-200' : 'text-gray-400 dark:text-gray-500'
                       }`}>
                         <span>
@@ -968,20 +979,20 @@ export const MessagesPage: React.FC = () => {
 
               {/* Dynamic Input Bar: Live Voice Note Recording vs Normal Message Dock */}
               {isRecording ? (
-                <div className="flex items-center justify-between gap-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 rounded-2xl p-2.5 px-4 animate-pulse">
+                <div className="flex items-center justify-between gap-3 bg-red-50/90 dark:bg-red-950/30 border border-red-200/80 dark:border-red-900/50 rounded-xl py-2 px-3.5 animate-pulse">
                   <div className="flex items-center gap-2 text-red-600 dark:text-red-400">
-                    <span className="w-3 h-3 rounded-full bg-red-600 animate-ping" />
-                    <span className="text-xs font-bold tracking-wide">Recording Voice Note...</span>
+                    <span className="w-2.5 h-2.5 rounded-full bg-red-600 animate-ping" />
+                    <span className="text-xs font-bold">Recording...</span>
                     <span className="text-xs font-mono font-bold ml-1">
                       {Math.floor(recordingSeconds / 60)}:{(recordingSeconds % 60).toString().padStart(2, '0')}
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5">
                     <button
                       type="button"
                       onClick={cancelVoiceRecording}
-                      className="p-2 rounded-xl text-gray-500 hover:text-red-600 hover:bg-red-100 dark:hover:bg-red-900/40 transition"
+                      className="p-1.5 rounded-lg text-gray-500 hover:text-red-600 hover:bg-red-100 dark:hover:bg-red-900/40 transition"
                       title="Discard Voice Note"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -989,7 +1000,7 @@ export const MessagesPage: React.FC = () => {
                     <button
                       type="button"
                       onClick={stopAndSendVoiceRecording}
-                      className="px-3.5 py-1.5 rounded-xl bg-[#0b4627] hover:bg-[#0f5132] text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition active:scale-95"
+                      className="px-3 py-1.5 rounded-lg bg-[#0b4627] hover:bg-[#0f5132] text-white text-xs font-bold flex items-center gap-1.5 shadow-xs transition active:scale-95"
                       title="Send Voice Note"
                     >
                       <Send className="w-3.5 h-3.5" />

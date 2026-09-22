@@ -1,17 +1,15 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Play, Pause, Volume2, Download } from 'lucide-react';
+import { Play, Pause } from 'lucide-react';
 
 interface ChatAudioPlayerProps {
   src: string;
   isMe: boolean;
-  fileName?: string;
   duration?: number;
 }
 
 export const ChatAudioPlayer: React.FC<ChatAudioPlayerProps> = ({
   src,
   isMe,
-  fileName = 'Voice Note',
   duration: initialDuration
 }) => {
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -90,88 +88,69 @@ export const ChatAudioPlayer: React.FC<ChatAudioPlayerProps> = ({
     return `${m}:${s < 10 ? '0' : ''}${s}`;
   };
 
-  const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
+  // Show active progress time while playing, otherwise show total duration
+  const displayTime = isPlaying 
+    ? formatTime(currentTime) 
+    : (duration > 0 ? formatTime(duration) : '0:00');
 
   return (
-    <div className={`flex flex-col gap-1.5 py-1 px-1 min-w-[240px] sm:min-w-[280px] max-w-full ${
-      isMe ? 'text-white' : 'text-gray-900 dark:text-gray-100'
-    }`}>
+    <div className="flex items-center gap-2.5 w-[210px] sm:w-[250px] max-w-full select-none py-0.5">
       <audio ref={audioRef} src={src} preload="metadata" />
 
-      {/* Header with audio label & speed */}
-      <div className="flex items-center justify-between text-[11px] opacity-80 px-1">
-        <span className="flex items-center gap-1.5 font-medium truncate">
-          <Volume2 className="w-3.5 h-3.5 shrink-0" />
-          <span className="truncate">{fileName}</span>
-        </span>
-        <div className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={cycleSpeed}
-            className={`px-1.5 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase transition ${
-              isMe 
-                ? 'bg-white/20 hover:bg-white/30 text-white' 
-                : 'bg-gray-100 dark:bg-[#1f3326] hover:bg-gray-200 dark:hover:bg-[#253f2f] text-[#0b4627] dark:text-emerald-400'
-            }`}
-            title="Playback Speed"
-          >
-            {playbackRate}x
-          </button>
-          <a
-            href={src}
-            download={fileName || 'audio_message.mp3'}
-            className={`p-1 rounded hover:opacity-100 transition ${isMe ? 'text-white/80 hover:text-white' : 'text-gray-500 hover:text-[#0b4627] dark:hover:text-emerald-400'}`}
-            title="Download Audio"
-          >
-            <Download className="w-3 h-3" />
-          </a>
-        </div>
-      </div>
+      {/* Play / Pause button */}
+      <button
+        type="button"
+        onClick={togglePlay}
+        className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 shadow-xs transition active:scale-95 ${
+          isMe
+            ? 'bg-white text-[#0b4627] hover:bg-emerald-50'
+            : 'bg-[#0b4627] dark:bg-emerald-600 text-white hover:bg-[#0f5132] dark:hover:bg-emerald-500'
+        }`}
+        title={isPlaying ? 'Pause' : 'Play'}
+      >
+        {isPlaying ? (
+          <Pause className="w-3.5 h-3.5 fill-current" />
+        ) : (
+          <Play className="w-3.5 h-3.5 fill-current translate-x-0.5" />
+        )}
+      </button>
 
-      {/* Play Controls & Scrubber */}
-      <div className="flex items-center gap-3">
-        <button
-          type="button"
-          onClick={togglePlay}
-          className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 shadow-sm transition active:scale-95 ${
+      {/* Scrubber slider track */}
+      <div className="flex-1 flex flex-col justify-center">
+        <input
+          type="range"
+          min={0}
+          max={duration || 100}
+          value={currentTime}
+          onChange={handleSeek}
+          className={`w-full h-1.5 rounded-lg appearance-none cursor-pointer focus:outline-none ${
             isMe
-              ? 'bg-white text-[#0b4627] hover:bg-emerald-50'
-              : 'bg-[#0b4627] hover:bg-[#0f5132] dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white'
+              ? 'accent-white bg-white/30'
+              : 'accent-[#0b4627] dark:accent-emerald-400 bg-gray-200 dark:bg-[#263e30]'
           }`}
-          title={isPlaying ? 'Pause' : 'Play'}
-        >
-          {isPlaying ? (
-            <Pause className="w-4 h-4 fill-current" />
-          ) : (
-            <Play className="w-4 h-4 fill-current translate-x-0.5" />
-          )}
-        </button>
-
-        {/* Progress track & waveform look */}
-        <div className="flex-1 flex flex-col justify-center">
-          <div className="relative flex items-center h-4">
-            <input
-              type="range"
-              min={0}
-              max={duration || 100}
-              value={currentTime}
-              onChange={handleSeek}
-              className={`w-full h-1.5 rounded-lg appearance-none cursor-pointer focus:outline-none ${
-                isMe
-                  ? 'accent-white bg-white/30'
-                  : 'accent-[#0b4627] dark:accent-emerald-400 bg-gray-200 dark:bg-[#263e30]'
-              }`}
-            />
-          </div>
-
-          <div className={`flex items-center justify-between text-[10px] font-mono mt-0.5 ${
-            isMe ? 'text-emerald-100' : 'text-gray-500 dark:text-gray-400'
-          }`}>
-            <span>{formatTime(currentTime)}</span>
-            <span>{duration > 0 ? formatTime(duration) : '0:00'}</span>
-          </div>
-        </div>
+        />
       </div>
+
+      {/* Duration text */}
+      <span className={`text-[11px] font-mono shrink-0 font-medium ${
+        isMe ? 'text-emerald-100' : 'text-gray-500 dark:text-gray-400'
+      }`}>
+        {displayTime}
+      </span>
+
+      {/* Speed switcher button */}
+      <button
+        type="button"
+        onClick={cycleSpeed}
+        className={`px-1.5 py-0.5 rounded text-[10px] font-bold font-mono tracking-wider shrink-0 transition ${
+          isMe 
+            ? 'bg-white/20 hover:bg-white/30 text-white' 
+            : 'bg-gray-100 dark:bg-[#1f3326] hover:bg-gray-200 dark:hover:bg-[#253f2f] text-[#0b4627] dark:text-emerald-400'
+        }`}
+        title="Playback Speed"
+      >
+        {playbackRate}x
+      </button>
     </div>
   );
 };
