@@ -710,10 +710,17 @@ export const StudentProfile: React.FC = () => {
 
               {activeUser.verified && (
                 <div 
-                  className="absolute bottom-1 right-1 p-1 rounded-full bg-white dark:bg-[#111d15] shadow-sm border border-gray-100 dark:border-[#1e3325]"
+                  className="absolute bottom-1 right-1 p-0.5 rounded-full bg-white dark:bg-[#111d15] shadow-sm border border-gray-100 dark:border-[#1e3325] flex items-center justify-center"
                   title="Official Verified Student"
                 >
-                  <CheckCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                  <svg 
+                    className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-600 dark:text-emerald-400" 
+                    viewBox="0 0 24 24" 
+                    fill="currentColor"
+                  >
+                    <path d="M22.5 12.5c0-1.58-.875-2.95-2.148-3.6.154-.435.238-.905.238-1.4 0-2.21-1.79-4-4-4-.495 0-.965.084-1.4.238C14.45 2.475 13.08 1.6 11.5 1.6s-2.95.875-3.6 2.148c-.435-.154-.905-.238-1.4-.238-2.21 0-4 1.79-4 4 0 .495.084.965.238 1.4C1.475 9.55.6 10.92.6 12.5s.875 2.95 2.148 3.6c-.154.435-.238.905-.238 1.4 0 2.21 1.79 4 4 4 .495 0 .965-.084 1.4-.238 1.15 1.273 2.52 2.148 4.1 2.148s2.95-.875 3.6-2.148c.435.154.905.238 1.4.238 2.21 0 4-1.79 4-4 0-.495-.084-.965-.238-1.4 1.273-1.15 2.148-2.52 2.148-4.1z" />
+                    <path d="M10.2 16.2l-3.5-3.5 1.4-1.4 2.1 2.1 5.3-5.3 1.4 1.4-6.7 6.7z" fill="#ffffff" />
+                  </svg>
                 </div>
               )}
             </div>
@@ -818,18 +825,24 @@ export const StudentProfile: React.FC = () => {
 
           {/* Row 2: Student Identity & Academic Details */}
           <div className="space-y-3.5">
-            {/* Name and Verified Campus Scholar Badge */}
-            <div className="flex flex-wrap items-center gap-2.5">
+            {/* Name and Verified Tick */}
+            <div className="flex items-center gap-1.5 sm:gap-2">
               <h1 className="text-2xl sm:text-3xl font-black text-gray-900 dark:text-gray-100 tracking-tight leading-tight">
                 {activeUser.displayName}
               </h1>
               {activeUser.verified && (
                 <span 
-                  className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium text-emerald-800 dark:text-emerald-300 bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-500/30 dark:border-emerald-500/30 select-none shadow-2xs"
-                  title="Official Verified EATM Student"
+                  title="Official Verified Student" 
+                  className="inline-flex items-center cursor-default shrink-0"
                 >
-                  <CheckCircle className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                  <span className="font-semibold tracking-tight">Verified Student</span>
+                  <svg 
+                    className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-600 dark:text-emerald-400 drop-shadow-2xs" 
+                    viewBox="0 0 24 24" 
+                    fill="currentColor"
+                  >
+                    <path d="M22.5 12.5c0-1.58-.875-2.95-2.148-3.6.154-.435.238-.905.238-1.4 0-2.21-1.79-4-4-4-.495 0-.965.084-1.4.238C14.45 2.475 13.08 1.6 11.5 1.6s-2.95.875-3.6 2.148c-.435-.154-.905-.238-1.4-.238-2.21 0-4 1.79-4 4 0 .495.084.965.238 1.4C1.475 9.55.6 10.92.6 12.5s.875 2.95 2.148 3.6c-.154.435-.238.905-.238 1.4 0 2.21 1.79 4 4 4 .495 0 .965-.084 1.4-.238 1.15 1.273 2.52 2.148 4.1 2.148s2.95-.875 3.6-2.148c.435.154.905.238 1.4.238 2.21 0 4-1.79 4-4 0-.495-.084-.965-.238-1.4 1.273-1.15 2.148-2.52 2.148-4.1z" />
+                    <path d="M10.2 16.2l-3.5-3.5 1.4-1.4 2.1 2.1 5.3-5.3 1.4 1.4-6.7 6.7z" fill="#ffffff" />
+                  </svg>
                 </span>
               )}
             </div>
