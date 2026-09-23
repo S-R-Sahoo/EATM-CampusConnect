@@ -182,7 +182,7 @@ export const LandingPage: React.FC = () => {
     <div className="min-h-screen bg-[#f8faf9] flex flex-col font-sans w-full max-w-full overflow-x-hidden">
       {/* Top University Navigation */}
       <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-gray-200/80">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 py-3 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-18 py-3 flex items-center justify-between gap-2 sm:gap-4">
           <Link to="/" className="flex items-center gap-3">
             <img src={EATM_OFFICIAL_LOGO} alt="Einstein Academy of Technology and Management" className="h-9 sm:h-11 w-auto object-contain" />
             <div className="h-6 w-px bg-gray-200 hidden sm:block" />
