@@ -123,6 +123,7 @@ export const MessagesPage: React.FC = () => {
   const audioInputRef = useRef<HTMLInputElement>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesScrollRef = useRef<HTMLDivElement>(null);
   const emojis = ['👍', '❤️', '🔥', '🚀', '🎉', '😊', '🙌', '💯', '👏', '📚'];
 
   // Real-time WhatsApp-style presence & typing states
@@ -234,7 +235,7 @@ export const MessagesPage: React.FC = () => {
         if (!isSubscribed) return;
         setMessages(dedupeMessageList(msgs));
         setTimeout(() => {
-          messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+          if (messagesScrollRef.current) messagesScrollRef.current.scrollTop = messagesScrollRef.current.scrollHeight;
         }, 100);
       });
 
@@ -248,7 +249,7 @@ export const MessagesPage: React.FC = () => {
             return [...prev, newMsg];
           });
           setTimeout(() => {
-            messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+            if (messagesScrollRef.current) messagesScrollRef.current.scrollTop = messagesScrollRef.current.scrollHeight;
           }, 80);
         },
         (deletedMsgId) => {
@@ -635,7 +636,7 @@ export const MessagesPage: React.FC = () => {
       );
 
       setTimeout(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        if (messagesScrollRef.current) messagesScrollRef.current.scrollTop = messagesScrollRef.current.scrollHeight;
       }, 50);
 
       // Interactive campus peer typing & response if chatting with Priya Sharma
@@ -680,7 +681,7 @@ export const MessagesPage: React.FC = () => {
               })
             );
             setTimeout(() => {
-              messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+              if (messagesScrollRef.current) messagesScrollRef.current.scrollTop = messagesScrollRef.current.scrollHeight;
             }, 60);
           } catch {}
         }, 2600);
@@ -778,7 +779,7 @@ export const MessagesPage: React.FC = () => {
       );
 
       setTimeout(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        if (messagesScrollRef.current) messagesScrollRef.current.scrollTop = messagesScrollRef.current.scrollHeight;
       }, 50);
 
       // Interactive campus peer typing & response if chatting with Priya Sharma
@@ -825,7 +826,7 @@ export const MessagesPage: React.FC = () => {
               })
             );
             setTimeout(() => {
-              messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+              if (messagesScrollRef.current) messagesScrollRef.current.scrollTop = messagesScrollRef.current.scrollHeight;
             }, 60);
           } catch {}
         }, 2600);
@@ -898,7 +899,7 @@ export const MessagesPage: React.FC = () => {
   return (
     <div className={`max-w-6xl mx-auto h-[calc(100dvh-125px)] sm:h-[calc(100vh-130px)] sm:min-h-[580px] bg-white dark:bg-[#111d15] rounded-none sm:rounded-3xl border-0 sm:border border-gray-200/80 dark:border-[#1e3325] sm:shadow-card flex overflow-hidden transition-colors ${
       activeConvId 
-        ? 'max-sm:fixed max-sm:inset-0 max-sm:z-50 max-sm:h-[100dvh] max-sm:w-full max-sm:rounded-none max-sm:border-0' 
+        ? 'max-sm:fixed max-sm:inset-0 max-sm:z-50 max-sm:w-full max-sm:h-full max-sm:rounded-none max-sm:border-0' 
         : 'h-[calc(100dvh-125px)]'
     }`}>
       {/* Hidden File Pickers: Document, Photos & Video, Camera, Audio */}
@@ -1257,7 +1258,7 @@ export const MessagesPage: React.FC = () => {
             </div>
 
             {/* Messages Stream Area */}
-            <div className="flex-1 p-3.5 sm:p-6 overflow-y-auto space-y-3.5 overscroll-contain">
+            <div ref={messagesScrollRef} className="flex-1 p-3.5 sm:p-6 overflow-y-auto space-y-3.5 overscroll-contain">
               {/* Institutional Encrypted Network Badge */}
               <div className="text-center my-1">
                 <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-800 dark:text-emerald-300 bg-emerald-50/80 dark:bg-emerald-950/40 px-3.5 py-1 rounded-full border border-emerald-200/60 dark:border-emerald-800/40 shadow-xs">
