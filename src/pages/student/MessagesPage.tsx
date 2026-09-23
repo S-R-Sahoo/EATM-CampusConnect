@@ -496,7 +496,18 @@ export const MessagesPage: React.FC = () => {
     return () => window.removeEventListener('click', handleOutsideClick);
   }, []);
 
-  const activeConv = useMemo(() => {
+  // Prevent mobile background page scrolling when actively chatting
+  useEffect(() => {
+    if (activeConvId && isMobileDevice()) {
+      const originalOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = originalOverflow;
+      };
+    }
+  }, [activeConvId]);
+
+  const activeConv = useMemo<Conversation | undefined>(() => {
     if (!activeConvId) return undefined;
     const found = conversations.find(c => c.id === activeConvId);
     if (found) return found;
@@ -508,8 +519,32 @@ export const MessagesPage: React.FC = () => {
         if (c) return c;
       }
     } catch {}
-    return SEED_CONVERSATIONS.find(c => c.id === activeConvId);
-  }, [conversations, activeConvId]);
+    const seed = SEED_CONVERSATIONS.find(c => c.id === activeConvId);
+    if (seed) return seed;
+
+    // Fallback: Build valid conversation object so chat window and header ALWAYS render
+    const participants: string[] = [];
+    if (user?.id) participants.push(user.id);
+    if (activeConvId.includes('direct_')) {
+      const parts = activeConvId.replace('conv_', '').replace('direct_', '').split('_');
+      parts.forEach(p => {
+        if (p && !participants.includes(p)) participants.push(p);
+      });
+    }
+    const targetUser = searchParams.get('userId');
+    if (targetUser && !participants.includes(targetUser)) {
+      participants.push(targetUser);
+    }
+    const fallbackConv: Conversation = {
+      id: activeConvId,
+      participants,
+      participantDetails: {},
+      unreadCount: {},
+      isGroup: false,
+      updatedAt: new Date().toISOString()
+    };
+    return fallbackConv;
+  }, [conversations, activeConvId, user?.id, searchParams]);
 
   // Subscribe to real-time typing events for active conversation
   useEffect(() => {
@@ -543,10 +578,10 @@ export const MessagesPage: React.FC = () => {
 
   // Get active other party info with authentic WhatsApp-style presence
   const getOtherParty = () => {
-    if (!activeConv || !user) {
+    if (!activeConvId) {
       return { id: '', name: 'Campus Chat', avatar: undefined, online: false, lastSeen: undefined, isGroup: false };
     }
-    if (activeConv.isGroup) {
+    if (activeConv?.isGroup) {
       return {
         id: '',
         name: activeConv.groupName || 'Study Group',
@@ -556,14 +591,31 @@ export const MessagesPage: React.FC = () => {
         isGroup: true
       };
     }
-    const otherId = activeConv.participants.find(id => id !== user.id) || 
-      activeConv.participants.find(id => id !== 'user_soumya') || 
-      (activeConv.participants.length > 0 ? activeConv.participants[0] : '');
+    const participants = Array.isArray(activeConv?.participants) ? activeConv!.participants : [];
+    let otherId = participants.find(id => user && id !== user.id && id !== user.uid) || '';
+    if (!otherId && activeConvId.includes('direct_')) {
+      const parts = activeConvId.replace('conv_', '').replace('direct_', '').split('_');
+      otherId = parts.find(p => user && p !== user.id && p !== user.uid) || parts[0] || '';
+    }
+    if (!otherId) {
+      const targetUser = searchParams.get('userId');
+      if (targetUser) otherId = targetUser;
+    }
+    if (!otherId && participants.length > 0) {
+      otherId = participants[0];
+    }
 
-    const detail = activeConv.participantDetails?.[otherId];
+    const detail = (activeConv?.participantDetails as Record<string, any> | undefined)?.[otherId];
     const userFallback = otherId ? usersMap[otherId] : undefined;
-    const name = detail?.name || userFallback?.displayName || (otherId === 'user_priya' ? 'Priya Sharma' : 'Student Peer');
-    const avatar = detail?.avatar || userFallback?.photoURL || (otherId === 'user_priya' ? 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&auto=format&fit=crop&q=80' : undefined);
+    let name = detail?.name || userFallback?.displayName;
+    let avatar = detail?.avatar || userFallback?.photoURL;
+    if (!name && otherId === 'user_priya') {
+      name = 'Priya Sharma';
+      avatar = 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&auto=format&fit=crop&q=80';
+    }
+    if (!name) {
+      name = 'Classmate';
+    }
     const currentlyOnline = otherId ? isUserOnline(otherId) : false;
     const lastSeenTime = (otherId ? getUserLastSeen(otherId) : undefined) || detail?.lastSeen || userFallback?.lastSeen;
 
@@ -1082,7 +1134,7 @@ export const MessagesPage: React.FC = () => {
   const other = getOtherParty();
 
   return (
-    <div className="max-w-6xl mx-auto h-[calc(100dvh-115px)] sm:h-[calc(100vh-130px)] bg-white dark:bg-[#111d15] rounded-none sm:rounded-3xl border-0 sm:border border-gray-200/80 dark:border-[#1e3325] sm:shadow-card flex overflow-hidden">
+    <div className="w-full max-w-6xl mx-auto h-full bg-white dark:bg-[#111d15] rounded-none sm:rounded-3xl border-0 sm:border border-gray-200/80 dark:border-[#1e3325] sm:shadow-card flex overflow-hidden">
       {/* Hidden File Pickers: Document, Photos & Video, Camera, Audio */}
       <input
         type="file"
@@ -1366,8 +1418,8 @@ export const MessagesPage: React.FC = () => {
       <div className={`flex-1 flex flex-col bg-[#f8faf9] dark:bg-[#0a120d] ${!activeConvId ? 'hidden sm:flex' : 'fixed inset-0 z-50 sm:relative sm:inset-auto sm:z-auto flex h-[100dvh] sm:h-full w-full overflow-hidden'}`}>
         {activeConv ? (
           <>
-            {/* WhatsApp Sticky Chat Window Header */}
-            <div className="sticky top-0 z-40 shrink-0 bg-white dark:bg-[#111d15] border-b border-gray-200/80 dark:border-[#1e3325] px-2 py-2 sm:px-4 sm:py-3 flex items-center justify-between shadow-xs pt-[max(0.5rem,env(safe-area-inset-top,0px))] transition-colors">
+            {/* WhatsApp Chat Window Header */}
+            <div className="shrink-0 bg-white dark:bg-[#111d15] border-b border-gray-200/80 dark:border-[#1e3325] px-2.5 py-2 sm:px-4 sm:py-3 flex items-center justify-between shadow-xs pt-[max(0.5rem,env(safe-area-inset-top,0px))] transition-colors z-30">
               {isSearchingInChat ? (
                 <div className="flex items-center gap-2 w-full animate-in fade-in duration-150">
                   <button
