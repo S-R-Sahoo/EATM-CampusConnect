@@ -291,10 +291,12 @@ export const MessagesPage: React.FC = () => {
   useEffect(() => {
     if (activeConvId) {
       let isSubscribed = true;
+      markMessageNotificationsAsRead();
 
       fetchMessages(activeConvId, user?.id).then(msgs => {
         if (!isSubscribed) return;
         setMessages(dedupeMessageList(msgs));
+        markMessageNotificationsAsRead();
         setTimeout(() => {
           if (messagesScrollRef.current) messagesScrollRef.current.scrollTop = messagesScrollRef.current.scrollHeight;
         }, 100);
@@ -309,6 +311,7 @@ export const MessagesPage: React.FC = () => {
             if (prev.some(m => isDuplicateMessage(m, newMsg))) return prev;
             return [...prev, newMsg];
           });
+          markMessageNotificationsAsRead();
           setTimeout(() => {
             if (messagesScrollRef.current) messagesScrollRef.current.scrollTop = messagesScrollRef.current.scrollHeight;
           }, 80);
@@ -1323,8 +1326,7 @@ export const MessagesPage: React.FC = () => {
                               <span>typing...</span>
                             </div>
                           ) : other.online ? (
-                            <div className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1.5 leading-none mt-0.5">
-                              <span className="w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-emerald-100 dark:ring-emerald-950 animate-pulse" />
+                            <div className="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold leading-none mt-0.5">
                               <span>Online</span>
                             </div>
                           ) : (

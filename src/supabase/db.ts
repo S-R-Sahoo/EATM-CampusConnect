@@ -1084,7 +1084,7 @@ export async function sendChatMessage(msg: Omit<Message, 'id' | 'createdAt' | 'r
   }
 
   const convs = getLocalData<Conversation[]>('conversations', SEED_CONVERSATIONS);
-  const conv = convs.find(c => c.id === msg.conversationId);
+  let conv = convs.find(c => c.id === msg.conversationId);
   const lastMessagePayload = {
     text: previewText,
     senderId: msg.senderId,
@@ -1092,14 +1092,22 @@ export async function sendChatMessage(msg: Omit<Message, 'id' | 'createdAt' | 'r
     read: true
   };
 
+  // If not found in local cache, query Supabase so participants are known
+  if (!conv && isSupabaseConfigured() && supabase) {
+    try {
+      const { data } = await supabase.from('conversations').select('*').eq('id', msg.conversationId).single();
+      if (data) conv = data as Conversation;
+    } catch {}
+  }
+
   if (conv) {
     conv.lastMessage = lastMessagePayload;
     conv.updatedAt = new Date().toISOString();
-    setLocalData('conversations', [...convs]);
+    setLocalData('conversations', [...convs.filter(c => c.id !== conv!.id), conv]);
 
     if (conv.participants) {
-      const recipientId = conv.participants.find(p => p !== msg.senderId);
-      if (recipientId) {
+      const recipients = conv.participants.filter(p => p !== msg.senderId);
+      for (const recipientId of recipients) {
         try {
           const senderUser = await fetchUserById(msg.senderId);
           await createNotification({

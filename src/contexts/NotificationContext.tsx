@@ -5,6 +5,7 @@ import {
   deleteNotification, clearNotifications, subscribeToNotifications
 } from '../supabase/db';
 import { NotificationItem } from '../types';
+import { supabase, isSupabaseConfigured } from '../supabase/client';
 
 interface NotificationContextType {
   notifications: NotificationItem[];
@@ -105,16 +106,43 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   };
 
   const markMessageNotificationsAsRead = async () => {
-    const unreadMsgNotifs = notifications.filter(n => !n.read && n.type === 'message');
-    if (unreadMsgNotifs.length === 0) return;
+    // 1. Instantly mark message notifications as read in state so the badge clears immediately
     setNotifications(prev =>
       prev.map(n => n.type === 'message' ? { ...n, read: true } : n)
     );
-    for (const n of unreadMsgNotifs) {
+
+    // 2. Mark in local storage
+    try {
+      if (user?.id) {
+        const raw = localStorage.getItem('eatm_campus_notifications');
+        if (raw) {
+          const list: NotificationItem[] = JSON.parse(raw);
+          let changed = false;
+          const updated = list.map(n => {
+            if (n.recipientId === user.id && n.type === 'message' && !n.read) {
+              changed = true;
+              return { ...n, read: true };
+            }
+            return n;
+          });
+          if (changed) {
+            localStorage.setItem('eatm_campus_notifications', JSON.stringify(updated));
+            window.dispatchEvent(new CustomEvent('eatm_notifications_changed', { detail: updated }));
+          }
+        }
+      }
+    } catch {}
+
+    // 3. Persist to Supabase in background
+    if (user?.id && isSupabaseConfigured() && supabase) {
       try {
-        await markNotificationAsRead(n.id);
+        await supabase
+          .from('notifications')
+          .update({ read: true })
+          .eq('recipientId', user.id)
+          .eq('type', 'message');
       } catch (err) {
-        console.warn('Failed to mark message notification as read:', err);
+        console.warn('Failed to mark message notifications as read in Supabase:', err);
       }
     }
   };
