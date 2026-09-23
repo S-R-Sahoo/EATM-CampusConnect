@@ -81,19 +81,7 @@ export const MessagesPage: React.FC = () => {
     markMessageNotificationsAsRead();
   }, [markMessageNotificationsAsRead]);
 
-  const [conversations, setConversations] = useState<Conversation[]>(() => {
-    try {
-      const saved = localStorage.getItem('eatm_campus_conversations');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed;
-        }
-      }
-    } catch {}
-    return [];
-  });
-  const [loadingConversations, setLoadingConversations] = useState<boolean>(() => conversations.length === 0);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeConvId, setActiveConvId] = useState<string>('');
   const [messages, setMessages] = useState<Message[]>([]);
   const [inChatSearchQuery, setInChatSearchQuery] = useState('');
@@ -256,10 +244,7 @@ export const MessagesPage: React.FC = () => {
           }
         }
 
-        if (isMounted) {
-          setConversations(convs);
-          setLoadingConversations(false);
-        }
+        if (isMounted) setConversations(convs);
 
         const targetConvId = (location.state as any)?.conversationId || searchParams.get('conversationId');
         const targetUserId = searchParams.get('userId');
@@ -281,8 +266,6 @@ export const MessagesPage: React.FC = () => {
         }
       } catch (err) {
         console.warn('Failed to initialize conversations:', err);
-      } finally {
-        if (isMounted) setLoadingConversations(false);
       }
     };
 
@@ -1175,19 +1158,7 @@ export const MessagesPage: React.FC = () => {
 
         {/* Conversation List Items */}
         <div className="flex-1 overflow-y-auto divide-y divide-gray-100 dark:divide-[#1e3325]">
-          {loadingConversations && conversations.length === 0 ? (
-            <div className="p-3 space-y-3">
-              {[1, 2, 3, 4, 5].map(i => (
-                <div key={i} className="flex items-center gap-3 p-2 animate-pulse">
-                  <div className="w-11 h-11 rounded-full bg-gray-200 dark:bg-[#16251c]" />
-                  <div className="flex-1 space-y-2">
-                    <div className="h-3.5 bg-gray-200 dark:bg-[#16251c] rounded-md w-1/3" />
-                    <div className="h-2.5 bg-gray-100 dark:bg-[#1f3326] rounded-md w-3/4" />
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : filteredConversations.length === 0 ? (
+          {filteredConversations.length === 0 ? (
             <div className="p-8 text-center space-y-3">
               <div className="w-10 h-10 mx-auto rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 text-[#0b4627] dark:text-emerald-400 flex items-center justify-center border border-emerald-100 dark:border-[#1e3325]">
                 <MessageSquare className="w-5 h-5" />

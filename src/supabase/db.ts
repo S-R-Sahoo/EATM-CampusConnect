@@ -488,136 +488,69 @@ export async function incrementPostShare(postId: string): Promise<number> {
 // ---------------------------------------------
 // USERS & PROFILES
 // ---------------------------------------------
-export function normalizeUserProfile(u: any): UserProfile {
-  if (!u) return u;
-  const parseJson = (val: any, defaultVal: any) => {
-    if (val === null || val === undefined) return defaultVal;
-    if (typeof val === 'string') {
-      try { return JSON.parse(val); } catch { return defaultVal; }
-    }
-    return val;
-  };
-
-  const projects = parseJson(u.projects, []);
-  const achievements = parseJson(u.achievements, []);
-  const stats = parseJson(u.stats, { connections: 0, posts: 0, clubs: 0, achievements: 0 });
-  const socialLinks = parseJson(u.socialLinks, {});
-  const skills = Array.isArray(u.skills) ? u.skills : (typeof u.skills === 'string' ? parseJson(u.skills, []) : []);
-  const interests = Array.isArray(u.interests) ? u.interests : (typeof u.interests === 'string' ? parseJson(u.interests, []) : []);
-
-  return {
-    ...u,
-    skills: Array.isArray(skills) ? skills : [],
-    interests: Array.isArray(interests) ? interests : [],
-    projects: Array.isArray(projects) ? projects : [],
-    achievements: Array.isArray(achievements) ? achievements : [],
-    stats: typeof stats === 'object' && stats !== null ? stats : { connections: 0, posts: 0, clubs: 0, achievements: 0 },
-    socialLinks: typeof socialLinks === 'object' && socialLinks !== null ? socialLinks : {},
-    photoURL: isCustomPhoto(u.photoURL) ? u.photoURL : undefined
-  };
-}
-
 export async function fetchUsers(): Promise<UserProfile[]> {
-  const localUsers = getLocalData<UserProfile[]>('users', SEED_USERS).map(normalizeUserProfile);
-  let remoteUsers: UserProfile[] = [];
-
+  let list: UserProfile[] = [];
   if (isSupabaseConfigured() && supabase) {
     try {
       const { data, error } = await supabase.from('users').select('*');
       if (!error && data && data.length > 0) {
-        remoteUsers = data.map(normalizeUserProfile);
+        list = data as UserProfile[];
       }
     } catch (err) {
       console.warn('Supabase fetchUsers error:', err);
     }
   }
+  if (list.length === 0) {
+    list = getLocalData<UserProfile[]>('users', SEED_USERS);
+  }
 
-  // Merge remote with local so locally saved projects/achievements are never lost
-  const userMap = new Map<string, UserProfile>();
-  localUsers.forEach(u => userMap.set(u.id, u));
-
-  remoteUsers.forEach(remote => {
-    const local = userMap.get(remote.id);
-    if (local) {
-      userMap.set(remote.id, {
-        ...local,
-        ...remote,
-        // Preserve rich local profile arrays if remote returned empty/null
-        projects: (remote.projects && remote.projects.length > 0) ? remote.projects : (local.projects || []),
-        achievements: (remote.achievements && remote.achievements.length > 0) ? remote.achievements : (local.achievements || []),
-        skills: (remote.skills && remote.skills.length > 0) ? remote.skills : (local.skills || []),
-        interests: (remote.interests && remote.interests.length > 0) ? remote.interests : (local.interests || []),
-        photoURL: isCustomPhoto(remote.photoURL) ? remote.photoURL : (isCustomPhoto(local.photoURL) ? local.photoURL : undefined)
-      });
-    } else {
-      userMap.set(remote.id, remote);
-    }
+  return list.map(u => {
+    return {
+      ...u,
+      photoURL: isCustomPhoto(u.photoURL) ? u.photoURL : undefined
+    };
   });
-
-  const merged = Array.from(userMap.values());
-  setLocalData('users', merged);
-  return merged;
 }
 
 export async function fetchUserById(userId: string): Promise<UserProfile | null> {
   const users = await fetchUsers();
   const found = users.find(u => u.id === userId || u.uid === userId) || null;
-  return found ? normalizeUserProfile(found) : null;
+  if (found) {
+    return {
+      ...found,
+      photoURL: isCustomPhoto(found.photoURL) ? found.photoURL : undefined
+    };
+  }
+  return null;
 }
 
 export async function updateUserProfile(userId: string, data: Partial<UserProfile>): Promise<UserProfile> {
-  const users = getLocalData<UserProfile[]>('users', SEED_USERS).map(normalizeUserProfile);
+  const users = getLocalData<UserProfile[]>('users', SEED_USERS);
   const index = users.findIndex(u => u.id === userId || u.uid === userId);
   let updatedUser: UserProfile;
 
   if (index !== -1) {
     const existing = users[index];
-    updatedUser = normalizeUserProfile({
+    updatedUser = {
       ...existing,
       ...data,
-      projects: data.projects !== undefined ? data.projects : existing.projects,
-      achievements: data.achievements !== undefined ? data.achievements : existing.achievements,
       socialLinks: {
         ...(existing.socialLinks || {}),
         ...(data.socialLinks || {})
       },
       updatedAt: new Date().toISOString()
-    });
+    };
     users[index] = updatedUser;
   } else {
-    updatedUser = normalizeUserProfile({
-      ...(data as UserProfile),
-      id: userId,
-      uid: userId,
-      updatedAt: new Date().toISOString()
-    });
+    updatedUser = { ...(data as UserProfile), id: userId, uid: userId, updatedAt: new Date().toISOString() };
     users.push(updatedUser);
   }
 
   setLocalData('users', [...users]);
 
-  // Sync with current user localStorage if applicable
-  try {
-    const storedUserStr = localStorage.getItem('eatm_current_user');
-    if (storedUserStr) {
-      const storedUser = JSON.parse(storedUserStr);
-      if (storedUser?.id === userId || storedUser?.uid === userId) {
-        localStorage.setItem('eatm_current_user', JSON.stringify(updatedUser));
-      }
-    }
-  } catch {}
-
   if (isSupabaseConfigured() && supabase) {
     try {
-      await supabase.from('users').upsert([{ 
-        ...updatedUser, 
-        id: userId,
-        projects: updatedUser.projects,
-        achievements: updatedUser.achievements,
-        stats: updatedUser.stats,
-        skills: updatedUser.skills,
-        interests: updatedUser.interests
-      }]);
+      await supabase.from('users').upsert([{ ...updatedUser, id: userId }]);
     } catch (err) {
       console.warn('Supabase updateUserProfile error:', err);
     }
@@ -935,9 +868,7 @@ export async function getOrCreateConversation(user1Id: string, user2Id: string):
 }
 
 export async function fetchConversations(userId: string): Promise<Conversation[]> {
-  const localConvs = getLocalData<Conversation[]>('conversations', SEED_CONVERSATIONS);
-  let list: Conversation[] = localConvs.filter(c => c.participants && c.participants.includes(userId));
-
+  let list: Conversation[] = [];
   if (isSupabaseConfigured() && supabase) {
     try {
       const { data, error } = await supabase
@@ -948,16 +879,19 @@ export async function fetchConversations(userId: string): Promise<Conversation[]
 
       if (!error && data && data.length > 0) {
         list = data as Conversation[];
-        const nonUserConvs = localConvs.filter(c => !c.participants || !c.participants.includes(userId));
-        setLocalData('conversations', [...data, ...nonUserConvs]);
       }
     } catch (err) {
       console.warn('Supabase fetchConversations error:', err);
     }
   }
 
-  // Fast synchronous user lookup from local cache
-  const allUsers = getLocalData<UserProfile[]>('users', SEED_USERS);
+  if (list.length === 0) {
+    const localConvs = getLocalData<Conversation[]>('conversations', SEED_CONVERSATIONS);
+    list = localConvs.filter(c => c.participants.includes(userId));
+  }
+
+  // Enrich participantDetails from live user directory
+  const allUsers = await fetchUsers();
   const userMap = new Map(allUsers.map(u => [u.id, u]));
 
   return list.map(conv => {
@@ -972,7 +906,7 @@ export async function fetchConversations(userId: string): Promise<Conversation[]
 
         details[pId] = {
           ...(details[pId] || {}),
-          name: u.displayName || details[pId]?.name || 'Student',
+          name: u.displayName || details[pId]?.name,
           avatar: resolvedAvatar,
           role: details[pId]?.role || u.role,
           lastSeen: u.lastSeen || details[pId]?.lastSeen

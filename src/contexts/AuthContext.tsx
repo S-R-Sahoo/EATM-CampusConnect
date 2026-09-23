@@ -53,13 +53,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             const users = await fetchUsers();
             let profile = users.find(u => u.uid === authUser.id || u.id === authUser.id || u.email?.toLowerCase() === authUser.email?.toLowerCase());
             
-            // Check if existing stored user has rich project/achievement data
-            const currentStoredStr = localStorage.getItem('eatm_current_user');
-            let currentStored: UserProfile | null = null;
-            if (currentStoredStr) {
-              try { currentStored = JSON.parse(currentStoredStr); } catch {}
-            }
-
             if (!profile) {
               const meta = authUser.user_metadata || {};
               const fallbackName = meta.full_name || meta.name || meta.user_name || authUser.email?.split('@')[0] || 'Campus Student';
@@ -78,13 +71,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 bio: 'Student at Einstein Academy of Technology and Management (EATM).',
                 skills: ['Computer Science', 'Engineering', 'Problem Solving'],
                 interests: ['Academics', 'Campus Life', 'Innovation'],
-                projects: currentStored?.projects || [],
-                achievements: currentStored?.achievements || [],
                 stats: {
                   connections: 0,
                   posts: 0,
                   clubs: 0,
-                  achievements: (currentStored?.achievements?.length) || 0
+                  achievements: 0
                 },
                 status: 'active',
                 verified: true,
@@ -93,17 +84,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               };
               await firestoreUpdateProfile(authUser.id, newProfile);
               profile = newProfile;
-            } else if (currentStored && (currentStored.id === profile.id || currentStored.uid === profile.uid)) {
-              // Merge local projects & achievements if present
-              profile = {
-                ...profile,
-                projects: (currentStored.projects && currentStored.projects.length > 0) ? currentStored.projects : (profile.projects || []),
-                achievements: (currentStored.achievements && currentStored.achievements.length > 0) ? currentStored.achievements : (profile.achievements || []),
-                photoURL: isCustomPhoto(currentStored.photoURL) ? currentStored.photoURL : profile.photoURL,
-                bio: currentStored.bio || profile.bio,
-                skills: (currentStored.skills && currentStored.skills.length > 0) ? currentStored.skills : profile.skills,
-                interests: (currentStored.interests && currentStored.interests.length > 0) ? currentStored.interests : profile.interests
-              };
             }
 
             setUser(profile);
