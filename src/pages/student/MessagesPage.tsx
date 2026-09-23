@@ -349,9 +349,21 @@ export const MessagesPage: React.FC = () => {
   useEffect(() => {
     if (activeConvId && isMobileDevice()) {
       const prevOverflow = document.body.style.overflow;
+      const prevPosition = document.body.style.position;
+      const prevWidth = document.body.style.width;
+      const prevHeight = document.body.style.height;
+
       document.body.style.overflow = 'hidden';
+      // Lock position to prevent iOS/Android from panning the fixed container out of view when keyboard opens
+      document.body.style.position = 'fixed';
+      document.body.style.width = '100%';
+      document.body.style.height = '100%';
+      
       return () => {
         document.body.style.overflow = prevOverflow;
+        document.body.style.position = prevPosition;
+        document.body.style.width = prevWidth;
+        document.body.style.height = prevHeight;
       };
     }
   }, [activeConvId]);
@@ -899,7 +911,7 @@ export const MessagesPage: React.FC = () => {
   return (
     <div className={`max-w-6xl mx-auto h-[calc(100dvh-125px)] sm:h-[calc(100vh-130px)] sm:min-h-[580px] bg-white dark:bg-[#111d15] rounded-none sm:rounded-3xl border-0 sm:border border-gray-200/80 dark:border-[#1e3325] sm:shadow-card flex overflow-hidden transition-colors ${
       activeConvId 
-        ? 'max-sm:fixed max-sm:inset-0 max-sm:z-50 max-sm:w-full max-sm:h-full max-sm:rounded-none max-sm:border-0' 
+        ? 'max-sm:fixed max-sm:inset-0 max-sm:z-50 max-sm:w-full max-sm:h-[100dvh] max-sm:rounded-none max-sm:border-0' 
         : 'h-[calc(100dvh-125px)]'
     }`}>
       {/* Hidden File Pickers: Document, Photos & Video, Camera, Audio */}
