@@ -137,22 +137,19 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileMenu, onOpenSearch
           </Link>
 
           {/* User profile dropdown button */}
-          <div className="relative shrink-0 ml-1 sm:ml-2" ref={dropdownRef}>
+          <div className="relative shrink-0 ml-1 sm:ml-1.5" ref={dropdownRef}>
             <button
               onClick={() => setDropdownOpen(!dropdownOpen)}
-              className="flex items-center gap-2 p-1 rounded-full md:rounded-2xl hover:bg-gray-100 dark:hover:bg-[#182b20] transition focus:outline-none ring-1 ring-transparent hover:ring-gray-200 dark:hover:ring-[#1e3326] active:scale-95 shrink-0"
+              className="flex items-center gap-2 p-1 rounded-full md:rounded-xl hover:bg-gray-100 dark:hover:bg-[#182b20] transition-colors focus:outline-none shrink-0"
               aria-label="User profile menu"
             >
-              <div className="relative p-0.5 rounded-full ring-2 ring-emerald-600/30 dark:ring-emerald-400/30 hover:ring-emerald-600 dark:hover:ring-emerald-400 transition-all shrink-0">
-                <Avatar
-                  src={user?.photoURL}
-                  name={user?.displayName || 'User'}
-                  size="sm"
-                  className="w-7 h-7 sm:w-8 sm:h-8"
-                />
-              </div>
+              <Avatar
+                src={user?.photoURL}
+                name={user?.displayName || 'User'}
+                size="sm"
+              />
               <div className="hidden md:flex flex-col text-left pr-1">
-                <span className="text-xs font-bold text-gray-900 dark:text-gray-100 leading-tight">
+                <span className="text-xs font-semibold text-gray-900 dark:text-gray-100 leading-tight">
                   {user?.displayName || 'User Profile'}
                 </span>
                 <span className="text-[11px] text-gray-500 dark:text-gray-400 capitalize leading-tight">
