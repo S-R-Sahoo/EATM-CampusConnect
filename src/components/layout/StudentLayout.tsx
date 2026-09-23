@@ -28,13 +28,13 @@ export const StudentLayout: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#f8faf9] dark:bg-[#0a120d] text-gray-800 dark:text-gray-100 flex flex-col font-sans transition-colors duration-150">
+    <div className="min-h-screen bg-[#f8faf9] dark:bg-[#0a120d] text-gray-800 dark:text-gray-100 flex flex-col font-sans transition-colors duration-150 w-full max-w-full overflow-x-hidden">
       <Navbar
         onToggleMobileMenu={() => setMobileMenuOpen(!mobileMenuOpen)}
         onOpenSearch={() => setSearchModalOpen(true)}
       />
 
-      <div className="flex-1 flex max-w-7xl w-full mx-auto pb-16 lg:pb-0">
+      <div className="flex-1 flex max-w-7xl w-full mx-auto pb-16 lg:pb-0 overflow-x-hidden">
         {/* Desktop Sidebar */}
         <div className="hidden lg:block shrink-0 sticky top-[65px] h-[calc(100vh-65px)]">
           <Sidebar />
@@ -47,14 +47,14 @@ export const StudentLayout: React.FC = () => {
               className="fixed inset-0 bg-black/50 backdrop-blur-sm"
               onClick={() => setMobileMenuOpen(false)}
             />
-            <div className="fixed inset-y-0 left-0 w-72 bg-white dark:bg-[#111d15] z-50 shadow-2xl animate-in slide-in-from-left duration-200">
+            <div className="fixed inset-y-0 left-0 w-72 max-w-[85vw] bg-white dark:bg-[#111d15] z-50 shadow-2xl animate-in slide-in-from-left duration-200">
               <Sidebar onCloseMobile={() => setMobileMenuOpen(false)} />
             </div>
           </div>
         )}
 
         {/* Central Content View */}
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 min-w-0 overflow-x-hidden">
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 min-w-0 overflow-x-hidden max-w-full">
           <Outlet />
         </main>
       </div>

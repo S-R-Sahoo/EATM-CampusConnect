@@ -115,9 +115,9 @@ export const StudentDashboard: React.FC = () => {
   const { greeting, message: greetingMessage } = getGreetingData();
 
   return (
-    <div className="flex gap-6 items-start">
+    <div className="flex gap-6 items-start w-full max-w-full">
       {/* Central Feed Column */}
-      <div className="flex-1 min-w-0 space-y-6">
+      <div className="flex-1 min-w-0 space-y-6 w-full max-w-full">
         {/* Welcome Banner Card */}
         <div className="bg-gradient-to-r from-emerald-900 via-[#0b4627] to-emerald-800 rounded-3xl p-6 sm:p-7 text-white shadow-lg relative overflow-hidden">
           <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-700/20 rounded-full blur-3xl pointer-events-none" />

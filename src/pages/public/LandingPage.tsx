@@ -126,6 +126,7 @@ export const LandingPage: React.FC = () => {
   const { user, logout } = useAuth();
   const [currentSlide, setCurrentSlide] = useState(0);
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
+  const [touchStartY, setTouchStartY] = useState<number | null>(null);
 
   const nextSlide = useCallback(() => {
     setCurrentSlide((prev) => (prev + 1) % HERO_SLIDES.length);
@@ -148,23 +149,37 @@ export const LandingPage: React.FC = () => {
   }, [nextSlide]);
 
   const handleTouchStart = (e: React.TouchEvent) => {
-    setTouchStartX(e.touches[0].clientX);
+    if (e.touches && e.touches.length > 0) {
+      setTouchStartX(e.touches[0].clientX);
+      setTouchStartY(e.touches[0].clientY);
+    }
   };
 
   const handleTouchEnd = (e: React.TouchEvent) => {
-    if (touchStartX === null) return;
-    const touchEndX = e.changedTouches[0].clientX;
-    const diff = touchStartX - touchEndX;
-    if (diff > 50) {
-      nextSlide();
-    } else if (diff < -50) {
-      prevSlide();
+    if (touchStartX === null || touchStartY === null) {
+      setTouchStartX(null);
+      setTouchStartY(null);
+      return;
+    }
+    if (e.changedTouches && e.changedTouches.length > 0) {
+      const touchEndX = e.changedTouches[0].clientX;
+      const touchEndY = e.changedTouches[0].clientY;
+      const diffX = touchStartX - touchEndX;
+      const diffY = touchStartY - touchEndY;
+      if (Math.abs(diffX) > Math.abs(diffY)) {
+        if (diffX > 50) {
+          nextSlide();
+        } else if (diffX < -50) {
+          prevSlide();
+        }
+      }
     }
     setTouchStartX(null);
+    setTouchStartY(null);
   };
 
   return (
-    <div className="min-h-screen bg-[#f8faf9] flex flex-col font-sans">
+    <div className="min-h-screen bg-[#f8faf9] flex flex-col font-sans w-full max-w-full overflow-x-hidden">
       {/* Top University Navigation */}
       <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-gray-200/80">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 py-3 flex items-center justify-between">
@@ -235,7 +250,8 @@ export const LandingPage: React.FC = () => {
       {/* Hero Section: Perfectly Full Picture Auto-Slide Carousel */}
       <section 
         id="home" 
-        className="relative w-full text-white overflow-hidden min-h-[580px] sm:min-h-[640px] lg:min-h-[700px] select-none"
+        className="relative w-full text-white overflow-hidden min-h-[580px] sm:min-h-[640px] lg:min-h-[700px] select-none touch-pan-y overscroll-x-contain"
+        style={{ touchAction: 'pan-y' }}
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >

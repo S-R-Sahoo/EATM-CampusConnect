@@ -74,6 +74,59 @@ export const CreatePostCard: React.FC<CreatePostCardProps> = ({ onPostCreated })
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const visibilityRef = useRef<HTMLDivElement>(null);
 
+  const touchStartXRef = useRef<number | null>(null);
+  const touchStartYRef = useRef<number | null>(null);
+  const touchEndXRef = useRef<number | null>(null);
+  const touchEndYRef = useRef<number | null>(null);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches && e.touches.length > 0) {
+      touchStartXRef.current = e.touches[0].clientX;
+      touchStartYRef.current = e.touches[0].clientY;
+      touchEndXRef.current = e.touches[0].clientX;
+      touchEndYRef.current = e.touches[0].clientY;
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (e.touches && e.touches.length > 0) {
+      touchEndXRef.current = e.touches[0].clientX;
+      touchEndYRef.current = e.touches[0].clientY;
+    }
+  };
+
+  const handleTouchEnd = () => {
+    if (
+      touchStartXRef.current === null ||
+      touchEndXRef.current === null ||
+      touchStartYRef.current === null ||
+      touchEndYRef.current === null
+    ) {
+      touchStartXRef.current = null;
+      touchStartYRef.current = null;
+      touchEndXRef.current = null;
+      touchEndYRef.current = null;
+      return;
+    }
+
+    const diffX = touchStartXRef.current - touchEndXRef.current;
+    const diffY = touchStartYRef.current - touchEndYRef.current;
+
+    if (Math.abs(diffX) > Math.abs(diffY)) {
+      const minSwipeDistance = 35;
+      if (diffX > minSwipeDistance && activePreviewIndex < mediaFiles.length - 1) {
+        setActivePreviewIndex(prev => prev + 1);
+      } else if (diffX < -minSwipeDistance && activePreviewIndex > 0) {
+        setActivePreviewIndex(prev => prev - 1);
+      }
+    }
+
+    touchStartXRef.current = null;
+    touchStartYRef.current = null;
+    touchEndXRef.current = null;
+    touchEndYRef.current = null;
+  };
+
   // Focus textarea when expanding
   useEffect(() => {
     if (isExpanded && textareaRef.current) {
@@ -425,11 +478,17 @@ export const CreatePostCard: React.FC<CreatePostCardProps> = ({ onPostCreated })
           {/* Multi-Image Carousel Preview Box */}
           {mediaFiles.length > 0 && (
             <div className="space-y-2 mb-2">
-              <div className="relative rounded-2xl overflow-hidden border border-gray-100 dark:border-[#1e3325] bg-neutral-900 select-none group aspect-[4/3] sm:aspect-[16/10] max-h-72">
+              <div 
+                className="relative rounded-2xl overflow-hidden border border-gray-100 dark:border-[#1e3325] bg-neutral-900 select-none group aspect-[4/3] sm:aspect-[16/10] max-h-72 touch-pan-y overscroll-x-contain"
+                style={{ touchAction: 'pan-y' }}
+              >
                 {/* Smooth Carousel Track */}
                 <div 
-                  className="flex h-full w-full transition-transform duration-300 ease-out will-change-transform"
-                  style={{ transform: `translateX(-${activePreviewIndex * 100}%)` }}
+                  className="flex h-full w-full transition-transform duration-300 ease-out will-change-transform touch-pan-y"
+                  style={{ transform: `translateX(-${activePreviewIndex * 100}%)`, touchAction: 'pan-y' }}
+                  onTouchStart={handleTouchStart}
+                  onTouchMove={handleTouchMove}
+                  onTouchEnd={handleTouchEnd}
                 >
                   {mediaFiles.map((item, idx) => (
                     <div key={item.id} className="w-full shrink-0 h-full relative flex items-center justify-center bg-neutral-900">
@@ -517,7 +576,7 @@ export const CreatePostCard: React.FC<CreatePostCardProps> = ({ onPostCreated })
               </div>
 
               {/* Thumbnails Strip: Sleek, compact and modern */}
-              <div className="flex items-center gap-1.5 overflow-x-auto py-0.5 px-0.5 no-scrollbar">
+              <div className="flex items-center gap-1.5 overflow-x-auto overscroll-x-contain py-0.5 px-0.5 no-scrollbar">
                 {mediaFiles.map((item, idx) => (
                   <div
                     key={item.id}

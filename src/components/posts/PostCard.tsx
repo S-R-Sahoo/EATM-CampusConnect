@@ -50,7 +50,9 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onPostDeleted }) => {
   const [activeMediaIndex, setActiveMediaIndex] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const touchStartXRef = useRef<number | null>(null);
+  const touchStartYRef = useRef<number | null>(null);
   const touchEndXRef = useRef<number | null>(null);
+  const touchEndYRef = useRef<number | null>(null);
 
   // Keep active index in bounds if mediaList changes
   useEffect(() => {
@@ -60,26 +62,55 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onPostDeleted }) => {
   }, [mediaList.length]);
 
   const handleTouchStart = (e: React.TouchEvent) => {
-    touchStartXRef.current = e.touches[0].clientX;
+    if (e.touches && e.touches.length > 0) {
+      touchStartXRef.current = e.touches[0].clientX;
+      touchStartYRef.current = e.touches[0].clientY;
+      touchEndXRef.current = e.touches[0].clientX;
+      touchEndYRef.current = e.touches[0].clientY;
+    }
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
-    touchEndXRef.current = e.touches[0].clientX;
+    if (e.touches && e.touches.length > 0) {
+      touchEndXRef.current = e.touches[0].clientX;
+      touchEndYRef.current = e.touches[0].clientY;
+    }
   };
 
   const handleTouchEnd = () => {
-    if (touchStartXRef.current === null || touchEndXRef.current === null) return;
-    const diff = touchStartXRef.current - touchEndXRef.current;
-    const minSwipeDistance = 40;
-    if (diff > minSwipeDistance && activeMediaIndex < mediaList.length - 1) {
-      // Swiped left -> Go to next image
-      setActiveMediaIndex(prev => prev + 1);
-    } else if (diff < -minSwipeDistance && activeMediaIndex > 0) {
-      // Swiped right -> Go to previous image
-      setActiveMediaIndex(prev => prev - 1);
+    if (
+      touchStartXRef.current === null ||
+      touchEndXRef.current === null ||
+      touchStartYRef.current === null ||
+      touchEndYRef.current === null
+    ) {
+      touchStartXRef.current = null;
+      touchStartYRef.current = null;
+      touchEndXRef.current = null;
+      touchEndYRef.current = null;
+      return;
     }
+
+    const diffX = touchStartXRef.current - touchEndXRef.current;
+    const diffY = touchStartYRef.current - touchEndYRef.current;
+
+    // Only recognize as a carousel swipe if the gesture is predominantly horizontal
+    // This allows smooth natural vertical scrolling without accidental image switching or page wobbling
+    if (Math.abs(diffX) > Math.abs(diffY)) {
+      const minSwipeDistance = 35;
+      if (diffX > minSwipeDistance && activeMediaIndex < mediaList.length - 1) {
+        // Swiped left -> Go to next image
+        setActiveMediaIndex(prev => prev + 1);
+      } else if (diffX < -minSwipeDistance && activeMediaIndex > 0) {
+        // Swiped right -> Go to previous image
+        setActiveMediaIndex(prev => prev - 1);
+      }
+    }
+
     touchStartXRef.current = null;
+    touchStartYRef.current = null;
     touchEndXRef.current = null;
+    touchEndYRef.current = null;
   };
 
   // Keyboard navigation for Lightbox
@@ -508,11 +539,14 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onPostDeleted }) => {
 
       {/* Post Image(s) / Instagram-Style Clean Smooth Carousel */}
       {mediaList.length > 0 && (
-        <div className="relative rounded-2xl overflow-hidden mb-3.5 border border-gray-100 dark:border-[#1e3325] bg-neutral-900 select-none group">
+        <div 
+          className="relative rounded-2xl overflow-hidden mb-3.5 border border-gray-100 dark:border-[#1e3325] bg-neutral-900 select-none group touch-pan-y overscroll-x-contain"
+          style={{ touchAction: 'pan-y' }}
+        >
           {/* Smooth Horizontal Sliding Carousel Track */}
           <div 
-            className="flex w-full transition-transform duration-300 ease-out will-change-transform"
-            style={{ transform: `translateX(-${activeMediaIndex * 100}%)` }}
+            className="flex w-full transition-transform duration-300 ease-out will-change-transform touch-pan-y"
+            style={{ transform: `translateX(-${activeMediaIndex * 100}%)`, touchAction: 'pan-y' }}
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
@@ -753,7 +787,8 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onPostDeleted }) => {
 
           {/* Lightbox Main Image & Navigation Chevrons */}
           <div 
-            className="relative flex-1 w-full max-w-5xl flex items-center justify-center overflow-hidden my-auto"
+            className="relative flex-1 w-full max-w-5xl flex items-center justify-center overflow-hidden my-auto touch-pan-y"
+            style={{ touchAction: 'pan-y' }}
             onClick={(e) => e.stopPropagation()}
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
@@ -761,8 +796,8 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onPostDeleted }) => {
           >
             {/* Smooth Slide Track */}
             <div 
-              className="flex w-full h-full items-center transition-transform duration-300 ease-out will-change-transform"
-              style={{ transform: `translateX(-${activeMediaIndex * 100}%)` }}
+              className="flex w-full h-full items-center transition-transform duration-300 ease-out will-change-transform touch-pan-y"
+              style={{ transform: `translateX(-${activeMediaIndex * 100}%)`, touchAction: 'pan-y' }}
             >
               {mediaList.map((url, idx) => (
                 <div key={idx} className="w-full shrink-0 h-full flex items-center justify-center p-2">
@@ -801,7 +836,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onPostDeleted }) => {
           {/* Lightbox Thumbnails Strip (if > 1 image) */}
           {mediaList.length > 1 && (
             <div 
-              className="w-full max-w-2xl flex items-center justify-center gap-2 pt-3 shrink-0 overflow-x-auto no-scrollbar"
+              className="w-full max-w-2xl flex items-center justify-center gap-2 pt-3 shrink-0 overflow-x-auto overscroll-x-contain no-scrollbar"
               onClick={(e) => e.stopPropagation()}
             >
               {mediaList.map((url, idx) => (
