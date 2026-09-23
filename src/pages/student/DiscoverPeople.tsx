@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
 import confetti from 'canvas-confetti';
-import { isUserOnline } from '../../supabase/presence';
+import { isUserOnline, subscribeToPresence } from '../../supabase/presence';
 
 const DEPARTMENTS = [
   { id: 'All', label: 'All Departments' },
@@ -55,16 +55,23 @@ export const DiscoverPeople: React.FC = () => {
     }
   };
 
+  const [, setPresenceTick] = useState(0);
+
   useEffect(() => {
     loadData();
 
     if (!user) return;
-    const unsub = subscribeToConnections(user.id, () => {
+    const unsubConns = subscribeToConnections(user.id, () => {
       loadData();
     });
 
+    const unsubPresence = subscribeToPresence(() => {
+      setPresenceTick(t => t + 1);
+    });
+
     return () => {
-      unsub();
+      unsubConns();
+      unsubPresence();
     };
   }, [user]);
 
@@ -286,7 +293,7 @@ export const DiscoverPeople: React.FC = () => {
                     src={student.photoURL}
                     name={student.displayName}
                     size="lg"
-                    online={(student.id !== user?.id && isUserOnline(student.id)) ? true : undefined}
+                    online={isUserOnline(student.id) ? true : undefined}
                   />
                   <div className="min-w-0">
                     {/* Name & Official Verified Student Tick */}

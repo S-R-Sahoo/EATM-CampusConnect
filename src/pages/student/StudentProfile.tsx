@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { isCustomPhoto } from '../../constants/assets';
 import { Avatar } from '../../components/ui/Avatar';
+import { isUserOnline, getUserLastSeen, formatLastSeen, subscribeToPresence } from '../../supabase/presence';
 
 const DEPARTMENT_OPTIONS = [
   { label: 'Computer Science & Engineering (CSE)', value: 'CSE' },
@@ -227,6 +228,14 @@ export const StudentProfile: React.FC = () => {
       });
     }
   }, [id, user?.id, isOwnProfile]);
+
+  const [, setPresenceTick] = useState(0);
+  useEffect(() => {
+    const unsub = subscribeToPresence(() => {
+      setPresenceTick(t => t + 1);
+    });
+    return () => unsub();
+  }, []);
 
   const handleConnect = async () => {
     if (!user || !activeUser) return;
@@ -685,6 +694,7 @@ export const StudentProfile: React.FC = () => {
                   src={effectivePhoto}
                   name={activeUser.displayName}
                   size="2xl"
+                  online={isUserOnline(activeUser.id)}
                   className="w-full h-full"
                 />
                 {uploadingPhoto && (
@@ -872,6 +882,19 @@ export const StudentProfile: React.FC = () => {
                 <Building2 className="w-4 h-4 text-[#0b4627] dark:text-emerald-400 shrink-0" />
                 <span>College: <strong className="font-extrabold">Einstein Academy of Technology & Management (EATM)</strong></span>
               </div>
+
+              {/* Live Presence Status Badge */}
+              {isUserOnline(activeUser.id) ? (
+                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300/80 dark:border-emerald-800/80 text-xs font-semibold text-emerald-800 dark:text-emerald-300 shadow-xs">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                  <span>Active & Online</span>
+                </div>
+              ) : (
+                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gray-50 dark:bg-[#16251c] border border-gray-200/80 dark:border-[#1e3325] text-xs font-medium text-gray-600 dark:text-gray-400 shadow-xs">
+                  <span className="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
+                  <span>{formatLastSeen(activeUser.lastSeen || getUserLastSeen(activeUser.id))}</span>
+                </div>
+              )}
             </div>
           </div>
 

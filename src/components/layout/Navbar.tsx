@@ -118,7 +118,9 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileMenu, onOpenSearch
           >
             <MessageSquare className="w-5 h-5" />
             {unreadMessagesCount > 0 && (
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-[#dc2626] rounded-full ring-2 ring-white dark:ring-[#0f1b14]" />
+              <span className="absolute top-1 right-1 px-1.5 py-0.2 text-[9px] sm:text-[10px] font-bold text-white bg-[#dc2626] rounded-full ring-2 ring-white dark:ring-[#0f1b14]">
+                {unreadMessagesCount > 99 ? '99+' : unreadMessagesCount}
+              </span>
             )}
           </Link>
 
@@ -147,6 +149,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileMenu, onOpenSearch
                 src={user?.photoURL}
                 name={user?.displayName || 'User'}
                 size="sm"
+                online={true}
               />
               <div className="hidden md:flex flex-col text-left pr-1">
                 <span className="text-xs font-semibold text-gray-900 dark:text-gray-100 leading-tight">

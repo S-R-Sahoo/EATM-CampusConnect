@@ -1643,20 +1643,33 @@ export function subscribeToNotifications(
   userId: string,
   onChange: () => void
 ): () => void {
+  // 1. Local event listener for cross-tab updates
+  const localHandler = () => onChange();
+  window.addEventListener('eatm_notifications_changed', localHandler);
+
   if (!isSupabaseConfigured() || !supabase) {
-    return () => {};
+    return () => {
+      window.removeEventListener('eatm_notifications_changed', localHandler);
+    };
   }
 
   const client = supabase;
-  const channelName = `realtime-notifications-${userId}-${Date.now()}`;
+  const channelName = `realtime-notifications-${userId}`;
   const channel = client
     .channel(channelName)
     .on(
+      'broadcast',
+      { event: 'new_notification' },
+      () => {
+        onChange();
+      }
+    )
+    .on(
       'postgres_changes',
-      { event: 'INSERT', schema: 'public', table: 'notifications' },
+      { event: '*', schema: 'public', table: 'notifications' },
       (payload) => {
-        const row = payload.new as any;
-        if (row && row.recipientId === userId) {
+        const row = (payload.new || payload.old) as any;
+        if (row && (row.recipientId === userId || row.recipientid === userId)) {
           onChange();
         }
       }
@@ -1664,6 +1677,7 @@ export function subscribeToNotifications(
     .subscribe();
 
   return () => {
+    window.removeEventListener('eatm_notifications_changed', localHandler);
     if (client) client.removeChannel(channel);
   };
 }
@@ -1856,6 +1870,14 @@ export async function createNotification(notif: Omit<NotificationItem, 'id' | 'r
   if (isSupabaseConfigured() && supabase) {
     try {
       await supabase.from('notifications').insert([newNotif]);
+
+      // Broadcast immediately to recipient
+      const notifChannel = supabase.channel(`realtime-notifications-${newNotif.recipientId}`);
+      notifChannel.send({
+        type: 'broadcast',
+        event: 'new_notification',
+        payload: newNotif
+      }).catch(() => {});
     } catch (err) {
       console.warn('Supabase createNotification error:', err);
     }

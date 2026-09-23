@@ -15,7 +15,7 @@ interface SidebarProps {
 
 export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
   const { user, logout } = useAuth();
-  const { unreadCount } = useNotifications();
+  const { unreadCount, unreadMessagesCount } = useNotifications();
   const navigate = useNavigate();
 
   const handleLogout = async () => {
@@ -90,6 +90,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
                   {link.to.includes('notifications') && unreadCount > 0 && (
                     <span className="ml-auto px-1.5 py-0.5 text-[10px] font-bold text-white bg-[#dc2626] rounded-full">
                       {unreadCount > 99 ? '99+' : unreadCount}
+                    </span>
+                  )}
+                  {link.to.includes('messages') && unreadMessagesCount > 0 && (
+                    <span className="ml-auto px-1.5 py-0.5 text-[10px] font-bold text-white bg-[#dc2626] rounded-full">
+                      {unreadMessagesCount > 99 ? '99+' : unreadMessagesCount}
                     </span>
                   )}
                 </>

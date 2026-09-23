@@ -63,6 +63,18 @@ export const updateUserHeartbeat = (userId: string, isOnline = true): void => {
 // Check if a specific user is currently online
 export const isUserOnline = (userId: string): boolean => {
   if (!userId) return false;
+
+  // Check if this userId is the currently active user in this browser session
+  try {
+    const stored = localStorage.getItem('eatm_current_user');
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if (parsed?.id === userId || parsed?.uid === userId) {
+        return true;
+      }
+    }
+  } catch {}
+
   const map = getStoredPresenceMap();
 
   // Priya Sharma is the active peer partner on campus
@@ -79,10 +91,10 @@ export const isUserOnline = (userId: string): boolean => {
   // Active status flag check
   if (state.isOnline === false) return false;
 
-  // Threshold check: Must have sent a heartbeat within the last 3 minutes
+  // Threshold check: Must have sent a heartbeat within the last 4 minutes
   const lastSeenMs = new Date(state.lastSeen).getTime();
   const nowMs = Date.now();
-  return (nowMs - lastSeenMs) < 3 * 60 * 1000;
+  return (nowMs - lastSeenMs) < 4 * 60 * 1000;
 };
 
 // Get raw last seen ISO string

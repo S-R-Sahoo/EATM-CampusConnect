@@ -12,7 +12,7 @@ import { Button } from '../../components/ui/Button';
 import { Users, Check, X, Clock, MessageSquare, Loader2, Sparkles } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import confetti from 'canvas-confetti';
-import { isUserOnline } from '../../supabase/presence';
+import { isUserOnline, subscribeToPresence } from '../../supabase/presence';
 
 export const ConnectionsPage: React.FC = () => {
   const { user, refreshUser } = useAuth();
@@ -24,6 +24,7 @@ export const ConnectionsPage: React.FC = () => {
   const [usersMap, setUsersMap] = useState<{ [id: string]: UserProfile }>({});
   const [loading, setLoading] = useState(true);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
+  const [, setPresenceTick] = useState(0);
 
   const loadData = async () => {
     if (!user) return;
@@ -50,12 +51,17 @@ export const ConnectionsPage: React.FC = () => {
 
     if (!user) return;
     // Live realtime WebSocket subscription to connections table
-    const unsubscribe = subscribeToConnections(user.id, () => {
+    const unsubscribeConns = subscribeToConnections(user.id, () => {
       loadData();
     });
 
+    const unsubscribePresence = subscribeToPresence(() => {
+      setPresenceTick(t => t + 1);
+    });
+
     return () => {
-      unsubscribe();
+      unsubscribeConns();
+      unsubscribePresence();
     };
   }, [user]);
 
