@@ -6,7 +6,7 @@ import { Home, Compass, MessageSquare, Bell, User } from 'lucide-react';
 
 export const MobileBottomNav: React.FC = () => {
   const { user } = useAuth();
-  const { unreadCount, unreadMessagesCount } = useNotifications();
+  const { unreadCount, unreadMessagesCount, markMessageNotificationsAsRead } = useNotifications();
 
   const navItems = [
     { to: `/${user?.role || 'student'}/dashboard`, icon: Home, label: 'Home' },
@@ -25,6 +25,11 @@ export const MobileBottomNav: React.FC = () => {
             <NavLink
               key={item.to}
               to={item.to}
+              onClick={() => {
+                if (item.to.includes('messages')) {
+                  markMessageNotificationsAsRead();
+                }
+              }}
               className={({ isActive }) =>
                 `flex flex-col items-center justify-center relative p-1 transition-colors ${
                   isActive ? 'text-[#0b4627] dark:text-emerald-400 font-bold' : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300'

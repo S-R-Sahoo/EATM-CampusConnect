@@ -488,7 +488,16 @@ export async function incrementPostShare(postId: string): Promise<number> {
 // ---------------------------------------------
 // USERS & PROFILES
 // ---------------------------------------------
-export async function fetchUsers(): Promise<UserProfile[]> {
+let usersCache: UserProfile[] | null = null;
+let usersCacheTimestamp = 0;
+const USERS_CACHE_TTL = 30000; // 30s cache
+
+export async function fetchUsers(forceRefresh = false): Promise<UserProfile[]> {
+  const now = Date.now();
+  if (!forceRefresh && usersCache && usersCache.length > 0 && (now - usersCacheTimestamp < USERS_CACHE_TTL)) {
+    return usersCache;
+  }
+
   let list: UserProfile[] = [];
   if (isSupabaseConfigured() && supabase) {
     try {
@@ -504,12 +513,14 @@ export async function fetchUsers(): Promise<UserProfile[]> {
     list = getLocalData<UserProfile[]>('users', SEED_USERS);
   }
 
-  return list.map(u => {
-    return {
-      ...u,
-      photoURL: isCustomPhoto(u.photoURL) ? u.photoURL : undefined
-    };
-  });
+  const resolved = list.map(u => ({
+    ...u,
+    photoURL: isCustomPhoto(u.photoURL) ? u.photoURL : undefined
+  }));
+
+  usersCache = resolved;
+  usersCacheTimestamp = now;
+  return resolved;
 }
 
 export async function fetchUserById(userId: string): Promise<UserProfile | null> {
@@ -525,6 +536,9 @@ export async function fetchUserById(userId: string): Promise<UserProfile | null>
 }
 
 export async function updateUserProfile(userId: string, data: Partial<UserProfile>): Promise<UserProfile> {
+  // Invalidate cache immediately on profile update
+  usersCache = null;
+  usersCacheTimestamp = 0;
   const users = getLocalData<UserProfile[]>('users', SEED_USERS);
   const index = users.findIndex(u => u.id === userId || u.uid === userId);
   let updatedUser: UserProfile;
@@ -868,7 +882,9 @@ export async function getOrCreateConversation(user1Id: string, user2Id: string):
 }
 
 export async function fetchConversations(userId: string): Promise<Conversation[]> {
-  let list: Conversation[] = [];
+  const localConvs = getLocalData<Conversation[]>('conversations', SEED_CONVERSATIONS);
+  let list: Conversation[] = localConvs.filter(c => c.participants && c.participants.includes(userId));
+
   if (isSupabaseConfigured() && supabase) {
     try {
       const { data, error } = await supabase
@@ -878,23 +894,26 @@ export async function fetchConversations(userId: string): Promise<Conversation[]
         .order('updatedAt', { ascending: false });
 
       if (!error && data && data.length > 0) {
-        list = data as Conversation[];
+        const serverConvs = data as Conversation[];
+        const serverMap = new Map(serverConvs.map(c => [c.id, c]));
+        const mergedList = [...serverConvs];
+        for (const localC of list) {
+          if (!serverMap.has(localC.id)) {
+            mergedList.push(localC);
+          }
+        }
+        list = mergedList;
       }
     } catch (err) {
       console.warn('Supabase fetchConversations error:', err);
     }
   }
 
-  if (list.length === 0) {
-    const localConvs = getLocalData<Conversation[]>('conversations', SEED_CONVERSATIONS);
-    list = localConvs.filter(c => c.participants.includes(userId));
-  }
-
-  // Enrich participantDetails from live user directory
+  // Enrich participantDetails from live user directory (using memory cache)
   const allUsers = await fetchUsers();
   const userMap = new Map(allUsers.map(u => [u.id, u]));
 
-  return list.map(conv => {
+  const enrichedList = list.map(conv => {
     const details = { ...(conv.participantDetails || {}) };
     conv.participants.forEach(pId => {
       const u = userMap.get(pId);
@@ -918,6 +937,19 @@ export async function fetchConversations(userId: string): Promise<Conversation[]
       participantDetails: details
     };
   });
+
+  // Keep local cache synced
+  const allLocal = getLocalData<Conversation[]>('conversations', SEED_CONVERSATIONS);
+  const enrichedMap = new Map(enrichedList.map(c => [c.id, c]));
+  const updatedAllLocal = allLocal.map(c => enrichedMap.get(c.id) || c);
+  for (const c of enrichedList) {
+    if (!updatedAllLocal.some(existing => existing.id === c.id)) {
+      updatedAllLocal.push(c);
+    }
+  }
+  setLocalData('conversations', updatedAllLocal);
+
+  return enrichedList;
 }
 
 export function detectChatMessageMediaType(mediaUrl?: string, explicitType?: string): 'image' | 'video' | 'file' | 'audio' | undefined {
@@ -980,6 +1012,26 @@ export function markMessageDeletedForMe(userId: string, messageId: string): void
 
 export async function fetchMessages(conversationId: string, currentUserId?: string): Promise<Message[]> {
   const deletedForMeSet = currentUserId ? getDeletedForMeIds(currentUserId) : new Set<string>();
+  const allUsers = await fetchUsers();
+  const userMap = new Map(allUsers.map(u => [u.id, u]));
+
+  const enrichMsg = (m: Message): Message => {
+    const isDeletedMsg = m.isDeleted === true || m.text === '__DELETED_FOR_EVERYONE__';
+    const u = userMap.get(m.senderId);
+    const userPhoto = u?.photoURL;
+    const resolvedAvatar = isCustomPhoto(userPhoto)
+      ? userPhoto
+      : (isCustomPhoto(m.senderAvatar) ? m.senderAvatar : undefined);
+    return {
+      ...m,
+      isDeleted: isDeletedMsg,
+      text: isDeletedMsg ? '' : m.text,
+      mediaUrl: isDeletedMsg ? undefined : m.mediaUrl,
+      mediaType: isDeletedMsg ? undefined : detectChatMessageMediaType(m.mediaUrl, m.mediaType),
+      senderName: m.senderName || u?.displayName || (m.senderId === 'system' ? 'CampusConnect' : 'Student'),
+      senderAvatar: resolvedAvatar
+    };
+  };
 
   if (isSupabaseConfigured() && supabase) {
     try {
@@ -990,25 +1042,7 @@ export async function fetchMessages(conversationId: string, currentUserId?: stri
         .order('createdAt', { ascending: true });
 
       if (!error && data && data.length > 0) {
-        // Enrich senderName and senderAvatar from users directory
-        const allUsers = await fetchUsers();
-        const userMap = new Map(allUsers.map(u => [u.id, u]));
-
-        const enriched = (data as Message[]).map(m => {
-          const isDeletedMsg = m.isDeleted === true || m.text === '__DELETED_FOR_EVERYONE__';
-          const u = userMap.get(m.senderId);
-          return {
-            ...m,
-            isDeleted: isDeletedMsg,
-            text: isDeletedMsg ? '' : m.text,
-            mediaUrl: isDeletedMsg ? undefined : m.mediaUrl,
-            mediaType: isDeletedMsg ? undefined : detectChatMessageMediaType(m.mediaUrl, m.mediaType),
-            senderName: m.senderName || u?.displayName || (m.senderId === 'system' ? 'CampusConnect' : 'Student'),
-            senderAvatar: isCustomPhoto(u?.photoURL)
-              ? u?.photoURL
-              : (isCustomPhoto(m.senderAvatar) ? m.senderAvatar : undefined)
-          };
-        });
+        const enriched = (data as Message[]).map(enrichMsg);
 
         // Sync local cache
         const localMsgs = getLocalData<Message[]>('messages', SEED_MESSAGES);
@@ -1027,28 +1061,8 @@ export async function fetchMessages(conversationId: string, currentUserId?: stri
     }
   }
 
-  const allUsers = await fetchUsers();
-  const userMap = new Map(allUsers.map(u => [u.id, u]));
   const msgs = getLocalData<Message[]>('messages', SEED_MESSAGES);
-  const convMsgs = msgs
-    .filter(m => m.conversationId === conversationId)
-    .map(m => {
-      const isDeletedMsg = m.isDeleted === true || m.text === '__DELETED_FOR_EVERYONE__';
-      const u = userMap.get(m.senderId);
-      const userPhoto = u?.photoURL;
-      const resolvedAvatar = isCustomPhoto(userPhoto)
-        ? userPhoto
-        : (isCustomPhoto(m.senderAvatar) ? m.senderAvatar : undefined);
-      return {
-        ...m,
-        isDeleted: isDeletedMsg,
-        text: isDeletedMsg ? '' : m.text,
-        mediaUrl: isDeletedMsg ? undefined : m.mediaUrl,
-        mediaType: isDeletedMsg ? undefined : detectChatMessageMediaType(m.mediaUrl, m.mediaType),
-        senderName: m.senderName || u?.displayName || (m.senderId === 'system' ? 'CampusConnect' : 'Student'),
-        senderAvatar: resolvedAvatar
-      };
-    });
+  const convMsgs = msgs.filter(m => m.conversationId === conversationId).map(enrichMsg);
 
   return convMsgs.filter(m => {
     if (deletedForMeSet.has(m.id)) return false;
@@ -1674,9 +1688,9 @@ export function subscribeToNotifications(
     )
     .on(
       'postgres_changes',
-      { event: '*', schema: 'public', table: 'notifications' },
+      { event: 'INSERT', schema: 'public', table: 'notifications' },
       (payload) => {
-        const row = (payload.new || payload.old) as any;
+        const row = payload.new as any;
         if (row && (row.recipientId === userId || row.recipientid === userId)) {
           onChange();
         }
@@ -1847,6 +1861,12 @@ export async function createAnnouncement(data: Omit<Announcement, 'id' | 'create
 // NOTIFICATIONS
 // ---------------------------------------------
 export async function fetchNotifications(userId: string): Promise<NotificationItem[]> {
+  const localList = getLocalData<NotificationItem[]>('notifications', SEED_NOTIFICATIONS);
+  const localReadMap = new Map<string, boolean>();
+  localList.forEach(n => {
+    if (n.read) localReadMap.set(n.id, true);
+  });
+
   if (isSupabaseConfigured() && supabase) {
     try {
       const { data, error } = await supabase
@@ -1856,15 +1876,19 @@ export async function fetchNotifications(userId: string): Promise<NotificationIt
         .order('createdAt', { ascending: false });
 
       if (!error && data) {
-        return data as NotificationItem[];
+        const merged = (data as NotificationItem[]).map(n => ({
+          ...n,
+          read: Boolean(n.read || localReadMap.get(n.id))
+        }));
+        setLocalData('notifications', merged);
+        return merged;
       }
     } catch (err) {
       console.warn('Supabase fetchNotifications error:', err);
     }
   }
 
-  const list = getLocalData<NotificationItem[]>('notifications', SEED_NOTIFICATIONS);
-  return list.filter(n => n.recipientId === userId);
+  return localList.filter(n => n.recipientId === userId);
 }
 
 export async function createNotification(notif: Omit<NotificationItem, 'id' | 'read' | 'createdAt'>): Promise<NotificationItem> {

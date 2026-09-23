@@ -19,7 +19,7 @@ interface NavbarProps {
 export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileMenu, onOpenSearch }) => {
   const { user, logout } = useAuth();
   const { theme, resolvedTheme, toggleTheme } = useTheme();
-  const { unreadCount, unreadMessagesCount } = useNotifications();
+  const { unreadCount, unreadMessagesCount, markMessageNotificationsAsRead } = useNotifications();
   const navigate = useNavigate();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -113,6 +113,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileMenu, onOpenSearch
           {/* Messages shortcut (visible on tablet/desktop, mobile has Messages in bottom bar) */}
           <Link
             to={`/${user?.role || 'student'}/messages`}
+            onClick={() => markMessageNotificationsAsRead()}
             className="hidden sm:flex relative p-2 text-gray-600 dark:text-gray-300 hover:text-[#0b4627] dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-[#182b20] rounded-xl transition shrink-0"
             aria-label="Messages"
           >

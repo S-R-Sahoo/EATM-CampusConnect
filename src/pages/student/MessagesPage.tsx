@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { useNotifications } from '../../contexts/NotificationContext';
@@ -7,6 +7,7 @@ import {
   subscribeToMessages, getOrCreateConversation, fetchConnections,
   deleteMessageForEveryone, deleteMessageForMe
 } from '../../supabase/db';
+import { SEED_CONVERSATIONS } from '../../supabase/seedData';
 import { uploadFile } from '../../supabase/storage';
 import { Conversation, Message } from '../../types';
 import { Avatar } from '../../components/ui/Avatar';
@@ -77,13 +78,59 @@ export const MessagesPage: React.FC = () => {
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
 
+  const getCachedMessages = (convId: string): Message[] => {
+    if (!convId) return [];
+    try {
+      const raw = localStorage.getItem('eatm_campus_messages');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          return parsed.filter((m: Message) => m.conversationId === convId);
+        }
+      }
+    } catch {}
+    return [];
+  };
+
   useEffect(() => {
     markMessageNotificationsAsRead();
   }, [markMessageNotificationsAsRead]);
 
-  const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [activeConvId, setActiveConvId] = useState<string>('');
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [conversations, setConversations] = useState<Conversation[]>(() => {
+    try {
+      const raw = localStorage.getItem('eatm_campus_conversations');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return SEED_CONVERSATIONS;
+  });
+
+  const [activeConvId, setActiveConvId] = useState<string>(() => {
+    return (location.state as any)?.conversationId || searchParams.get('conversationId') || '';
+  });
+
+  const [messages, setMessages] = useState<Message[]>(() => {
+    const initId = (location.state as any)?.conversationId || searchParams.get('conversationId');
+    if (initId) {
+      return getCachedMessages(initId);
+    }
+    return [];
+  });
+
+  const selectConversation = useCallback((convId: string) => {
+    setActiveConvId(convId);
+    const cached = getCachedMessages(convId);
+    if (cached.length > 0) {
+      setMessages(dedupeMessageList(cached));
+      setTimeout(() => {
+        if (messagesScrollRef.current) messagesScrollRef.current.scrollTop = messagesScrollRef.current.scrollHeight;
+      }, 10);
+    }
+    markMessageNotificationsAsRead();
+  }, [markMessageNotificationsAsRead]);
+
   const [inChatSearchQuery, setInChatSearchQuery] = useState('');
   const [isSearchingInChat, setIsSearchingInChat] = useState(false);
   const [showChatOptionsMenu, setShowChatOptionsMenu] = useState(false);
@@ -251,7 +298,7 @@ export const MessagesPage: React.FC = () => {
         const explicitFirstTime = (location.state as any)?.firstTimeConnection;
 
         if (targetConvId) {
-          setActiveConvId(targetConvId);
+          selectConversation(targetConvId);
         } else if (targetUserId) {
           const conv = await getOrCreateConversation(user.id, targetUserId);
           if (isMounted) {
@@ -259,10 +306,10 @@ export const MessagesPage: React.FC = () => {
               if (prev.some(c => c.id === conv.id)) return prev;
               return [conv, ...prev];
             });
-            setActiveConvId(conv.id);
+            selectConversation(conv.id);
           }
         } else if ((isFirstTimeConnection || explicitFirstTime) && convs.length > 0) {
-          setActiveConvId(convs[0].id);
+          selectConversation(convs[0].id);
         }
       } catch (err) {
         console.warn('Failed to initialize conversations:', err);
@@ -280,18 +327,27 @@ export const MessagesPage: React.FC = () => {
           setConversations(fresh);
         }
       } catch (_) {}
-    }, 6000);
+    }, 8000);
 
     return () => {
       isMounted = false;
       clearInterval(convsInterval);
     };
-  }, [user, location.state, searchParams]);
+  }, [user, location.state, searchParams, selectConversation]);
 
   useEffect(() => {
     if (activeConvId) {
       let isSubscribed = true;
       markMessageNotificationsAsRead();
+
+      // Instantly load cached messages for 0ms render
+      const cached = getCachedMessages(activeConvId);
+      if (cached.length > 0) {
+        setMessages(dedupeMessageList(cached));
+        setTimeout(() => {
+          if (messagesScrollRef.current) messagesScrollRef.current.scrollTop = messagesScrollRef.current.scrollHeight;
+        }, 10);
+      }
 
       fetchMessages(activeConvId, user?.id).then(msgs => {
         if (!isSubscribed) return;
@@ -299,7 +355,7 @@ export const MessagesPage: React.FC = () => {
         markMessageNotificationsAsRead();
         setTimeout(() => {
           if (messagesScrollRef.current) messagesScrollRef.current.scrollTop = messagesScrollRef.current.scrollHeight;
-        }, 100);
+        }, 80);
       });
 
       // Realtime subscription for incoming chat messages & live deletions in this conversation
@@ -328,7 +384,7 @@ export const MessagesPage: React.FC = () => {
         }
       );
 
-      // Live Heartbeat Sync (every 2.5s) to guarantee zero missed messages
+      // Live Heartbeat Sync (every 4s) to guarantee zero missed messages
       const heartbeatInterval = setInterval(async () => {
         if (!isSubscribed) return;
         try {
@@ -344,7 +400,7 @@ export const MessagesPage: React.FC = () => {
         } catch {
           // ignore background heartbeat errors
         }
-      }, 2500);
+      }, 4000);
 
       return () => {
         isSubscribed = false;
@@ -352,7 +408,7 @@ export const MessagesPage: React.FC = () => {
         unsubscribe();
       };
     }
-  }, [activeConvId, user?.id]);
+  }, [activeConvId, user?.id, markMessageNotificationsAsRead]);
 
   // Clean up any ongoing audio recording when unmounting or switching chats
   useEffect(() => {
@@ -1189,7 +1245,7 @@ export const MessagesPage: React.FC = () => {
               return (
                 <div
                   key={conv.id}
-                  onClick={() => setActiveConvId(conv.id)}
+                  onClick={() => selectConversation(conv.id)}
                   className={`p-3.5 flex items-center gap-3 cursor-pointer transition-colors ${
                     isActive 
                       ? 'bg-emerald-50/90 dark:bg-[#16251c] border-l-4 border-[#0b4627] dark:border-emerald-500' 

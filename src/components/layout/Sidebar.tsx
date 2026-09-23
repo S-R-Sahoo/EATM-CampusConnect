@@ -15,7 +15,7 @@ interface SidebarProps {
 
 export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
   const { user, logout } = useAuth();
-  const { unreadCount, unreadMessagesCount } = useNotifications();
+  const { unreadCount, unreadMessagesCount, markMessageNotificationsAsRead } = useNotifications();
   const navigate = useNavigate();
 
   const handleLogout = async () => {
@@ -74,7 +74,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
             <NavLink
               key={link.to}
               to={link.to}
-              onClick={onCloseMobile}
+              onClick={() => {
+                if (link.to.includes('messages')) {
+                  markMessageNotificationsAsRead();
+                }
+                if (onCloseMobile) onCloseMobile();
+              }}
               className={({ isActive }) =>
                 `flex items-center gap-3.5 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all duration-150 group ${
                   isActive

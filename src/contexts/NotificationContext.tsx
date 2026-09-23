@@ -47,23 +47,15 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   useEffect(() => {
     loadNotifs();
 
-    // 1. Listen to local storage changes across tabs and windows
-    const handleLocalChange = () => {
-      loadNotifs();
-    };
-    window.addEventListener('eatm_notifications_changed', handleLocalChange);
-
-    // 2. Listen to Supabase Realtime channel
-    let unsubscribeSupabase = () => {};
+    let unsubscribe = () => {};
     if (user?.id) {
-      unsubscribeSupabase = subscribeToNotifications(user.id, () => {
+      unsubscribe = subscribeToNotifications(user.id, () => {
         loadNotifs();
       });
     }
 
     return () => {
-      window.removeEventListener('eatm_notifications_changed', handleLocalChange);
-      unsubscribeSupabase();
+      unsubscribe();
     };
   }, [user?.id, loadNotifs]);
 
@@ -105,10 +97,10 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }
   };
 
-  const markMessageNotificationsAsRead = async () => {
+  const markMessageNotificationsAsRead = useCallback(async () => {
     // 1. Instantly mark message notifications as read in state so the badge clears immediately
     setNotifications(prev =>
-      prev.map(n => n.type === 'message' ? { ...n, read: true } : n)
+      prev.map(n => (n.type === 'message' || n.type.includes('message')) ? { ...n, read: true } : n)
     );
 
     // 2. Mark in local storage
@@ -119,7 +111,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
           const list: NotificationItem[] = JSON.parse(raw);
           let changed = false;
           const updated = list.map(n => {
-            if (n.recipientId === user.id && n.type === 'message' && !n.read) {
+            if (n.recipientId === user.id && (n.type === 'message' || n.type.includes('message')) && !n.read) {
               changed = true;
               return { ...n, read: true };
             }
@@ -127,7 +119,6 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
           });
           if (changed) {
             localStorage.setItem('eatm_campus_notifications', JSON.stringify(updated));
-            window.dispatchEvent(new CustomEvent('eatm_notifications_changed', { detail: updated }));
           }
         }
       }
@@ -140,15 +131,15 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
           .from('notifications')
           .update({ read: true })
           .eq('recipientId', user.id)
-          .eq('type', 'message');
+          .ilike('type', '%message%');
       } catch (err) {
         console.warn('Failed to mark message notifications as read in Supabase:', err);
       }
     }
-  };
+  }, [user?.id]);
 
   const unreadCount = notifications.filter(n => !n.read).length;
-  const unreadMessagesCount = notifications.filter(n => !n.read && n.type === 'message').length;
+  const unreadMessagesCount = notifications.filter(n => !n.read && (n.type === 'message' || n.type.includes('message'))).length;
 
   return (
     <NotificationContext.Provider
