@@ -71,6 +71,24 @@ export const dedupeMessageList = (list: Message[]): Message[] => {
   return result;
 };
 
+export const areMessageListsEqual = (a: Message[], b: Message[]): boolean => {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (
+      a[i].id !== b[i].id || 
+      a[i].text !== b[i].text || 
+      a[i].isDeleted !== b[i].isDeleted || 
+      a[i].mediaUrl !== b[i].mediaUrl ||
+      a[i].read !== b[i].read
+    ) {
+      return false;
+    }
+  }
+  return true;
+};
+
 export const MessagesPage: React.FC = () => {
   const { user } = useAuth();
   const { error, success } = useToast();
@@ -343,7 +361,8 @@ export const MessagesPage: React.FC = () => {
       // Instantly load cached messages for 0ms render
       const cached = getCachedMessages(activeConvId);
       if (cached.length > 0) {
-        setMessages(dedupeMessageList(cached));
+        const dedupedCached = dedupeMessageList(cached);
+        setMessages(prev => (areMessageListsEqual(prev, dedupedCached) ? prev : dedupedCached));
         setTimeout(() => {
           if (messagesScrollRef.current) messagesScrollRef.current.scrollTop = messagesScrollRef.current.scrollHeight;
         }, 10);
@@ -351,11 +370,15 @@ export const MessagesPage: React.FC = () => {
 
       fetchMessages(activeConvId, user?.id).then(msgs => {
         if (!isSubscribed) return;
-        setMessages(dedupeMessageList(msgs));
+        const deduped = dedupeMessageList(msgs);
+        setMessages(prev => {
+          if (areMessageListsEqual(prev, deduped)) return prev;
+          setTimeout(() => {
+            if (messagesScrollRef.current) messagesScrollRef.current.scrollTop = messagesScrollRef.current.scrollHeight;
+          }, 40);
+          return deduped;
+        });
         markMessageNotificationsAsRead();
-        setTimeout(() => {
-          if (messagesScrollRef.current) messagesScrollRef.current.scrollTop = messagesScrollRef.current.scrollHeight;
-        }, 80);
       });
 
       // Realtime subscription for incoming chat messages & live deletions in this conversation
@@ -370,7 +393,7 @@ export const MessagesPage: React.FC = () => {
           markMessageNotificationsAsRead();
           setTimeout(() => {
             if (messagesScrollRef.current) messagesScrollRef.current.scrollTop = messagesScrollRef.current.scrollHeight;
-          }, 80);
+          }, 60);
         },
         (deletedMsgId) => {
           if (!isSubscribed) return;
@@ -384,18 +407,18 @@ export const MessagesPage: React.FC = () => {
         }
       );
 
-      // Live Heartbeat Sync (every 4s) to guarantee zero missed messages
+      // Live Heartbeat Sync (every 4s) to guarantee zero missed messages without flicker
       const heartbeatInterval = setInterval(async () => {
         if (!isSubscribed) return;
         try {
           const freshMsgs = await fetchMessages(activeConvId, user?.id);
           if (!isSubscribed) return;
+          const deduped = dedupeMessageList(freshMsgs)
+            .filter(m => !(m.deletedFor && user?.id && m.deletedFor.includes(user.id)))
+            .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
           setMessages(prev => {
-            const combined = [...prev, ...freshMsgs];
-            const deduped = dedupeMessageList(combined);
-            return deduped
-              .filter(m => !(m.deletedFor && user?.id && m.deletedFor.includes(user.id)))
-              .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+            if (areMessageListsEqual(prev, deduped)) return prev;
+            return deduped;
           });
         } catch {
           // ignore background heartbeat errors
@@ -433,7 +456,20 @@ export const MessagesPage: React.FC = () => {
     return () => window.removeEventListener('click', handleOutsideClick);
   }, []);
 
-  const activeConv = conversations.find(c => c.id === activeConvId);
+  const activeConv = useMemo(() => {
+    if (!activeConvId) return undefined;
+    const found = conversations.find(c => c.id === activeConvId);
+    if (found) return found;
+    try {
+      const raw = localStorage.getItem('eatm_campus_conversations');
+      if (raw) {
+        const list: Conversation[] = JSON.parse(raw);
+        const c = list.find(x => x.id === activeConvId);
+        if (c) return c;
+      }
+    } catch {}
+    return SEED_CONVERSATIONS.find(c => c.id === activeConvId);
+  }, [conversations, activeConvId]);
 
   // Subscribe to real-time typing events for active conversation
   useEffect(() => {
@@ -464,29 +500,6 @@ export const MessagesPage: React.FC = () => {
       setUsersMap(map);
     }).catch(() => {});
   }, []);
-
-  // Lock background body scroll on mobile during active conversation to prevent header hiding or rubber-banding
-  useEffect(() => {
-    if (activeConvId && isMobileDevice()) {
-      const prevOverflow = document.body.style.overflow;
-      const prevPosition = document.body.style.position;
-      const prevWidth = document.body.style.width;
-      const prevHeight = document.body.style.height;
-
-      document.body.style.overflow = 'hidden';
-      // Lock position to prevent iOS/Android from panning the fixed container out of view when keyboard opens
-      document.body.style.position = 'fixed';
-      document.body.style.width = '100%';
-      document.body.style.height = '100%';
-      
-      return () => {
-        document.body.style.overflow = prevOverflow;
-        document.body.style.position = prevPosition;
-        document.body.style.width = prevWidth;
-        document.body.style.height = prevHeight;
-      };
-    }
-  }, [activeConvId]);
 
   // Get active other party info with authentic WhatsApp-style presence
   const getOtherParty = () => {
@@ -1029,11 +1042,7 @@ export const MessagesPage: React.FC = () => {
   const other = getOtherParty();
 
   return (
-    <div className={`max-w-6xl mx-auto h-[calc(100dvh-125px)] sm:h-[calc(100vh-130px)] bg-white dark:bg-[#111d15] rounded-none sm:rounded-3xl border-0 sm:border border-gray-200/80 dark:border-[#1e3325] sm:shadow-card flex overflow-hidden transition-colors ${
-      activeConvId 
-        ? 'max-sm:fixed max-sm:inset-0 max-sm:z-50 max-sm:w-full max-sm:h-[100dvh] max-sm:rounded-none max-sm:border-0' 
-        : 'h-[calc(100dvh-125px)]'
-    }`}>
+    <div className="max-w-6xl mx-auto h-[calc(100dvh-115px)] sm:h-[calc(100vh-130px)] bg-white dark:bg-[#111d15] rounded-none sm:rounded-3xl border-0 sm:border border-gray-200/80 dark:border-[#1e3325] sm:shadow-card flex overflow-hidden">
       {/* Hidden File Pickers: Document, Photos & Video, Camera, Audio */}
       <input
         type="file"
