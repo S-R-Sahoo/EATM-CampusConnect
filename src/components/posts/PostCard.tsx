@@ -574,7 +574,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onPostDeleted }) => {
             </div>
           )}
 
-          {/* Desktop-only subtle hover chevrons (Original iconic white circles on laptop, hidden on mobile) */}
+          {/* Desktop-only clean, lightweight frosted glass hover chevrons */}
           {mediaList.length > 1 && activeMediaIndex > 0 && (
             <button
               type="button"
@@ -582,10 +582,10 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onPostDeleted }) => {
                 e.stopPropagation();
                 setActiveMediaIndex(prev => Math.max(0, prev - 1));
               }}
-              className="hidden sm:flex absolute left-2.5 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/90 hover:bg-white text-gray-800 shadow-md items-center justify-center transition-all opacity-0 group-hover:opacity-100 z-10 active:scale-90 hover:scale-105"
+              className="hidden sm:flex absolute left-2.5 top-1/2 -translate-y-1/2 w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white/80 hover:bg-white dark:bg-[#0f1b14]/80 dark:hover:bg-[#0f1b14] text-gray-700 hover:text-[#0b4627] dark:text-gray-300 dark:hover:text-emerald-400 backdrop-blur-md border border-black/10 dark:border-white/10 shadow-xs items-center justify-center transition-all opacity-0 group-hover:opacity-100 z-10 active:scale-95 hover:scale-105"
               aria-label="Previous image"
             >
-              <ChevronLeft className="w-4 h-4 stroke-[2.5]" />
+              <ChevronLeft className="w-4 h-4 stroke-[1.75]" />
             </button>
           )}
 
@@ -596,10 +596,10 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onPostDeleted }) => {
                 e.stopPropagation();
                 setActiveMediaIndex(prev => Math.min(mediaList.length - 1, prev + 1));
               }}
-              className="hidden sm:flex absolute right-2.5 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/90 hover:bg-white text-gray-800 shadow-md items-center justify-center transition-all opacity-0 group-hover:opacity-100 z-10 active:scale-90 hover:scale-105"
+              className="hidden sm:flex absolute right-2.5 top-1/2 -translate-y-1/2 w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white/80 hover:bg-white dark:bg-[#0f1b14]/80 dark:hover:bg-[#0f1b14] text-gray-700 hover:text-[#0b4627] dark:text-gray-300 dark:hover:text-emerald-400 backdrop-blur-md border border-black/10 dark:border-white/10 shadow-xs items-center justify-center transition-all opacity-0 group-hover:opacity-100 z-10 active:scale-95 hover:scale-105"
               aria-label="Next image"
             >
-              <ChevronRight className="w-4 h-4 stroke-[2.5]" />
+              <ChevronRight className="w-4 h-4 stroke-[1.75]" />
             </button>
           )}
 
@@ -814,10 +814,10 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onPostDeleted }) => {
               <button
                 type="button"
                 onClick={() => setActiveMediaIndex(prev => Math.max(0, prev - 1))}
-                className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-black/30 sm:bg-white/90 text-white/70 sm:text-gray-800 hover:text-white sm:hover:text-gray-900 sm:hover:bg-white backdrop-blur-xs sm:backdrop-blur-none border border-white/10 sm:border-none shadow-md sm:shadow-xl flex items-center justify-center transition-all active:scale-90 sm:hover:scale-105 z-20 group"
+                className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-white/10 hover:bg-white/25 text-white/80 hover:text-white backdrop-blur-md border border-white/15 shadow-sm flex items-center justify-center transition-all active:scale-95 sm:hover:scale-105 z-20 group"
                 aria-label="Previous photo"
               >
-                <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5 stroke-[1.75] sm:stroke-[2.5] transition-transform group-hover:-translate-x-0.5" />
+                <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5 stroke-[1.75] transition-transform group-hover:-translate-x-0.5" />
               </button>
             )}
 
@@ -825,10 +825,10 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onPostDeleted }) => {
               <button
                 type="button"
                 onClick={() => setActiveMediaIndex(prev => Math.min(mediaList.length - 1, prev + 1))}
-                className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-black/30 sm:bg-white/90 text-white/70 sm:text-gray-800 hover:text-white sm:hover:text-gray-900 sm:hover:bg-white backdrop-blur-xs sm:backdrop-blur-none border border-white/10 sm:border-none shadow-md sm:shadow-xl flex items-center justify-center transition-all active:scale-90 sm:hover:scale-105 z-20 group"
+                className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-white/10 hover:bg-white/25 text-white/80 hover:text-white backdrop-blur-md border border-white/15 shadow-sm flex items-center justify-center transition-all active:scale-95 sm:hover:scale-105 z-20 group"
                 aria-label="Next photo"
               >
-                <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 stroke-[1.75] sm:stroke-[2.5] transition-transform group-hover:translate-x-0.5" />
+                <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 stroke-[1.75] transition-transform group-hover:translate-x-0.5" />
               </button>
             )}
           </div>

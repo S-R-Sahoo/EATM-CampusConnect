@@ -539,20 +539,20 @@ export const CreatePostCard: React.FC<CreatePostCardProps> = ({ onPostCreated })
                       <button
                         type="button"
                         onClick={() => setActivePreviewIndex(prev => Math.max(0, prev - 1))}
-                        className="absolute left-2.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-white/90 hover:bg-white text-gray-800 shadow-md flex items-center justify-center transition-all active:scale-90 hover:scale-105 z-10"
+                        className="absolute left-2.5 top-1/2 -translate-y-1/2 w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white/80 hover:bg-white text-gray-700 hover:text-[#0b4627] dark:bg-[#0f1b14]/80 dark:hover:bg-[#0f1b14] dark:text-gray-300 dark:hover:text-emerald-400 backdrop-blur-md border border-black/10 dark:border-white/10 shadow-xs flex items-center justify-center transition-all active:scale-95 hover:scale-105 z-10"
                         aria-label="Previous preview photo"
                       >
-                        <ChevronLeft className="w-4 h-4 stroke-[2.5]" />
+                        <ChevronLeft className="w-4 h-4 stroke-[1.75]" />
                       </button>
                     )}
                     {activePreviewIndex < mediaFiles.length - 1 && (
                       <button
                         type="button"
                         onClick={() => setActivePreviewIndex(prev => Math.min(mediaFiles.length - 1, prev + 1))}
-                        className="absolute right-2.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-white/90 hover:bg-white text-gray-800 shadow-md flex items-center justify-center transition-all active:scale-90 hover:scale-105 z-10"
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white/80 hover:bg-white text-gray-700 hover:text-[#0b4627] dark:bg-[#0f1b14]/80 dark:hover:bg-[#0f1b14] dark:text-gray-300 dark:hover:text-emerald-400 backdrop-blur-md border border-black/10 dark:border-white/10 shadow-xs flex items-center justify-center transition-all active:scale-95 hover:scale-105 z-10"
                         aria-label="Next preview photo"
                       >
-                        <ChevronRight className="w-4 h-4 stroke-[2.5]" />
+                        <ChevronRight className="w-4 h-4 stroke-[1.75]" />
                       </button>
                     )}
                   </>
