@@ -69,8 +69,14 @@ export async function fetchPosts(): Promise<Post[]> {
       ? authorPhoto
       : (isCustomPhoto(p.authorAvatar) ? p.authorAvatar : undefined);
 
+    const rawMediaUrls = (p.mediaUrls && p.mediaUrls.length > 0)
+      ? p.mediaUrls
+      : (p.mediaUrl ? [p.mediaUrl] : []);
+
     return {
       ...p,
+      mediaUrl: p.mediaUrl || rawMediaUrls[0],
+      mediaUrls: rawMediaUrls,
       authorAvatar: resolvedAvatar
     };
   });
@@ -98,15 +104,21 @@ export async function fetchPostById(postId: string): Promise<Post | null> {
     post = posts.find(p => p.id === postId) || null;
   }
 
-  if (post && post.authorId) {
-    const author = await fetchUserById(post.authorId);
+  if (post) {
+    const author = post.authorId ? await fetchUserById(post.authorId) : null;
     const authorPhoto = author?.photoURL;
     const resolvedAvatar = isCustomPhoto(authorPhoto)
       ? authorPhoto
       : (isCustomPhoto(post.authorAvatar) ? post.authorAvatar : undefined);
 
+    const rawMediaUrls = (post.mediaUrls && post.mediaUrls.length > 0)
+      ? post.mediaUrls
+      : (post.mediaUrl ? [post.mediaUrl] : []);
+
     return {
       ...post,
+      mediaUrl: post.mediaUrl || rawMediaUrls[0],
+      mediaUrls: rawMediaUrls,
       authorAvatar: resolvedAvatar
     };
   }
@@ -122,9 +134,15 @@ export function getPostShareUrl(postId: string): string {
 }
 
 export async function createPost(postData: Omit<Post, 'id' | 'createdAt' | 'likes' | 'likesCount' | 'commentsCount' | 'sharesCount'>): Promise<Post> {
+  const rawMediaUrls = (postData.mediaUrls && postData.mediaUrls.length > 0)
+    ? postData.mediaUrls
+    : (postData.mediaUrl ? [postData.mediaUrl] : []);
+
   const newPost: Post = {
     ...postData,
     id: 'post_' + Date.now(),
+    mediaUrl: postData.mediaUrl || rawMediaUrls[0],
+    mediaUrls: rawMediaUrls,
     likes: [],
     likesCount: 0,
     commentsCount: 0,
@@ -134,12 +152,17 @@ export async function createPost(postData: Omit<Post, 'id' | 'createdAt' | 'like
 
   if (isSupabaseConfigured() && supabase) {
     try {
-      const { data, error } = await supabase.from('posts').insert([newPost]).select().single();
-      if (!error && data) {
-        newPost.id = data.id;
-        console.log('✅ Post successfully stored in Supabase DB:', data.id);
-      } else if (error) {
-        console.error('❌ Supabase createPost error:', error.message, error);
+      let insertRes = await supabase.from('posts').insert([newPost]).select().single();
+      // If table doesn't have mediaUrls column yet, fall back without mediaUrls
+      if (insertRes.error && insertRes.error.message?.includes('mediaUrls')) {
+        const { mediaUrls, ...postWithoutMediaUrls } = newPost;
+        insertRes = await supabase.from('posts').insert([postWithoutMediaUrls]).select().single();
+      }
+      if (!insertRes.error && insertRes.data) {
+        newPost.id = insertRes.data.id;
+        console.log('✅ Post successfully stored in Supabase DB:', insertRes.data.id);
+      } else if (insertRes.error) {
+        console.error('❌ Supabase createPost error:', insertRes.error.message, insertRes.error);
       }
 
       // Broadcast new post over campus-feed-live

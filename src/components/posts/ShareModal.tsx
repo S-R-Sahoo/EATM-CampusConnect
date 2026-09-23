@@ -136,7 +136,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
             </div>
           </div>
           <p className="text-xs text-gray-700 dark:text-gray-300 line-clamp-2 leading-relaxed">
-            {post.content || (post.mediaUrl ? '[Photo Attachment]' : '[Campus Post]')}
+            {post.content || (post.mediaUrls && post.mediaUrls.length > 1 ? `[${post.mediaUrls.length} Photos attached]` : post.mediaUrl ? '[Photo Attachment]' : '[Campus Post]')}
           </p>
         </div>
 

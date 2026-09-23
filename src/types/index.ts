@@ -119,6 +119,7 @@ export interface Post {
   authorYear?: string;
   content: string;
   mediaUrl?: string;
+  mediaUrls?: string[];
   mediaType?: 'image' | 'video' | 'file';
   feeling?: string;
   visibility: 'campus' | 'connections';

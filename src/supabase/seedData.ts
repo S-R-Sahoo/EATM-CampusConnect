@@ -250,6 +250,11 @@ export const SEED_POSTS: Post[] = [
     authorDept: 'CSE 3rd Year',
     content: 'Just completed the Hackathon 2025! Proud to be a part of EATM ❤️ Huge shoutout to our mentor Dr. Mohapatra and the entire coding club organizing committee. What an exhilarating 36 hours of non-stop innovation!',
     mediaUrl: 'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=1200&auto=format&fit=crop&q=80',
+    mediaUrls: [
+      'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=1200&auto=format&fit=crop&q=80',
+      'https://images.unsplash.com/photo-1531482615713-2afd69097998?w=1200&auto=format&fit=crop&q=80',
+      'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=1200&auto=format&fit=crop&q=80'
+    ],
     mediaType: 'image',
     feeling: 'proud',
     visibility: 'campus',

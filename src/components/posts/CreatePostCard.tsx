@@ -15,8 +15,17 @@ import {
   X, 
   Trash2, 
   ChevronDown, 
-  Check 
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Layers
 } from 'lucide-react';
+
+interface StagedMediaItem {
+  id: string;
+  file: File;
+  previewUrl: string;
+}
 
 interface CreatePostCardProps {
   onPostCreated: () => void;
@@ -48,8 +57,8 @@ export const CreatePostCard: React.FC<CreatePostCardProps> = ({ onPostCreated })
   const [visibility, setVisibility] = useState<'campus' | 'connections'>('campus');
   const [showVisibilityMenu, setShowVisibilityMenu] = useState(false);
 
-  const [mediaFile, setMediaFile] = useState<File | null>(null);
-  const [mediaPreview, setMediaPreview] = useState<string | null>(null);
+  const [mediaFiles, setMediaFiles] = useState<StagedMediaItem[]>([]);
+  const [activePreviewIndex, setActivePreviewIndex] = useState(0);
   const [loading, setLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
 
@@ -88,19 +97,39 @@ export const CreatePostCard: React.FC<CreatePostCardProps> = ({ onPostCreated })
   }, [showVisibilityMenu]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      setMediaFile(file);
-      const url = URL.createObjectURL(file);
-      setMediaPreview(url);
+    if (e.target.files && e.target.files.length > 0) {
+      const selected = Array.from(e.target.files);
+      const newItems: StagedMediaItem[] = selected.map((file, i) => ({
+        id: `img_${Date.now()}_${i}_${Math.random().toString(36).substring(2, 6)}`,
+        file,
+        previewUrl: URL.createObjectURL(file)
+      }));
+
+      setMediaFiles(prev => {
+        // Enforce maximum 10 images like Instagram
+        const combined = [...prev, ...newItems].slice(0, 10);
+        return combined;
+      });
+
       if (!isExpanded) setIsExpanded(true);
       setTimeout(() => textareaRef.current?.focus(), 150);
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
-  const removeMedia = () => {
-    setMediaFile(null);
-    setMediaPreview(null);
+  const removeMediaAt = (index: number) => {
+    setMediaFiles(prev => {
+      const updated = prev.filter((_, i) => i !== index);
+      if (activePreviewIndex >= updated.length) {
+        setActivePreviewIndex(Math.max(0, updated.length - 1));
+      }
+      return updated;
+    });
+  };
+
+  const clearAllMedia = () => {
+    setMediaFiles([]);
+    setActivePreviewIndex(0);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
@@ -141,7 +170,7 @@ export const CreatePostCard: React.FC<CreatePostCardProps> = ({ onPostCreated })
 
   const resetForm = () => {
     setContent('');
-    removeMedia();
+    clearAllMedia();
     setShowPoll(false);
     setPollQuestion('');
     setPollOptions(['', '']);
@@ -174,20 +203,28 @@ export const CreatePostCard: React.FC<CreatePostCardProps> = ({ onPostCreated })
       };
     }
 
-    if (!content.trim() && !mediaFile && !pollPayload) {
-      error('Please write something, upload a photo, or create a poll.');
+    if (!content.trim() && mediaFiles.length === 0 && !pollPayload) {
+      error('Please write something, upload photos, or create a poll.');
       return;
     }
 
     setLoading(true);
     try {
-      let uploadedUrl: string | undefined = undefined;
-      if (mediaFile) {
-        uploadedUrl = await uploadFile(
-          `posts/${user.id}/${Date.now()}_${mediaFile.name}`,
-          mediaFile,
-          (prog) => setUploadProgress(prog)
-        );
+      const uploadedUrls: string[] = [];
+      if (mediaFiles.length > 0) {
+        for (let i = 0; i < mediaFiles.length; i++) {
+          const item = mediaFiles[i];
+          const cleanName = item.file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+          const url = await uploadFile(
+            `posts/${user.id}/${Date.now()}_${i}_${cleanName}`,
+            item.file,
+            (prog) => {
+              const overall = Math.round(((i + prog / 100) / mediaFiles.length) * 100);
+              setUploadProgress(overall);
+            }
+          );
+          if (url) uploadedUrls.push(url);
+        }
       }
 
       await createPost({
@@ -197,8 +234,9 @@ export const CreatePostCard: React.FC<CreatePostCardProps> = ({ onPostCreated })
         authorRole: user.role,
         authorDept: `${user.department || 'Student'} ${user.year ? '• ' + user.year : ''}`,
         content: content.trim(),
-        mediaUrl: uploadedUrl,
-        mediaType: mediaFile ? 'image' : undefined,
+        mediaUrl: uploadedUrls[0] || undefined,
+        mediaUrls: uploadedUrls,
+        mediaType: uploadedUrls.length > 0 ? 'image' : undefined,
         visibility,
         poll: pollPayload
       });
@@ -225,6 +263,7 @@ export const CreatePostCard: React.FC<CreatePostCardProps> = ({ onPostCreated })
         ref={fileInputRef}
         onChange={handleFileSelect}
         accept="image/*"
+        multiple
         className="hidden"
       />
 
@@ -378,27 +417,146 @@ export const CreatePostCard: React.FC<CreatePostCardProps> = ({ onPostCreated })
             ref={textareaRef}
             value={content}
             onChange={(e) => setContent(e.target.value)}
-            placeholder={mediaPreview ? "Write a caption or message for this photo..." : "What's on your mind?"}
-            rows={mediaPreview ? 2 : 3}
+            placeholder={mediaFiles.length > 0 ? "Write a caption or message for your photos..." : "What's on your mind?"}
+            rows={mediaFiles.length > 0 ? 2 : 3}
             className="w-full text-sm placeholder:text-gray-400 dark:placeholder:text-gray-500 text-gray-900 dark:text-gray-100 bg-transparent border-none focus:outline-none resize-none leading-relaxed py-1"
           />
 
-          {/* Media Preview Box */}
-          {mediaPreview && (
-            <div className="relative rounded-xl overflow-hidden border border-gray-200 dark:border-[#1e3325] mb-2 max-h-72 bg-gray-50 dark:bg-[#16251c]">
-              <img src={mediaPreview} alt="Upload preview" className="w-full h-full object-cover" />
-              <div className="absolute bottom-2 left-2 px-2.5 py-1 rounded-lg bg-black/60 backdrop-blur-md text-white text-[11px] font-medium flex items-center gap-1.5 shadow-sm">
-                <ImageIcon className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                <span>Photo attached — type your message or caption above</span>
+          {/* Multi-Image Carousel Preview Box */}
+          {mediaFiles.length > 0 && (
+            <div className="space-y-2 mb-2">
+              <div className="relative rounded-2xl overflow-hidden border border-gray-200/90 dark:border-[#1e3325] bg-gray-900 aspect-[16/10] max-h-80 flex items-center justify-center select-none group">
+                <img
+                  src={mediaFiles[activePreviewIndex]?.previewUrl}
+                  alt={`Preview ${activePreviewIndex + 1}`}
+                  className="w-full h-full object-contain bg-black/40"
+                />
+
+                {/* Top Overlay Bar */}
+                <div className="absolute top-2.5 inset-x-2.5 flex items-center justify-between pointer-events-none">
+                  {/* Instagram-style counter pill */}
+                  {mediaFiles.length > 1 ? (
+                    <div className="px-2.5 py-1 rounded-full bg-black/65 backdrop-blur-md text-white text-[11px] font-semibold flex items-center gap-1.5 shadow-md border border-white/10">
+                      <Layers className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>{activePreviewIndex + 1} / {mediaFiles.length}</span>
+                    </div>
+                  ) : (
+                    <div className="px-2.5 py-1 rounded-full bg-black/65 backdrop-blur-md text-white text-[11px] font-medium flex items-center gap-1.5 shadow-md border border-white/10">
+                      <ImageIcon className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>1 photo</span>
+                    </div>
+                  )}
+
+                  {/* Actions: Add more + Delete */}
+                  <div className="flex items-center gap-1.5 pointer-events-auto">
+                    {mediaFiles.length < 10 && (
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="px-2.5 py-1 rounded-full bg-black/65 hover:bg-black/85 backdrop-blur-md text-white text-[11px] font-semibold flex items-center gap-1 transition shadow-md border border-white/10"
+                        title="Add more photos (up to 10)"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span className="hidden sm:inline">Add</span>
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => removeMediaAt(activePreviewIndex)}
+                      className="p-1.5 rounded-full bg-black/65 hover:bg-red-600/90 backdrop-blur-md text-white transition shadow-md border border-white/10"
+                      aria-label="Remove this photo"
+                      title="Remove this photo"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Chevron Navigation Arrows */}
+                {mediaFiles.length > 1 && (
+                  <>
+                    {activePreviewIndex > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setActivePreviewIndex(prev => Math.max(0, prev - 1))}
+                        className="absolute left-2.5 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/55 hover:bg-black/80 backdrop-blur-md text-white transition shadow-lg border border-white/10 active:scale-95"
+                        aria-label="Previous preview photo"
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                      </button>
+                    )}
+                    {activePreviewIndex < mediaFiles.length - 1 && (
+                      <button
+                        type="button"
+                        onClick={() => setActivePreviewIndex(prev => Math.min(mediaFiles.length - 1, prev + 1))}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/55 hover:bg-black/80 backdrop-blur-md text-white transition shadow-lg border border-white/10 active:scale-95"
+                        aria-label="Next preview photo"
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                    )}
+                  </>
+                )}
+
+                {/* Bottom Pagination Dots */}
+                {mediaFiles.length > 1 && (
+                  <div className="absolute bottom-2.5 left-0 right-0 flex justify-center items-center gap-1.5 pointer-events-none">
+                    <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/50 backdrop-blur-md border border-white/10">
+                      {mediaFiles.map((_, idx) => (
+                        <div
+                          key={idx}
+                          className={`rounded-full transition-all duration-200 ${
+                            idx === activePreviewIndex
+                              ? 'w-5 h-1.5 bg-emerald-400'
+                              : 'w-1.5 h-1.5 bg-white/50'
+                          }`}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
-              <button
-                type="button"
-                onClick={removeMedia}
-                className="absolute top-2 right-2 p-1.5 rounded-full bg-black/70 hover:bg-black text-white transition shadow-md"
-                aria-label="Remove image"
-              >
-                <X className="w-4 h-4" />
-              </button>
+
+              {/* Thumbnails strip (Instagram style) if more than 1 image */}
+              {mediaFiles.length > 1 && (
+                <div className="flex items-center gap-2 overflow-x-auto py-1 px-0.5 no-scrollbar">
+                  {mediaFiles.map((item, idx) => (
+                    <div
+                      key={item.id}
+                      onClick={() => setActivePreviewIndex(idx)}
+                      className={`relative w-14 h-14 rounded-lg overflow-hidden shrink-0 cursor-pointer border-2 transition ${
+                        idx === activePreviewIndex
+                          ? 'border-emerald-500 scale-105 shadow-sm'
+                          : 'border-transparent opacity-60 hover:opacity-100'
+                      }`}
+                    >
+                      <img src={item.previewUrl} alt="" className="w-full h-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeMediaAt(idx);
+                        }}
+                        className="absolute top-0.5 right-0.5 p-0.5 rounded-full bg-black/70 hover:bg-red-600 text-white transition"
+                        title="Delete photo"
+                      >
+                        <X className="w-2.5 h-2.5" />
+                      </button>
+                    </div>
+                  ))}
+
+                  {mediaFiles.length < 10 && (
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="w-14 h-14 rounded-lg border-2 border-dashed border-gray-300 dark:border-[#203728] hover:border-emerald-500 dark:hover:border-emerald-500 flex flex-col items-center justify-center text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition shrink-0 text-[10px] font-medium gap-0.5"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>Add</span>
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
@@ -573,7 +731,7 @@ export const CreatePostCard: React.FC<CreatePostCardProps> = ({ onPostCreated })
               size="sm"
               onClick={handleSubmit}
               isLoading={loading}
-              disabled={loading || (!content.trim() && !mediaFile && !(showPoll && pollQuestion.trim()))}
+              disabled={loading || (!content.trim() && mediaFiles.length === 0 && !(showPoll && pollQuestion.trim()))}
               className="px-5 py-2 font-semibold shadow-sm text-xs rounded-xl"
             >
               Post

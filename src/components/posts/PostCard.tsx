@@ -13,7 +13,8 @@ import { ShareModal } from './ShareModal';
 import { 
   Heart, MessageSquare, Share2, Bookmark, 
   MoreHorizontal, Flag, BarChart2, CheckCircle2,
-  Globe, Users, Trash2, Copy, EyeOff 
+  Globe, Users, Trash2, Copy, EyeOff,
+  ChevronLeft, ChevronRight, Layers, X
 } from 'lucide-react';
 
 interface PostCardProps {
@@ -42,6 +43,57 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onPostDeleted }) => {
   // Poll state
   const [pollData, setPollData] = useState(post.poll);
   const [voting, setVoting] = useState(false);
+
+  // Instagram-style media carousel normalization
+  const mediaList: string[] = (post.mediaUrls && post.mediaUrls.length > 0)
+    ? post.mediaUrls
+    : post.mediaUrl
+    ? [post.mediaUrl]
+    : [];
+
+  const [activeMediaIndex, setActiveMediaIndex] = useState(0);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const touchStartXRef = useRef<number | null>(null);
+  const touchEndXRef = useRef<number | null>(null);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartXRef.current = e.touches[0].clientX;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    touchEndXRef.current = e.touches[0].clientX;
+  };
+
+  const handleTouchEnd = () => {
+    if (touchStartXRef.current === null || touchEndXRef.current === null) return;
+    const diff = touchStartXRef.current - touchEndXRef.current;
+    const minSwipeDistance = 40;
+    if (diff > minSwipeDistance && activeMediaIndex < mediaList.length - 1) {
+      // Swiped left -> Go to next image
+      setActiveMediaIndex(prev => prev + 1);
+    } else if (diff < -minSwipeDistance && activeMediaIndex > 0) {
+      // Swiped right -> Go to previous image
+      setActiveMediaIndex(prev => prev - 1);
+    }
+    touchStartXRef.current = null;
+    touchEndXRef.current = null;
+  };
+
+  // Keyboard navigation for Lightbox
+  useEffect(() => {
+    if (!lightboxOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setLightboxOpen(false);
+      } else if (e.key === 'ArrowLeft' && mediaList.length > 1) {
+        setActiveMediaIndex(prev => Math.max(0, prev - 1));
+      } else if (e.key === 'ArrowRight' && mediaList.length > 1) {
+        setActiveMediaIndex(prev => Math.min(mediaList.length - 1, prev + 1));
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [lightboxOpen, mediaList.length]);
 
   // Synchronize component state whenever incoming post props update
   useEffect(() => {
@@ -451,14 +503,80 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onPostDeleted }) => {
         </div>
       )}
 
-      {/* Post Image / Media Preview */}
-      {post.mediaUrl && (
-        <div className="rounded-xl overflow-hidden mb-4 border border-gray-100 dark:border-[#1e3325] max-h-[480px] bg-black/5 dark:bg-black/20">
-          <img
-            src={post.mediaUrl}
-            alt="Post attachment"
-            className="w-full h-full object-cover"
-          />
+      {/* Post Image(s) / Instagram-Style Multi-Image Carousel */}
+      {mediaList.length > 0 && (
+        <div className="relative rounded-2xl overflow-hidden mb-4 border border-gray-100 dark:border-[#1e3325] bg-black/5 dark:bg-black/30 select-none group">
+          {/* Main Active Image Display */}
+          <div 
+            className="w-full relative flex items-center justify-center bg-black/5 dark:bg-black/40 overflow-hidden"
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+          >
+            <img
+              src={mediaList[activeMediaIndex]}
+              alt={`Post attachment ${activeMediaIndex + 1}`}
+              onClick={() => setLightboxOpen(true)}
+              className="w-full max-h-[520px] object-cover cursor-pointer transition-transform duration-200 hover:scale-[1.01]"
+              loading="lazy"
+            />
+          </div>
+
+          {/* Instagram-style Top-Right Counter Badge */}
+          {mediaList.length > 1 && (
+            <div className="absolute top-3 right-3 px-2.5 py-1 rounded-full bg-black/65 backdrop-blur-md text-white text-xs font-semibold flex items-center gap-1.5 shadow-md border border-white/10 pointer-events-none">
+              <Layers className="w-3.5 h-3.5 text-emerald-400" />
+              <span>{activeMediaIndex + 1}/{mediaList.length}</span>
+            </div>
+          )}
+
+          {/* Left Navigation Chevron Button */}
+          {mediaList.length > 1 && activeMediaIndex > 0 && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setActiveMediaIndex(prev => Math.max(0, prev - 1));
+              }}
+              className="absolute left-2.5 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/60 hover:bg-black/85 backdrop-blur-md text-white transition-all shadow-lg border border-white/10 active:scale-95 opacity-90 sm:opacity-0 sm:group-hover:opacity-100"
+              aria-label="Previous image"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+          )}
+
+          {/* Right Navigation Chevron Button */}
+          {mediaList.length > 1 && activeMediaIndex < mediaList.length - 1 && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setActiveMediaIndex(prev => Math.min(mediaList.length - 1, prev + 1));
+              }}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/60 hover:bg-black/85 backdrop-blur-md text-white transition-all shadow-lg border border-white/10 active:scale-95 opacity-90 sm:opacity-0 sm:group-hover:opacity-100"
+              aria-label="Next image"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          )}
+
+          {/* Bottom Pagination Dots */}
+          {mediaList.length > 1 && (
+            <div className="absolute bottom-3 left-0 right-0 flex justify-center items-center gap-1.5 pointer-events-none">
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/45 backdrop-blur-md border border-white/10">
+                {mediaList.map((_, idx) => (
+                  <div
+                    key={idx}
+                    className={`rounded-full transition-all duration-200 ${
+                      idx === activeMediaIndex
+                        ? 'w-5 h-1.5 bg-emerald-400 shadow-sm'
+                        : 'w-1.5 h-1.5 bg-white/50'
+                    }`}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -591,6 +709,99 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onPostDeleted }) => {
           </div>
         </div>
       </Modal>
+
+      {/* Full-Screen Image Lightbox Modal */}
+      {lightboxOpen && mediaList.length > 0 && (
+        <div 
+          className="fixed inset-0 z-50 bg-black/95 backdrop-blur-md flex flex-col items-center justify-between p-3 sm:p-6 animate-in fade-in duration-200"
+          onClick={() => setLightboxOpen(false)}
+        >
+          {/* Top Bar with Author Info, Photo Counter & Close Button */}
+          <div 
+            className="w-full max-w-5xl flex items-center justify-between pb-3 text-white shrink-0"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-3">
+              <Avatar src={post.authorAvatar} name={post.authorName} size="sm" />
+              <div className="text-left">
+                <p className="text-sm font-bold leading-none text-white">{post.authorName}</p>
+                {mediaList.length > 1 ? (
+                  <p className="text-xs text-emerald-400 mt-1 font-semibold">
+                    Photo {activeMediaIndex + 1} of {mediaList.length}
+                  </p>
+                ) : (
+                  <p className="text-xs text-gray-400 mt-1">{post.authorDept || 'Campus Post'}</p>
+                )}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setLightboxOpen(false)}
+              className="p-2 rounded-full bg-white/15 hover:bg-white/25 text-white transition active:scale-95 border border-white/10"
+              aria-label="Close full view"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* Lightbox Main Image & Navigation Chevrons */}
+          <div 
+            className="relative flex-1 w-full max-w-5xl flex items-center justify-center overflow-hidden my-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <img
+              src={mediaList[activeMediaIndex]}
+              alt={`Full size attachment ${activeMediaIndex + 1}`}
+              className="max-h-[75vh] max-w-full object-contain rounded-xl shadow-2xl select-none"
+            />
+
+            {mediaList.length > 1 && activeMediaIndex > 0 && (
+              <button
+                type="button"
+                onClick={() => setActiveMediaIndex(prev => Math.max(0, prev - 1))}
+                className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-black/70 hover:bg-black/90 text-white transition shadow-lg border border-white/15 active:scale-95"
+                aria-label="Previous photo"
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </button>
+            )}
+
+            {mediaList.length > 1 && activeMediaIndex < mediaList.length - 1 && (
+              <button
+                type="button"
+                onClick={() => setActiveMediaIndex(prev => Math.min(mediaList.length - 1, prev + 1))}
+                className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-black/70 hover:bg-black/90 text-white transition shadow-lg border border-white/15 active:scale-95"
+                aria-label="Next photo"
+              >
+                <ChevronRight className="w-5 h-5" />
+              </button>
+            )}
+          </div>
+
+          {/* Lightbox Thumbnails Strip (if > 1 image) */}
+          {mediaList.length > 1 && (
+            <div 
+              className="w-full max-w-2xl flex items-center justify-center gap-2 pt-3 shrink-0 overflow-x-auto no-scrollbar"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {mediaList.map((url, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => setActiveMediaIndex(idx)}
+                  className={`w-12 h-12 rounded-lg overflow-hidden shrink-0 border-2 transition ${
+                    idx === activeMediaIndex
+                      ? 'border-emerald-500 scale-105 shadow-md ring-2 ring-emerald-400/40'
+                      : 'border-transparent opacity-50 hover:opacity-100'
+                  }`}
+                >
+                  <img src={url} alt="" className="w-full h-full object-cover" />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };

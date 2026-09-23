@@ -59,6 +59,7 @@ create table if not exists public.posts (
   "authorDept" text,
   content text not null,
   "mediaUrl" text,
+  "mediaUrls" text[] default '{}',
   "mediaType" text,
   feeling text,
   poll jsonb,
@@ -70,6 +71,9 @@ create table if not exists public.posts (
   "savedBy" text[] default '{}',
   "createdAt" timestamptz default now()
 );
+
+-- Ensure mediaUrls column exists for multi-image carousel posts
+alter table public.posts add column if not exists "mediaUrls" text[] default '{}';
 
 -- 4. Comments Table
 create table if not exists public.comments (
