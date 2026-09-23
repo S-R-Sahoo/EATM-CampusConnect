@@ -506,34 +506,41 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onPostDeleted }) => {
         </div>
       )}
 
-      {/* Post Image(s) / Instagram-Style Multi-Image Carousel */}
+      {/* Post Image(s) / Instagram-Style Clean Smooth Carousel */}
       {mediaList.length > 0 && (
-        <div className="relative rounded-2xl overflow-hidden mb-4 border border-gray-100 dark:border-[#1e3325] bg-black/5 dark:bg-black/30 select-none group">
-          {/* Main Active Image Display */}
+        <div className="relative rounded-2xl overflow-hidden mb-3.5 border border-gray-100 dark:border-[#1e3325] bg-neutral-900 select-none group">
+          {/* Smooth Horizontal Sliding Carousel Track */}
           <div 
-            className="w-full relative flex items-center justify-center bg-black/5 dark:bg-black/40 overflow-hidden"
+            className="flex w-full transition-transform duration-300 ease-out will-change-transform"
+            style={{ transform: `translateX(-${activeMediaIndex * 100}%)` }}
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
           >
-            <img
-              src={mediaList[activeMediaIndex]}
-              alt={`Post attachment ${activeMediaIndex + 1}`}
-              onClick={() => setLightboxOpen(true)}
-              className="w-full max-h-[520px] object-cover cursor-pointer transition-transform duration-200 hover:scale-[1.01]"
-              loading="lazy"
-            />
+            {mediaList.map((url, idx) => (
+              <div 
+                key={idx} 
+                className="w-full shrink-0 relative aspect-square sm:aspect-[4/3] max-h-[500px] flex items-center justify-center overflow-hidden bg-neutral-900"
+              >
+                <img
+                  src={url}
+                  alt={`Post photo ${idx + 1}`}
+                  onClick={() => setLightboxOpen(true)}
+                  className="w-full h-full object-cover cursor-pointer select-none"
+                  loading={idx === 0 ? "eager" : "lazy"}
+                />
+              </div>
+            ))}
           </div>
 
-          {/* Instagram-style Top-Right Counter Badge */}
+          {/* Instagram-style Top-Right Counter Badge (Minimalist) */}
           {mediaList.length > 1 && (
-            <div className="absolute top-3 right-3 px-2.5 py-1 rounded-full bg-black/65 backdrop-blur-md text-white text-xs font-semibold flex items-center gap-1.5 shadow-md border border-white/10 pointer-events-none">
-              <Layers className="w-3.5 h-3.5 text-emerald-400" />
-              <span>{activeMediaIndex + 1}/{mediaList.length}</span>
+            <div className="absolute top-2.5 right-2.5 px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-md text-white text-[11px] font-medium tracking-wide shadow-sm pointer-events-none z-10">
+              {activeMediaIndex + 1}/{mediaList.length}
             </div>
           )}
 
-          {/* Left Navigation Chevron Button */}
+          {/* Left Navigation Chevron Button (Iconic Instagram White Circle) */}
           {mediaList.length > 1 && activeMediaIndex > 0 && (
             <button
               type="button"
@@ -541,14 +548,14 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onPostDeleted }) => {
                 e.stopPropagation();
                 setActiveMediaIndex(prev => Math.max(0, prev - 1));
               }}
-              className="absolute left-2.5 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/60 hover:bg-black/85 backdrop-blur-md text-white transition-all shadow-lg border border-white/10 active:scale-95 opacity-90 sm:opacity-0 sm:group-hover:opacity-100"
+              className="absolute left-2.5 top-1/2 -translate-y-1/2 w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white/90 hover:bg-white text-gray-800 shadow-md flex items-center justify-center transition-all active:scale-90 hover:scale-105 opacity-90 sm:opacity-0 sm:group-hover:opacity-100 z-10"
               aria-label="Previous image"
             >
-              <ChevronLeft className="w-4 h-4" />
+              <ChevronLeft className="w-4 h-4 stroke-[2.5]" />
             </button>
           )}
 
-          {/* Right Navigation Chevron Button */}
+          {/* Right Navigation Chevron Button (Iconic Instagram White Circle) */}
           {mediaList.length > 1 && activeMediaIndex < mediaList.length - 1 && (
             <button
               type="button"
@@ -556,28 +563,26 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onPostDeleted }) => {
                 e.stopPropagation();
                 setActiveMediaIndex(prev => Math.min(mediaList.length - 1, prev + 1));
               }}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/60 hover:bg-black/85 backdrop-blur-md text-white transition-all shadow-lg border border-white/10 active:scale-95 opacity-90 sm:opacity-0 sm:group-hover:opacity-100"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white/90 hover:bg-white text-gray-800 shadow-md flex items-center justify-center transition-all active:scale-90 hover:scale-105 opacity-90 sm:opacity-0 sm:group-hover:opacity-100 z-10"
               aria-label="Next image"
             >
-              <ChevronRight className="w-4 h-4" />
+              <ChevronRight className="w-4 h-4 stroke-[2.5]" />
             </button>
           )}
 
-          {/* Bottom Pagination Dots */}
+          {/* Instagram-style Delicate Floating Bottom Pagination Dots */}
           {mediaList.length > 1 && (
-            <div className="absolute bottom-3 left-0 right-0 flex justify-center items-center gap-1.5 pointer-events-none">
-              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/45 backdrop-blur-md border border-white/10">
-                {mediaList.map((_, idx) => (
-                  <div
-                    key={idx}
-                    className={`rounded-full transition-all duration-200 ${
-                      idx === activeMediaIndex
-                        ? 'w-5 h-1.5 bg-emerald-400 shadow-sm'
-                        : 'w-1.5 h-1.5 bg-white/50'
-                    }`}
-                  />
-                ))}
-              </div>
+            <div className="absolute bottom-2.5 inset-x-0 flex justify-center items-center gap-1.5 pointer-events-none z-10">
+              {mediaList.map((_, idx) => (
+                <span
+                  key={idx}
+                  className={`rounded-full transition-all duration-300 ${
+                    idx === activeMediaIndex
+                      ? 'w-1.5 h-1.5 bg-[#0095f6] dark:bg-emerald-400 scale-125 shadow-sm'
+                      : 'w-1.5 h-1.5 bg-white/60 drop-shadow-xs'
+                  }`}
+                />
+              ))}
             </div>
           )}
         </div>
@@ -751,21 +756,34 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onPostDeleted }) => {
           <div 
             className="relative flex-1 w-full max-w-5xl flex items-center justify-center overflow-hidden my-auto"
             onClick={(e) => e.stopPropagation()}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
           >
-            <img
-              src={mediaList[activeMediaIndex]}
-              alt={`Full size attachment ${activeMediaIndex + 1}`}
-              className="max-h-[75vh] max-w-full object-contain rounded-xl shadow-2xl select-none"
-            />
+            {/* Smooth Slide Track */}
+            <div 
+              className="flex w-full h-full items-center transition-transform duration-300 ease-out will-change-transform"
+              style={{ transform: `translateX(-${activeMediaIndex * 100}%)` }}
+            >
+              {mediaList.map((url, idx) => (
+                <div key={idx} className="w-full shrink-0 h-full flex items-center justify-center p-2">
+                  <img
+                    src={url}
+                    alt={`Full size attachment ${idx + 1}`}
+                    className="max-h-[75vh] max-w-full object-contain rounded-xl shadow-2xl select-none"
+                  />
+                </div>
+              ))}
+            </div>
 
             {mediaList.length > 1 && activeMediaIndex > 0 && (
               <button
                 type="button"
                 onClick={() => setActiveMediaIndex(prev => Math.max(0, prev - 1))}
-                className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-black/70 hover:bg-black/90 text-white transition shadow-lg border border-white/15 active:scale-95"
+                className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white/90 hover:bg-white text-gray-800 shadow-xl flex items-center justify-center transition-all active:scale-90 hover:scale-105 z-10"
                 aria-label="Previous photo"
               >
-                <ChevronLeft className="w-5 h-5" />
+                <ChevronLeft className="w-5 h-5 stroke-[2.5]" />
               </button>
             )}
 
@@ -773,10 +791,10 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onPostDeleted }) => {
               <button
                 type="button"
                 onClick={() => setActiveMediaIndex(prev => Math.min(mediaList.length - 1, prev + 1))}
-                className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-black/70 hover:bg-black/90 text-white transition shadow-lg border border-white/15 active:scale-95"
+                className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white/90 hover:bg-white text-gray-800 shadow-xl flex items-center justify-center transition-all active:scale-90 hover:scale-105 z-10"
                 aria-label="Next photo"
               >
-                <ChevronRight className="w-5 h-5" />
+                <ChevronRight className="w-5 h-5 stroke-[2.5]" />
               </button>
             )}
           </div>

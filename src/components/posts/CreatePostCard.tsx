@@ -425,51 +425,52 @@ export const CreatePostCard: React.FC<CreatePostCardProps> = ({ onPostCreated })
           {/* Multi-Image Carousel Preview Box */}
           {mediaFiles.length > 0 && (
             <div className="space-y-2 mb-2">
-              <div className="relative rounded-2xl overflow-hidden border border-gray-200/90 dark:border-[#1e3325] bg-gray-900 aspect-[16/10] max-h-80 flex items-center justify-center select-none group">
-                <img
-                  src={mediaFiles[activePreviewIndex]?.previewUrl}
-                  alt={`Preview ${activePreviewIndex + 1}`}
-                  className="w-full h-full object-contain bg-black/40"
-                />
-
-                {/* Top Overlay Bar */}
-                <div className="absolute top-2.5 inset-x-2.5 flex items-center justify-between pointer-events-none">
-                  {/* Instagram-style counter pill */}
-                  {mediaFiles.length > 1 ? (
-                    <div className="px-2.5 py-1 rounded-full bg-black/65 backdrop-blur-md text-white text-[11px] font-semibold flex items-center gap-1.5 shadow-md border border-white/10">
-                      <Layers className="w-3.5 h-3.5 text-emerald-400" />
-                      <span>{activePreviewIndex + 1} / {mediaFiles.length}</span>
+              <div className="relative rounded-2xl overflow-hidden border border-gray-100 dark:border-[#1e3325] bg-neutral-900 select-none group aspect-[4/3] sm:aspect-[16/10] max-h-72">
+                {/* Smooth Carousel Track */}
+                <div 
+                  className="flex h-full w-full transition-transform duration-300 ease-out will-change-transform"
+                  style={{ transform: `translateX(-${activePreviewIndex * 100}%)` }}
+                >
+                  {mediaFiles.map((item, idx) => (
+                    <div key={item.id} className="w-full shrink-0 h-full relative flex items-center justify-center bg-neutral-900">
+                      <img
+                        src={item.previewUrl}
+                        alt={`Preview ${idx + 1}`}
+                        className="w-full h-full object-cover"
+                      />
                     </div>
-                  ) : (
-                    <div className="px-2.5 py-1 rounded-full bg-black/65 backdrop-blur-md text-white text-[11px] font-medium flex items-center gap-1.5 shadow-md border border-white/10">
-                      <ImageIcon className="w-3.5 h-3.5 text-emerald-400" />
-                      <span>1 photo</span>
-                    </div>
-                  )}
+                  ))}
+                </div>
 
-                  {/* Actions: Add more + Delete */}
-                  <div className="flex items-center gap-1.5 pointer-events-auto">
-                    {mediaFiles.length < 10 && (
-                      <button
-                        type="button"
-                        onClick={() => fileInputRef.current?.click()}
-                        className="px-2.5 py-1 rounded-full bg-black/65 hover:bg-black/85 backdrop-blur-md text-white text-[11px] font-semibold flex items-center gap-1 transition shadow-md border border-white/10"
-                        title="Add more photos (up to 10)"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                        <span>Add photos</span>
-                      </button>
-                    )}
+                {/* Top Badge: Minimal Instagram-style counter */}
+                {mediaFiles.length > 1 && (
+                  <div className="absolute top-2.5 left-2.5 px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-md text-white text-[11px] font-medium tracking-wide shadow-sm pointer-events-none z-10">
+                    {activePreviewIndex + 1}/{mediaFiles.length}
+                  </div>
+                )}
+
+                {/* Top-Right Action Controls */}
+                <div className="absolute top-2.5 right-2.5 flex items-center gap-1.5 z-10">
+                  {mediaFiles.length < 10 && (
                     <button
                       type="button"
-                      onClick={() => removeMediaAt(activePreviewIndex)}
-                      className="p-1.5 rounded-full bg-black/65 hover:bg-red-600/90 backdrop-blur-md text-white transition shadow-md border border-white/10"
-                      aria-label="Remove this photo"
-                      title="Remove this photo"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="px-2.5 py-1 rounded-full bg-black/60 hover:bg-black/80 backdrop-blur-md text-white text-[11px] font-medium flex items-center gap-1 transition shadow-sm active:scale-95"
+                      title="Add more photos"
                     >
-                      <X className="w-3.5 h-3.5" />
+                      <Plus className="w-3 h-3 stroke-[2.5]" />
+                      <span>Add</span>
                     </button>
-                  </div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => removeMediaAt(activePreviewIndex)}
+                    className="w-6 h-6 rounded-full bg-black/60 hover:bg-red-600/90 backdrop-blur-md text-white transition flex items-center justify-center shadow-sm active:scale-95"
+                    aria-label="Remove this photo"
+                    title="Remove this photo"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
                 </div>
 
                 {/* Chevron Navigation Arrows */}
@@ -479,85 +480,81 @@ export const CreatePostCard: React.FC<CreatePostCardProps> = ({ onPostCreated })
                       <button
                         type="button"
                         onClick={() => setActivePreviewIndex(prev => Math.max(0, prev - 1))}
-                        className="absolute left-2.5 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/55 hover:bg-black/80 backdrop-blur-md text-white transition shadow-lg border border-white/10 active:scale-95"
+                        className="absolute left-2.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-white/90 hover:bg-white text-gray-800 shadow-md flex items-center justify-center transition-all active:scale-90 hover:scale-105 z-10"
                         aria-label="Previous preview photo"
                       >
-                        <ChevronLeft className="w-4 h-4" />
+                        <ChevronLeft className="w-4 h-4 stroke-[2.5]" />
                       </button>
                     )}
                     {activePreviewIndex < mediaFiles.length - 1 && (
                       <button
                         type="button"
                         onClick={() => setActivePreviewIndex(prev => Math.min(mediaFiles.length - 1, prev + 1))}
-                        className="absolute right-2.5 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/55 hover:bg-black/80 backdrop-blur-md text-white transition shadow-lg border border-white/10 active:scale-95"
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-white/90 hover:bg-white text-gray-800 shadow-md flex items-center justify-center transition-all active:scale-90 hover:scale-105 z-10"
                         aria-label="Next preview photo"
                       >
-                        <ChevronRight className="w-4 h-4" />
+                        <ChevronRight className="w-4 h-4 stroke-[2.5]" />
                       </button>
                     )}
                   </>
                 )}
 
-                {/* Bottom Pagination Dots */}
+                {/* Floating Bottom Pagination Dots */}
                 {mediaFiles.length > 1 && (
-                  <div className="absolute bottom-2.5 left-0 right-0 flex justify-center items-center gap-1.5 pointer-events-none">
-                    <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/50 backdrop-blur-md border border-white/10">
-                      {mediaFiles.map((_, idx) => (
-                        <div
-                          key={idx}
-                          className={`rounded-full transition-all duration-200 ${
-                            idx === activePreviewIndex
-                              ? 'w-5 h-1.5 bg-emerald-400'
-                              : 'w-1.5 h-1.5 bg-white/50'
-                          }`}
-                        />
-                      ))}
-                    </div>
+                  <div className="absolute bottom-2.5 inset-x-0 flex justify-center items-center gap-1.5 pointer-events-none z-10">
+                    {mediaFiles.map((_, idx) => (
+                      <span
+                        key={idx}
+                        className={`rounded-full transition-all duration-300 ${
+                          idx === activePreviewIndex
+                            ? 'w-1.5 h-1.5 bg-[#0095f6] dark:bg-emerald-400 scale-125 shadow-sm'
+                            : 'w-1.5 h-1.5 bg-white/60 drop-shadow-xs'
+                        }`}
+                      />
+                    ))}
                   </div>
                 )}
               </div>
 
-              {/* Thumbnails strip (Instagram style) showing all staged photos and + Add slot */}
-              {mediaFiles.length > 0 && (
-                <div className="flex items-center gap-2 overflow-x-auto py-1 px-0.5 no-scrollbar">
-                  {mediaFiles.map((item, idx) => (
-                    <div
-                      key={item.id}
-                      onClick={() => setActivePreviewIndex(idx)}
-                      className={`relative w-14 h-14 rounded-lg overflow-hidden shrink-0 cursor-pointer border-2 transition ${
-                        idx === activePreviewIndex
-                          ? 'border-emerald-500 scale-105 shadow-sm'
-                          : 'border-transparent opacity-60 hover:opacity-100'
-                      }`}
-                    >
-                      <img src={item.previewUrl} alt="" className="w-full h-full object-cover" />
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          removeMediaAt(idx);
-                        }}
-                        className="absolute top-0.5 right-0.5 p-0.5 rounded-full bg-black/70 hover:bg-red-600 text-white transition"
-                        title="Delete photo"
-                      >
-                        <X className="w-2.5 h-2.5" />
-                      </button>
-                    </div>
-                  ))}
-
-                  {mediaFiles.length < 10 && (
+              {/* Thumbnails Strip: Sleek, compact and modern */}
+              <div className="flex items-center gap-1.5 overflow-x-auto py-0.5 px-0.5 no-scrollbar">
+                {mediaFiles.map((item, idx) => (
+                  <div
+                    key={item.id}
+                    onClick={() => setActivePreviewIndex(idx)}
+                    className={`relative w-11 h-11 rounded-xl overflow-hidden shrink-0 cursor-pointer transition-all ${
+                      idx === activePreviewIndex
+                        ? 'ring-2 ring-emerald-500 scale-105 shadow-sm'
+                        : 'opacity-60 hover:opacity-100'
+                    }`}
+                  >
+                    <img src={item.previewUrl} alt="" className="w-full h-full object-cover" />
                     <button
                       type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="w-14 h-14 rounded-lg border-2 border-dashed border-gray-300 dark:border-[#203728] hover:border-emerald-500 dark:hover:border-emerald-500 flex flex-col items-center justify-center text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition shrink-0 text-[10px] font-medium gap-0.5"
-                      title="Add another photo"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        removeMediaAt(idx);
+                      }}
+                      className="absolute top-0.5 right-0.5 w-3.5 h-3.5 rounded-full bg-black/75 hover:bg-red-600 text-white flex items-center justify-center transition"
+                      title="Delete photo"
                     >
-                      <Plus className="w-4 h-4" />
-                      <span>Add</span>
+                      <X className="w-2 h-2" />
                     </button>
-                  )}
-                </div>
-              )}
+                  </div>
+                ))}
+
+                {mediaFiles.length < 10 && (
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="w-11 h-11 rounded-xl border border-dashed border-gray-300 dark:border-[#203728] hover:border-emerald-500 dark:hover:border-emerald-500 flex flex-col items-center justify-center text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 bg-gray-50/50 dark:bg-[#132218] transition shrink-0 gap-0.5"
+                    title="Add another photo"
+                  >
+                    <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+                    <span className="text-[9px] font-medium leading-none">Add</span>
+                  </button>
+                )}
+              </div>
             </div>
           )}
 
