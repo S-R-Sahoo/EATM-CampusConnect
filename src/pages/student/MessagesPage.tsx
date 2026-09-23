@@ -5,7 +5,7 @@ import { useNotifications } from '../../contexts/NotificationContext';
 import { 
   fetchConversations, fetchMessages, sendChatMessage, fetchUsers, 
   subscribeToMessages, getOrCreateConversation, fetchConnections,
-  deleteMessageForEveryone, deleteMessageForMe
+  deleteMessageForEveryone, deleteMessageForMe, markConversationMessagesAsRead
 } from '../../supabase/db';
 import { SEED_CONVERSATIONS } from '../../supabase/seedData';
 import { uploadFile } from '../../supabase/storage';
@@ -110,6 +110,21 @@ export const MessagesPage: React.FC = () => {
     return [];
   };
 
+  const getUnreadCountForConversation = (convId: string, userId: string, conv?: Conversation): number => {
+    let count = 0;
+    try {
+      const raw = localStorage.getItem('eatm_campus_messages');
+      if (raw) {
+        const msgs: Message[] = JSON.parse(raw);
+        count = msgs.filter(m => m.conversationId === convId && m.senderId !== userId && !m.read && !m.isDeleted).length;
+      }
+    } catch {}
+    if (count === 0 && conv?.unreadCount && typeof conv.unreadCount[userId] === 'number') {
+      count = conv.unreadCount[userId];
+    }
+    return count;
+  };
+
   useEffect(() => {
     markMessageNotificationsAsRead();
   }, [markMessageNotificationsAsRead]);
@@ -119,10 +134,12 @@ export const MessagesPage: React.FC = () => {
       const raw = localStorage.getItem('eatm_campus_conversations');
       if (raw) {
         const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.filter((c: Conversation) => !user?.id || (c.participants && c.participants.includes(user.id)));
+        }
       }
     } catch {}
-    return SEED_CONVERSATIONS;
+    return SEED_CONVERSATIONS.filter((c: Conversation) => !user?.id || (c.participants && c.participants.includes(user.id)));
   });
 
   const [activeConvId, setActiveConvId] = useState<string>(() => {
@@ -139,15 +156,31 @@ export const MessagesPage: React.FC = () => {
 
   const selectConversation = useCallback((convId: string) => {
     setActiveConvId(convId);
+    if (user?.id) {
+      markConversationMessagesAsRead(convId, user.id);
+      // Synchronously clear unread count for this conversation in state
+      setConversations(prev =>
+        prev.map(c => {
+          if (c.id === convId && c.unreadCount) {
+            return {
+              ...c,
+              unreadCount: { ...c.unreadCount, [user.id]: 0 }
+            };
+          }
+          return c;
+        })
+      );
+    }
     const cached = getCachedMessages(convId);
     if (cached.length > 0) {
-      setMessages(dedupeMessageList(cached));
+      const dedupedCached = dedupeMessageList(cached);
+      setMessages(prev => (areMessageListsEqual(prev, dedupedCached) ? prev : dedupedCached));
       setTimeout(() => {
         if (messagesScrollRef.current) messagesScrollRef.current.scrollTop = messagesScrollRef.current.scrollHeight;
       }, 10);
     }
     markMessageNotificationsAsRead();
-  }, [markMessageNotificationsAsRead]);
+  }, [markMessageNotificationsAsRead, user?.id]);
 
   const [inChatSearchQuery, setInChatSearchQuery] = useState('');
   const [isSearchingInChat, setIsSearchingInChat] = useState(false);
@@ -289,24 +322,27 @@ export const MessagesPage: React.FC = () => {
         if (!isMounted) return;
 
         let isFirstTimeConnection = false;
-        // If no active conversations, check if there are accepted friends to auto-link
-        if (convs.length === 0) {
-          try {
-            const conns = await fetchConnections(user.id);
-            const acceptedConn = conns.find(c => c.status === 'accepted');
-            if (acceptedConn) {
-              const friendId = acceptedConn.requesterId === user.id ? acceptedConn.recipientId : acceptedConn.requesterId;
+        // Auto-link all accepted friends into conversation list so peer list is consistent
+        try {
+          const conns = await fetchConnections(user.id);
+          const acceptedConns = conns.filter(c => c.status === 'accepted');
+          for (const conn of acceptedConns) {
+            const friendId = conn.requesterId === user.id ? conn.recipientId : conn.requesterId;
+            const existing = convs.find(c => !c.isGroup && c.participants && c.participants.includes(friendId));
+            if (!existing) {
               const directConv = await getOrCreateConversation(user.id, friendId);
-              convs = [directConv];
-              const firstConnKey = `eatm_first_conn_opened_${user.id}`;
-              if (!localStorage.getItem(firstConnKey)) {
-                isFirstTimeConnection = true;
-                localStorage.setItem(firstConnKey, 'true');
-              }
+              convs.push(directConv);
             }
-          } catch (linkErr) {
-            console.warn('Auto-link friend error:', linkErr);
           }
+          if (acceptedConns.length > 0) {
+            const firstConnKey = `eatm_first_conn_opened_${user.id}`;
+            if (!localStorage.getItem(firstConnKey)) {
+              isFirstTimeConnection = true;
+              localStorage.setItem(firstConnKey, 'true');
+            }
+          }
+        } catch (linkErr) {
+          console.warn('Auto-link friends error:', linkErr);
         }
 
         if (isMounted) setConversations(convs);
@@ -336,13 +372,17 @@ export const MessagesPage: React.FC = () => {
 
     initConvs();
 
-    // Background interval to keep conversation list updated with latest messages/connections
+    // Background interval to keep conversation list updated with latest messages/connections without shrinking
     const convsInterval = setInterval(async () => {
       if (!isMounted || !user) return;
       try {
         const fresh = await fetchConversations(user.id);
         if (isMounted && fresh.length > 0) {
-          setConversations(fresh);
+          setConversations(prev => {
+            const freshIds = new Set(fresh.map(c => c.id));
+            const retained = prev.filter(c => !freshIds.has(c.id));
+            return [...fresh, ...retained];
+          });
         }
       } catch (_) {}
     }, 8000);
@@ -1250,6 +1290,7 @@ export const MessagesPage: React.FC = () => {
               const isSentByMe = conv.lastMessage?.senderId === user?.id;
               const isOtherOnline = !conv.isGroup && otherId ? isUserOnline(otherId) : false;
               const isThisConvTyping = conv.id === activeConvId && isOtherTyping;
+              const unreadCount = !isActive && user?.id ? getUnreadCountForConversation(conv.id, user.id, conv) : 0;
 
               return (
                 <div
@@ -1272,28 +1313,45 @@ export const MessagesPage: React.FC = () => {
                       <h4 className={`text-xs sm:text-sm font-bold truncate ${
                         isActive 
                           ? 'text-[#0b4627] dark:text-emerald-300' 
-                          : 'text-gray-900 dark:text-gray-100'
+                          : unreadCount > 0 
+                            ? 'text-gray-950 dark:text-white font-extrabold'
+                            : 'text-gray-900 dark:text-gray-100'
                       }`}>
                         {title}
                       </h4>
-                      <span className="text-[10px] text-gray-400 dark:text-gray-500 shrink-0 ml-1 font-mono">
+                      <span className={`text-[10px] shrink-0 ml-1 font-mono ${
+                        unreadCount > 0 
+                          ? 'text-[#25d366] dark:text-emerald-400 font-bold' 
+                          : 'text-gray-400 dark:text-gray-500'
+                      }`}>
                         {conv.lastMessage?.timestamp || '12:00'}
                       </span>
                     </div>
-                    <div className="flex items-center gap-1">
-                      {isThisConvTyping ? (
-                        <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium italic animate-pulse">
-                          typing...
-                        </p>
-                      ) : (
-                        <>
-                          {isSentByMe && (
-                            <CheckCheck className="w-3.5 h-3.5 text-[#0b4627] dark:text-emerald-400 shrink-0" />
-                          )}
-                          <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                            {conv.lastMessage?.text || 'Start chatting...'}
+                    <div className="flex items-center justify-between gap-1">
+                      <div className="flex items-center gap-1 min-w-0 flex-1">
+                        {isThisConvTyping ? (
+                          <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium italic animate-pulse">
+                            typing...
                           </p>
-                        </>
+                        ) : (
+                          <>
+                            {isSentByMe && (
+                              <CheckCheck className="w-3.5 h-3.5 text-[#0b4627] dark:text-emerald-400 shrink-0" />
+                            )}
+                            <p className={`text-xs truncate ${
+                              unreadCount > 0 
+                                ? 'text-gray-900 dark:text-gray-100 font-semibold' 
+                                : 'text-gray-500 dark:text-gray-400'
+                            }`}>
+                              {conv.lastMessage?.text || 'Start chatting...'}
+                            </p>
+                          </>
+                        )}
+                      </div>
+                      {unreadCount > 0 && (
+                        <span className="min-w-[19px] h-[19px] px-1.5 bg-[#25d366] text-white text-[10px] font-black rounded-full flex items-center justify-center shrink-0 shadow-xs">
+                          {unreadCount > 99 ? '99+' : unreadCount}
+                        </span>
                       )}
                     </div>
                   </div>
@@ -1305,11 +1363,11 @@ export const MessagesPage: React.FC = () => {
       </div>
 
       {/* Right Column: Active Conversation Stream & Media Input */}
-      <div className={`flex-1 flex flex-col bg-[#f8faf9] dark:bg-[#0a120d] ${!activeConvId ? 'hidden sm:flex' : 'flex'}`}>
+      <div className={`flex-1 flex flex-col bg-[#f8faf9] dark:bg-[#0a120d] ${!activeConvId ? 'hidden sm:flex' : 'fixed inset-0 z-50 sm:relative sm:inset-auto sm:z-auto flex h-[100dvh] sm:h-full w-full overflow-hidden'}`}>
         {activeConv ? (
           <>
             {/* WhatsApp Sticky Chat Window Header */}
-            <div className="sticky top-0 z-30 shrink-0 bg-white dark:bg-[#111d15] border-b border-gray-200/80 dark:border-[#1e3325] px-2 py-2 sm:px-4 sm:py-3 flex items-center justify-between shadow-xs pt-[max(0.5rem,env(safe-area-inset-top,0px))] transition-colors">
+            <div className="sticky top-0 z-40 shrink-0 bg-white dark:bg-[#111d15] border-b border-gray-200/80 dark:border-[#1e3325] px-2 py-2 sm:px-4 sm:py-3 flex items-center justify-between shadow-xs pt-[max(0.5rem,env(safe-area-inset-top,0px))] transition-colors">
               {isSearchingInChat ? (
                 <div className="flex items-center gap-2 w-full animate-in fade-in duration-150">
                   <button
@@ -1530,7 +1588,7 @@ export const MessagesPage: React.FC = () => {
             </div>
 
             {/* Messages Stream Area */}
-            <div ref={messagesScrollRef} className="flex-1 p-3.5 sm:p-6 overflow-y-auto space-y-3.5 overscroll-contain">
+            <div ref={messagesScrollRef} className="flex-1 min-h-0 p-3.5 sm:p-6 overflow-y-auto space-y-3.5 overscroll-contain">
               {/* Institutional Encrypted Network Badge */}
               <div className="text-center my-1">
                 <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-800 dark:text-emerald-300 bg-emerald-50/80 dark:bg-emerald-950/40 px-3.5 py-1 rounded-full border border-emerald-200/60 dark:border-emerald-800/40 shadow-xs">
@@ -1777,7 +1835,7 @@ export const MessagesPage: React.FC = () => {
             </div>
 
             {/* Bottom Message & Media Input Bar */}
-            <div className="p-2.5 sm:p-4 bg-white dark:bg-[#111d15] border-t border-gray-200/80 dark:border-[#1e3325] pb-[max(0.625rem,env(safe-area-inset-bottom,0px))] relative shrink-0">
+            <div className="sticky bottom-0 z-40 shrink-0 p-2.5 sm:p-4 bg-white dark:bg-[#111d15] border-t border-gray-200/80 dark:border-[#1e3325] pb-[max(0.625rem,env(safe-area-inset-bottom,0px))] relative">
               {/* Emoji Picker Drawer */}
               {showEmojiPicker && (
                 <div className="absolute bottom-full mb-2 left-4 bg-white dark:bg-[#111d15] rounded-2xl shadow-xl border border-gray-100 dark:border-[#1e3325] p-2 flex gap-1.5 z-30 animate-in fade-in zoom-in-95">

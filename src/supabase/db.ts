@@ -1071,6 +1071,42 @@ export async function fetchMessages(conversationId: string, currentUserId?: stri
   });
 }
 
+export async function markConversationMessagesAsRead(conversationId: string, userId: string): Promise<void> {
+  // 1. Mark local messages as read
+  const msgs = getLocalData<Message[]>('messages', SEED_MESSAGES);
+  let changedMsgs = false;
+  const updatedMsgs = msgs.map(m => {
+    if (m.conversationId === conversationId && m.senderId !== userId && !m.read) {
+      changedMsgs = true;
+      return { ...m, read: true };
+    }
+    return m;
+  });
+  if (changedMsgs) {
+    setLocalData('messages', updatedMsgs);
+  }
+
+  // 2. Reset unreadCount on conversation
+  const convs = getLocalData<Conversation[]>('conversations', SEED_CONVERSATIONS);
+  const conv = convs.find(c => c.id === conversationId);
+  if (conv) {
+    conv.unreadCount = conv.unreadCount || {};
+    conv.unreadCount[userId] = 0;
+    setLocalData('conversations', [...convs]);
+  }
+
+  // 3. Mark in Supabase in background
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      await supabase
+        .from('messages')
+        .update({ read: true })
+        .eq('conversationId', conversationId)
+        .neq('senderId', userId);
+    } catch (e) {}
+  }
+}
+
 export async function sendChatMessage(msg: Omit<Message, 'id' | 'createdAt' | 'read'>): Promise<Message> {
   const mediaType = detectChatMessageMediaType(msg.mediaUrl, msg.mediaType);
   const uniqueId = 'msg_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
@@ -1079,7 +1115,7 @@ export async function sendChatMessage(msg: Omit<Message, 'id' | 'createdAt' | 'r
     mediaType,
     id: uniqueId,
     createdAt: new Date().toISOString(),
-    read: true
+    read: false
   };
 
   const msgs = getLocalData<Message[]>('messages', SEED_MESSAGES);
@@ -1103,7 +1139,7 @@ export async function sendChatMessage(msg: Omit<Message, 'id' | 'createdAt' | 'r
     text: previewText,
     senderId: msg.senderId,
     timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    read: true
+    read: false
   };
 
   // If not found in local cache, query Supabase so participants are known
@@ -1117,6 +1153,12 @@ export async function sendChatMessage(msg: Omit<Message, 'id' | 'createdAt' | 'r
   if (conv) {
     conv.lastMessage = lastMessagePayload;
     conv.updatedAt = new Date().toISOString();
+    conv.unreadCount = conv.unreadCount || {};
+    conv.participants?.forEach(pId => {
+      if (pId !== msg.senderId) {
+        conv!.unreadCount[pId] = (conv!.unreadCount[pId] || 0) + 1;
+      }
+    });
     setLocalData('conversations', [...convs.filter(c => c.id !== conv!.id), conv]);
 
     if (conv.participants) {
