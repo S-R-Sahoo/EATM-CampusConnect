@@ -153,6 +153,34 @@ export const StudentProfile: React.FC = () => {
 
   const activeUser = isOwnProfile ? user : viewedUser;
 
+  const userProjects = React.useMemo(() => {
+    if (!activeUser?.projects) return [];
+    if (Array.isArray(activeUser.projects)) return activeUser.projects;
+    if (typeof activeUser.projects === 'string') {
+      try {
+        const parsed = JSON.parse(activeUser.projects);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  }, [activeUser?.projects]);
+
+  const userAchievements = React.useMemo(() => {
+    if (!activeUser?.achievements) return [];
+    if (Array.isArray(activeUser.achievements)) return activeUser.achievements;
+    if (typeof activeUser.achievements === 'string') {
+      try {
+        const parsed = JSON.parse(activeUser.achievements);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  }, [activeUser?.achievements]);
+
   const loadUserPosts = async (targetUserId?: string) => {
     const idToFetch = targetUserId || (isOwnProfile ? user?.id : id);
     if (!idToFetch) return;
@@ -386,7 +414,7 @@ export const StudentProfile: React.FC = () => {
   };
 
   const openEditProjectModal = (idx: number) => {
-    const proj = activeUser?.projects?.[idx];
+    const proj = userProjects[idx];
     if (!proj) return;
     setEditingProjectIdx(idx);
     setProjectForm({
@@ -412,7 +440,7 @@ export const StudentProfile: React.FC = () => {
 
     setSavingProject(true);
     try {
-      const currentProjects = activeUser.projects ? [...activeUser.projects] : [];
+      const currentProjects = userProjects ? [...userProjects] : [];
       const techList = projectForm.technologies
         .split(',')
         .map(t => t.trim())
@@ -439,6 +467,9 @@ export const StudentProfile: React.FC = () => {
       }
 
       await updateUser({ projects: updatedProjects });
+      if (viewedUser) {
+        setViewedUser({ ...viewedUser, projects: updatedProjects });
+      }
       confetti({ particleCount: 40, spread: 60, origin: { y: 0.7 } });
       success(
         editingProjectIdx !== null
@@ -458,9 +489,12 @@ export const StudentProfile: React.FC = () => {
   const confirmDeleteProject = async (idx: number) => {
     if (!user || !activeUser) return;
     try {
-      const currentProjects = activeUser.projects ? [...activeUser.projects] : [];
+      const currentProjects = userProjects ? [...userProjects] : [];
       const updatedProjects = currentProjects.filter((_, i) => i !== idx);
       await updateUser({ projects: updatedProjects });
+      if (viewedUser) {
+        setViewedUser({ ...viewedUser, projects: updatedProjects });
+      }
       success('Project removed from portfolio.', 'Project Removed');
       setDeleteConfirm({ type: null, idx: null, title: '' });
     } catch (err) {
@@ -481,7 +515,7 @@ export const StudentProfile: React.FC = () => {
   };
 
   const openEditAchievementModal = (idx: number) => {
-    const ach = activeUser?.achievements?.[idx];
+    const ach = userAchievements[idx];
     if (!ach) return;
     setEditingAchievementIdx(idx);
     setAchievementForm({
@@ -506,7 +540,7 @@ export const StudentProfile: React.FC = () => {
 
     setSavingAchievement(true);
     try {
-      const currentAch = activeUser.achievements ? [...activeUser.achievements] : [];
+      const currentAch = userAchievements ? [...userAchievements] : [];
       const itemData = {
         title: achievementForm.title.trim(),
         description: achievementForm.description.trim(),
@@ -530,6 +564,9 @@ export const StudentProfile: React.FC = () => {
         achievements: updatedAch,
         stats: updatedStats
       });
+      if (viewedUser) {
+        setViewedUser({ ...viewedUser, achievements: updatedAch, stats: updatedStats });
+      }
       confetti({ particleCount: 50, spread: 70, origin: { y: 0.7 } });
       success(
         editingAchievementIdx !== null
@@ -549,7 +586,7 @@ export const StudentProfile: React.FC = () => {
   const confirmDeleteAchievement = async (idx: number) => {
     if (!user || !activeUser) return;
     try {
-      const currentAch = activeUser.achievements ? [...activeUser.achievements] : [];
+      const currentAch = userAchievements ? [...userAchievements] : [];
       const updatedAch = currentAch.filter((_, i) => i !== idx);
       const updatedStats = {
         ...(activeUser.stats || { connections: 0, posts: 0, clubs: 0, achievements: 0 }),
@@ -559,6 +596,9 @@ export const StudentProfile: React.FC = () => {
         achievements: updatedAch,
         stats: updatedStats
       });
+      if (viewedUser) {
+        setViewedUser({ ...viewedUser, achievements: updatedAch, stats: updatedStats });
+      }
       success('Honor removed from records.', 'Achievement Removed');
       setDeleteConfirm({ type: null, idx: null, title: '' });
     } catch (err) {
@@ -973,7 +1013,7 @@ export const StudentProfile: React.FC = () => {
                 <h3 className="font-bold text-base text-gray-900 dark:text-gray-100 flex items-center gap-2">
                   <span>Featured Projects & Portfolio</span>
                   <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-100/70 dark:bg-emerald-950/70 text-[#0b4627] dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-800/60">
-                    {activeUser.projects?.length || 0}
+                    {userProjects.length}
                   </span>
                 </h3>
               </div>
@@ -991,8 +1031,8 @@ export const StudentProfile: React.FC = () => {
             </div>
 
             <div className="space-y-3.5">
-              {activeUser.projects && activeUser.projects.length > 0 ? (
-                activeUser.projects.map((proj, idx) => (
+              {userProjects && userProjects.length > 0 ? (
+                userProjects.map((proj, idx) => (
                   <div
                     key={idx}
                     className="group relative p-4 rounded-xl border border-gray-100 dark:border-[#1e3325] bg-gray-50/60 dark:bg-[#16251c]/60 hover:border-emerald-300 dark:hover:border-emerald-700/60 transition duration-200"
@@ -1047,7 +1087,7 @@ export const StudentProfile: React.FC = () => {
                     </p>
 
                     <div className="flex flex-wrap gap-1.5 mt-3 pt-2.5 border-t border-gray-100 dark:border-[#1e3325]">
-                      {proj.technologies && proj.technologies.map((t, tIdx) => (
+                      {proj.technologies && proj.technologies.map((t: string, tIdx: number) => (
                         <span
                           key={tIdx}
                           className="inline-flex items-center gap-1.5 text-[10px] font-semibold px-2.5 py-0.5 bg-white dark:bg-[#111d15] rounded-md border border-gray-200/80 dark:border-[#1e3325] text-gray-700 dark:text-gray-300 shadow-2xs"
@@ -1097,7 +1137,7 @@ export const StudentProfile: React.FC = () => {
                 <h3 className="font-bold text-base text-gray-900 dark:text-gray-100 flex items-center gap-2">
                   <span>Campus Honors & Achievements</span>
                   <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-100/70 dark:bg-amber-950/70 text-amber-800 dark:text-amber-300 border border-amber-200/60 dark:border-amber-800/60">
-                    {activeUser.achievements?.length || 0}
+                    {userAchievements.length}
                   </span>
                 </h3>
               </div>
@@ -1115,8 +1155,8 @@ export const StudentProfile: React.FC = () => {
             </div>
 
             <div className="space-y-3">
-              {activeUser.achievements && activeUser.achievements.length > 0 ? (
-                activeUser.achievements.map((ach, idx) => (
+              {userAchievements && userAchievements.length > 0 ? (
+                userAchievements.map((ach, idx) => (
                   <div
                     key={idx}
                     className="group relative flex items-start gap-3.5 p-4 rounded-xl border border-amber-100/90 dark:border-[#1e3325] bg-gradient-to-r from-amber-50/40 via-white to-amber-50/20 dark:from-amber-950/20 dark:via-[#16251c]/40 dark:to-transparent hover:border-amber-300 dark:hover:border-amber-800/60 transition duration-200"
