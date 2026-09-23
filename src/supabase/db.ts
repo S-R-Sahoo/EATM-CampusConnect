@@ -37,6 +37,40 @@ function setLocalData<T>(key: string, data: T): void {
 // ---------------------------------------------
 // POSTS
 // ---------------------------------------------
+export function normalizePostMedia(post: { mediaUrl?: string; mediaUrls?: string[] } | null | undefined): { mediaUrl?: string; mediaUrls: string[] } {
+  if (!post) return { mediaUrl: undefined, mediaUrls: [] };
+  let urls: string[] = [];
+
+  // 1. If mediaUrls is an array of non-empty strings
+  if (Array.isArray(post.mediaUrls) && post.mediaUrls.length > 0) {
+    urls = post.mediaUrls.filter(u => typeof u === 'string' && u.trim().length > 0);
+  }
+
+  // 2. If no valid array in mediaUrls, inspect mediaUrl
+  if (urls.length === 0 && post.mediaUrl && typeof post.mediaUrl === 'string') {
+    const raw = post.mediaUrl.trim();
+    if (raw.includes('|||')) {
+      urls = raw.split('|||').map(u => u.trim()).filter(Boolean);
+    } else if (raw.startsWith('[') && raw.endsWith(']')) {
+      try {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          urls = parsed.filter(u => typeof u === 'string' && u.trim().length > 0);
+        }
+      } catch {
+        urls = [raw];
+      }
+    } else if (raw.length > 0) {
+      urls = [raw];
+    }
+  }
+
+  return {
+    mediaUrl: urls[0] || undefined,
+    mediaUrls: urls
+  };
+}
+
 export async function fetchPosts(): Promise<Post[]> {
   let list: Post[] = [];
   if (isSupabaseConfigured() && supabase) {
@@ -47,8 +81,16 @@ export async function fetchPosts(): Promise<Post[]> {
         .order('createdAt', { ascending: false });
 
       if (!error && data && data.length > 0) {
-        setLocalData('posts', data);
-        list = data as Post[];
+        const normalizedData = data.map(p => {
+          const { mediaUrl, mediaUrls } = normalizePostMedia(p);
+          return {
+            ...p,
+            mediaUrl,
+            mediaUrls
+          };
+        });
+        setLocalData('posts', normalizedData);
+        list = normalizedData as Post[];
       }
     } catch (err) {
       console.warn('Supabase fetchPosts error, using local fallback:', err);
@@ -69,14 +111,12 @@ export async function fetchPosts(): Promise<Post[]> {
       ? authorPhoto
       : (isCustomPhoto(p.authorAvatar) ? p.authorAvatar : undefined);
 
-    const rawMediaUrls = (p.mediaUrls && p.mediaUrls.length > 0)
-      ? p.mediaUrls
-      : (p.mediaUrl ? [p.mediaUrl] : []);
+    const { mediaUrl, mediaUrls } = normalizePostMedia(p);
 
     return {
       ...p,
-      mediaUrl: p.mediaUrl || rawMediaUrls[0],
-      mediaUrls: rawMediaUrls,
+      mediaUrl,
+      mediaUrls,
       authorAvatar: resolvedAvatar
     };
   });
@@ -111,14 +151,12 @@ export async function fetchPostById(postId: string): Promise<Post | null> {
       ? authorPhoto
       : (isCustomPhoto(post.authorAvatar) ? post.authorAvatar : undefined);
 
-    const rawMediaUrls = (post.mediaUrls && post.mediaUrls.length > 0)
-      ? post.mediaUrls
-      : (post.mediaUrl ? [post.mediaUrl] : []);
+    const { mediaUrl, mediaUrls } = normalizePostMedia(post);
 
     return {
       ...post,
-      mediaUrl: post.mediaUrl || rawMediaUrls[0],
-      mediaUrls: rawMediaUrls,
+      mediaUrl,
+      mediaUrls,
       authorAvatar: resolvedAvatar
     };
   }
@@ -134,14 +172,15 @@ export function getPostShareUrl(postId: string): string {
 }
 
 export async function createPost(postData: Omit<Post, 'id' | 'createdAt' | 'likes' | 'likesCount' | 'commentsCount' | 'sharesCount'>): Promise<Post> {
-  const rawMediaUrls = (postData.mediaUrls && postData.mediaUrls.length > 0)
-    ? postData.mediaUrls
-    : (postData.mediaUrl ? [postData.mediaUrl] : []);
+  const { mediaUrl: firstMediaUrl, mediaUrls: rawMediaUrls } = normalizePostMedia(postData);
+
+  // Store delimited string in mediaUrl so even if remote Supabase table has not run the "mediaUrls" column migration, ALL images persist!
+  const joinedMediaUrl = rawMediaUrls.length > 0 ? rawMediaUrls.join('|||') : undefined;
 
   const newPost: Post = {
     ...postData,
     id: 'post_' + Date.now(),
-    mediaUrl: postData.mediaUrl || rawMediaUrls[0],
+    mediaUrl: joinedMediaUrl || firstMediaUrl,
     mediaUrls: rawMediaUrls,
     likes: [],
     likesCount: 0,
@@ -153,8 +192,9 @@ export async function createPost(postData: Omit<Post, 'id' | 'createdAt' | 'like
   if (isSupabaseConfigured() && supabase) {
     try {
       let insertRes = await supabase.from('posts').insert([newPost]).select().single();
-      // If table doesn't have mediaUrls column yet, fall back without mediaUrls
-      if (insertRes.error && insertRes.error.message?.includes('mediaUrls')) {
+      // If table doesn't have mediaUrls column yet, fall back without mediaUrls column (mediaUrl already has the joined URLs!)
+      if (insertRes.error) {
+        console.warn('Initial post insert error, trying fallback without mediaUrls column:', insertRes.error.message);
         const { mediaUrls, ...postWithoutMediaUrls } = newPost;
         insertRes = await supabase.from('posts').insert([postWithoutMediaUrls]).select().single();
       }
@@ -170,17 +210,28 @@ export async function createPost(postData: Omit<Post, 'id' | 'createdAt' | 'like
       feedChannel.send({
         type: 'broadcast',
         event: 'new_post',
-        payload: newPost
+        payload: {
+          ...newPost,
+          mediaUrl: firstMediaUrl,
+          mediaUrls: rawMediaUrls
+        }
       }).catch(() => {});
     } catch (err: any) {
       console.error('❌ Supabase createPost exception:', err?.message || err);
     }
   }
 
+  // App-facing post object always exposes firstMediaUrl as mediaUrl and full array in mediaUrls
+  const normalizedForApp: Post = {
+    ...newPost,
+    mediaUrl: firstMediaUrl,
+    mediaUrls: rawMediaUrls
+  };
+
   const posts = getLocalData<Post[]>('posts', SEED_POSTS);
-  const updated = [newPost, ...posts];
+  const updated = [normalizedForApp, ...posts.filter(p => p.id !== normalizedForApp.id)];
   setLocalData('posts', updated);
-  return newPost;
+  return normalizedForApp;
 }
 
 export async function deletePost(postId: string): Promise<boolean> {
@@ -1333,7 +1384,9 @@ export function subscribeToPosts(callbacks: {
       { event: 'new_post' },
       (event) => {
         if (event.payload) {
-          callbacks.onInsert?.(event.payload as Post);
+          const raw = event.payload as any;
+          const { mediaUrl, mediaUrls } = normalizePostMedia(raw);
+          callbacks.onInsert?.({ ...(raw as Post), mediaUrl, mediaUrls });
         }
       }
     )
@@ -1350,14 +1403,22 @@ export function subscribeToPosts(callbacks: {
       'postgres_changes',
       { event: 'INSERT', schema: 'public', table: 'posts' },
       (payload) => {
-        if (payload.new) callbacks.onInsert?.(payload.new as Post);
+        if (payload.new) {
+          const raw = payload.new as any;
+          const { mediaUrl, mediaUrls } = normalizePostMedia(raw);
+          callbacks.onInsert?.({ ...(raw as Post), mediaUrl, mediaUrls });
+        }
       }
     )
     .on(
       'postgres_changes',
       { event: 'UPDATE', schema: 'public', table: 'posts' },
       (payload) => {
-        if (payload.new) callbacks.onUpdate?.(payload.new as Post);
+        if (payload.new) {
+          const raw = payload.new as any;
+          const { mediaUrl, mediaUrls } = normalizePostMedia(raw);
+          callbacks.onUpdate?.({ ...(raw as Post), mediaUrl, mediaUrls });
+        }
       }
     )
     .on(

@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { Post } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
-import { toggleLikePost, votePoll, deletePost, getPostShareUrl } from '../../supabase/db';
+import { toggleLikePost, votePoll, deletePost, getPostShareUrl, normalizePostMedia } from '../../supabase/db';
 import { Avatar } from '../ui/Avatar';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
@@ -45,16 +45,19 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onPostDeleted }) => {
   const [voting, setVoting] = useState(false);
 
   // Instagram-style media carousel normalization
-  const mediaList: string[] = (post.mediaUrls && post.mediaUrls.length > 0)
-    ? post.mediaUrls
-    : post.mediaUrl
-    ? [post.mediaUrl]
-    : [];
+  const { mediaUrls: mediaList } = normalizePostMedia(post);
 
   const [activeMediaIndex, setActiveMediaIndex] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const touchStartXRef = useRef<number | null>(null);
   const touchEndXRef = useRef<number | null>(null);
+
+  // Keep active index in bounds if mediaList changes
+  useEffect(() => {
+    if (activeMediaIndex >= mediaList.length) {
+      setActiveMediaIndex(0);
+    }
+  }, [mediaList.length]);
 
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartXRef.current = e.touches[0].clientX;

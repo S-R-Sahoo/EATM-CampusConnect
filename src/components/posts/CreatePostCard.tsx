@@ -457,7 +457,7 @@ export const CreatePostCard: React.FC<CreatePostCardProps> = ({ onPostCreated })
                         title="Add more photos (up to 10)"
                       >
                         <Plus className="w-3.5 h-3.5" />
-                        <span className="hidden sm:inline">Add</span>
+                        <span>Add photos</span>
                       </button>
                     )}
                     <button
@@ -517,8 +517,8 @@ export const CreatePostCard: React.FC<CreatePostCardProps> = ({ onPostCreated })
                 )}
               </div>
 
-              {/* Thumbnails strip (Instagram style) if more than 1 image */}
-              {mediaFiles.length > 1 && (
+              {/* Thumbnails strip (Instagram style) showing all staged photos and + Add slot */}
+              {mediaFiles.length > 0 && (
                 <div className="flex items-center gap-2 overflow-x-auto py-1 px-0.5 no-scrollbar">
                   {mediaFiles.map((item, idx) => (
                     <div
@@ -550,6 +550,7 @@ export const CreatePostCard: React.FC<CreatePostCardProps> = ({ onPostCreated })
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
                       className="w-14 h-14 rounded-lg border-2 border-dashed border-gray-300 dark:border-[#203728] hover:border-emerald-500 dark:hover:border-emerald-500 flex flex-col items-center justify-center text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition shrink-0 text-[10px] font-medium gap-0.5"
+                      title="Add another photo"
                     >
                       <Plus className="w-4 h-4" />
                       <span>Add</span>
