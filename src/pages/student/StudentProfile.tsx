@@ -694,7 +694,7 @@ export const StudentProfile: React.FC = () => {
                   src={effectivePhoto}
                   name={activeUser.displayName}
                   size="2xl"
-                  online={isUserOnline(activeUser.id)}
+                  online={!isOwnProfile && isUserOnline(activeUser.id)}
                   className="w-full h-full"
                 />
                 {uploadingPhoto && (
@@ -883,17 +883,17 @@ export const StudentProfile: React.FC = () => {
                 <span>College: <strong className="font-extrabold">Einstein Academy of Technology & Management (EATM)</strong></span>
               </div>
 
-              {/* Live Presence Status Badge */}
-              {isUserOnline(activeUser.id) ? (
-                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300/80 dark:border-emerald-800/80 text-xs font-semibold text-emerald-800 dark:text-emerald-300 shadow-xs">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                  <span>Active & Online</span>
-                </div>
-              ) : (
-                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gray-50 dark:bg-[#16251c] border border-gray-200/80 dark:border-[#1e3325] text-xs font-medium text-gray-600 dark:text-gray-400 shadow-xs">
-                  <span className="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
-                  <span>{formatLastSeen(activeUser.lastSeen || getUserLastSeen(activeUser.id))}</span>
-                </div>
+              {/* Live Presence Status Badge (Only for friends / peers) */}
+              {!isOwnProfile && (
+                isUserOnline(activeUser.id) ? (
+                  <div className="inline-flex items-center px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300/80 dark:border-emerald-800/80 text-xs font-bold text-emerald-600 dark:text-emerald-400 shadow-xs">
+                    <span>Online</span>
+                  </div>
+                ) : (
+                  <div className="inline-flex items-center px-3 py-1.5 rounded-xl bg-gray-50 dark:bg-[#16251c] border border-gray-200/80 dark:border-[#1e3325] text-xs font-medium text-gray-600 dark:text-gray-400 shadow-xs">
+                    <span>{formatLastSeen(activeUser.lastSeen || getUserLastSeen(activeUser.id))}</span>
+                  </div>
+                )
               )}
             </div>
           </div>

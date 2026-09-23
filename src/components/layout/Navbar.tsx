@@ -149,7 +149,6 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileMenu, onOpenSearch
                 src={user?.photoURL}
                 name={user?.displayName || 'User'}
                 size="sm"
-                online={true}
               />
               <div className="hidden md:flex flex-col text-left pr-1">
                 <span className="text-xs font-semibold text-gray-900 dark:text-gray-100 leading-tight">
