@@ -909,7 +909,7 @@ export const MessagesPage: React.FC = () => {
   const other = getOtherParty();
 
   return (
-    <div className={`max-w-6xl mx-auto h-[calc(100dvh-125px)] sm:h-[calc(100vh-130px)] sm:min-h-[580px] bg-white dark:bg-[#111d15] rounded-none sm:rounded-3xl border-0 sm:border border-gray-200/80 dark:border-[#1e3325] sm:shadow-card flex overflow-hidden transition-colors ${
+    <div className={`max-w-6xl mx-auto h-[calc(100dvh-125px)] sm:h-[calc(100vh-130px)] bg-white dark:bg-[#111d15] rounded-none sm:rounded-3xl border-0 sm:border border-gray-200/80 dark:border-[#1e3325] sm:shadow-card flex overflow-hidden transition-colors ${
       activeConvId 
         ? 'max-sm:fixed max-sm:inset-0 max-sm:z-50 max-sm:w-full max-sm:h-[100dvh] max-sm:rounded-none max-sm:border-0' 
         : 'h-[calc(100dvh-125px)]'
@@ -1180,7 +1180,7 @@ export const MessagesPage: React.FC = () => {
         {activeConv ? (
           <>
             {/* Chat Window Header */}
-            <div className="sticky top-0 z-30 shrink-0 bg-white dark:bg-[#111d15] border-b border-gray-200/80 dark:border-[#1e3325] px-2.5 py-2 sm:px-4 sm:py-3.5 flex items-center justify-between shadow-xs pt-[max(0.625rem,env(safe-area-inset-top,0px))]">
+            <div className="relative z-30 shrink-0 bg-white dark:bg-[#111d15] border-b border-gray-200/80 dark:border-[#1e3325] px-2.5 py-2 sm:px-4 sm:py-3.5 flex items-center justify-between shadow-xs">
               <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1 mr-2">
                 <button
                   type="button"
