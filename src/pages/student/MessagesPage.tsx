@@ -18,7 +18,7 @@ import {
   MoreVertical, CheckCheck, Image as ImageIcon, MessageSquare,
   ShieldCheck, Users, ArrowLeft, X, Download, FileText,
   Film, Music, Mic, Trash2, Loader2, Sparkles, Camera, Pause, Ban,
-  ChevronDown, Copy
+  ChevronDown, Copy, Bell, BellOff, User
 } from 'lucide-react';
 import { useLocation, useSearchParams, Link } from 'react-router-dom';
 import { 
@@ -84,7 +84,23 @@ export const MessagesPage: React.FC = () => {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeConvId, setActiveConvId] = useState<string>('');
   const [messages, setMessages] = useState<Message[]>([]);
-  const displayedMessages = useMemo(() => dedupeMessageList(messages), [messages]);
+  const [inChatSearchQuery, setInChatSearchQuery] = useState('');
+  const [isSearchingInChat, setIsSearchingInChat] = useState(false);
+  const [showChatOptionsMenu, setShowChatOptionsMenu] = useState(false);
+  const [showClearChatModal, setShowClearChatModal] = useState(false);
+  const [showMediaGalleryModal, setShowMediaGalleryModal] = useState(false);
+  const [isChatMuted, setIsChatMuted] = useState(false);
+
+  const displayedMessages = useMemo(() => {
+    const list = dedupeMessageList(messages);
+    if (!inChatSearchQuery.trim()) return list;
+    const q = inChatSearchQuery.toLowerCase();
+    return list.filter(m => 
+      (m.text || '').toLowerCase().includes(q) || 
+      (m.fileName || '').toLowerCase().includes(q)
+    );
+  }, [messages, inChatSearchQuery]);
+
   const [textInput, setTextInput] = useState('');
   const [activeTab, setActiveTab] = useState<'chats' | 'groups'>('chats');
   const [searchQuery, setSearchQuery] = useState('');
@@ -98,6 +114,51 @@ export const MessagesPage: React.FC = () => {
   const isSendingRef = useRef(false);
   const [messageToDelete, setMessageToDelete] = useState<Message | null>(null);
   const [activeMenuMsgId, setActiveMenuMsgId] = useState<string | null>(null);
+
+  // Sync mute state and reset search when active conversation changes
+  useEffect(() => {
+    if (activeConvId) {
+      setIsChatMuted(localStorage.getItem(`eatm_muted_${activeConvId}`) === 'true');
+      setIsSearchingInChat(false);
+      setInChatSearchQuery('');
+      setShowChatOptionsMenu(false);
+    }
+  }, [activeConvId]);
+
+  // Close 3-dot options menu on outside click
+  useEffect(() => {
+    const handleOutside = () => setShowChatOptionsMenu(false);
+    if (showChatOptionsMenu) {
+      window.addEventListener('click', handleOutside);
+      return () => window.removeEventListener('click', handleOutside);
+    }
+  }, [showChatOptionsMenu]);
+
+  const toggleMuteChat = () => {
+    if (!activeConvId) return;
+    const key = `eatm_muted_${activeConvId}`;
+    const next = !isChatMuted;
+    setIsChatMuted(next);
+    localStorage.setItem(key, String(next));
+    setShowChatOptionsMenu(false);
+    if (next) {
+      success('Notifications muted for this chat');
+    } else {
+      success('Notifications unmuted');
+    }
+  };
+
+  const handleClearChat = async () => {
+    if (!activeConvId || !user?.id) return;
+    try {
+      setMessages([]);
+      setShowClearChatModal(false);
+      setShowChatOptionsMenu(false);
+      success('Chat history cleared');
+    } catch {
+      error('Failed to clear chat');
+    }
+  };
 
   // WhatsApp style Live Audio Voice Recording states
   const [isRecording, setIsRecording] = useState(false);
@@ -1179,94 +1240,226 @@ export const MessagesPage: React.FC = () => {
       <div className={`flex-1 flex flex-col bg-[#f8faf9] dark:bg-[#0a120d] ${!activeConvId ? 'hidden sm:flex' : 'flex'}`}>
         {activeConv ? (
           <>
-            {/* Chat Window Header */}
-            <div className="relative z-30 shrink-0 bg-white dark:bg-[#111d15] border-b border-gray-200/80 dark:border-[#1e3325] px-2.5 py-2 sm:px-4 sm:py-3.5 flex items-center justify-between shadow-xs">
-              <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1 mr-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveConvId('');
-                    if (searchParams.get('conversationId') || searchParams.get('userId')) {
-                      setSearchParams({});
-                    }
-                  }}
-                  className="sm:hidden p-1.5 -ml-1 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-[#16251c] rounded-full transition active:scale-95 shrink-0 flex items-center justify-center"
-                  title="Back to conversations"
-                >
-                  <ArrowLeft className="w-5 h-5 text-[#0b4627] dark:text-emerald-400" />
-                </button>
-                {!activeConv.isGroup ? (
-                  <Link
-                    to={other.id ? `/student/profile/${other.id}` : '#'}
-                    className="flex items-center gap-2.5 sm:gap-3 group/peer hover:opacity-95 transition min-w-0 flex-1"
-                    title="View Student Profile"
+            {/* WhatsApp Sticky Chat Window Header */}
+            <div className="sticky top-0 z-30 shrink-0 bg-white dark:bg-[#111d15] border-b border-gray-200/80 dark:border-[#1e3325] px-2 py-2 sm:px-4 sm:py-3 flex items-center justify-between shadow-xs pt-[max(0.5rem,env(safe-area-inset-top,0px))] transition-colors">
+              {isSearchingInChat ? (
+                <div className="flex items-center gap-2 w-full animate-in fade-in duration-150">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsSearchingInChat(false);
+                      setInChatSearchQuery('');
+                    }}
+                    className="p-2 -ml-1 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-[#16251c] rounded-full transition active:scale-90 shrink-0 flex items-center justify-center"
+                    aria-label="Exit Search"
                   >
-                    <div className="relative shrink-0">
-                      <Avatar
-                        src={other.avatar}
-                        name={other.name}
-                        size="md"
-                        online={other.online ? true : undefined}
-                      />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <h3 className="font-bold text-sm sm:text-base text-gray-900 dark:text-gray-100 group-hover/peer:text-[#0b4627] dark:group-hover/peer:text-emerald-400 transition-colors truncate leading-tight">
-                        {other.name}
-                      </h3>
-                      {isOtherTyping ? (
-                        <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold italic flex items-center gap-1 animate-pulse leading-none mt-1">
-                          typing...
-                        </p>
-                      ) : other.online ? (
-                        <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1.5 leading-none mt-1">
-                          <span className="w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-emerald-100 dark:ring-emerald-950 animate-pulse" />
-                          <span>Online</span>
-                        </p>
-                      ) : (
-                        <p className="text-[11px] text-gray-400 dark:text-gray-500 font-normal truncate leading-none mt-1">
-                          {formatLastSeen(other.lastSeen)}
-                        </p>
-                      )}
-                    </div>
-                  </Link>
-                ) : (
-                  <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
-                    <Avatar
-                      src={other.avatar}
-                      name={other.name}
-                      size="md"
+                    <ArrowLeft className="w-5 h-5 text-[#0b4627] dark:text-emerald-400" />
+                  </button>
+                  <div className="relative flex-1">
+                    <input
+                      type="text"
+                      autoFocus
+                      value={inChatSearchQuery}
+                      onChange={(e) => setInChatSearchQuery(e.target.value)}
+                      placeholder="Search messages..."
+                      className="w-full pl-9 pr-9 py-1.5 bg-gray-100 dark:bg-[#16251c] border border-gray-200 dark:border-[#1e3325] rounded-xl text-xs sm:text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0b4627] dark:focus:ring-emerald-500"
                     />
-                    <div className="min-w-0 flex-1">
-                      <h3 className="font-bold text-sm text-gray-900 dark:text-gray-100 truncate leading-tight">{other.name}</h3>
-                      <p className="text-[11px] text-gray-500 dark:text-gray-400 font-normal leading-none mt-1">
-                        {activeConv.participants.length} members • Official EATM Group
-                      </p>
-                    </div>
+                    <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    {inChatSearchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => setInChatSearchQuery('')}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </div>
-                )}
-              </div>
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-center gap-1.5 sm:gap-3 min-w-0 flex-1 mr-2">
+                    {/* Back Button */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveConvId('');
+                        if (searchParams.get('conversationId') || searchParams.get('userId')) {
+                          setSearchParams({});
+                        }
+                      }}
+                      className="sm:hidden p-2 -ml-1 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-[#16251c] rounded-full transition active:scale-90 shrink-0 flex items-center justify-center"
+                      title="Back to conversations"
+                      aria-label="Back"
+                    >
+                      <ArrowLeft className="w-5 h-5 text-[#0b4627] dark:text-emerald-400" />
+                    </button>
 
-              <div className="flex items-center gap-0.5 sm:gap-1 text-gray-500 dark:text-gray-400 shrink-0">
-                <button 
-                  type="button"
-                  onClick={() => success('Initiating encrypted campus voice connection...')}
-                  className="p-1.5 sm:p-2 hover:text-[#0b4627] dark:hover:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-[#16251c] rounded-xl transition" 
-                  title="Campus Voice Call"
-                >
-                  <Phone className="w-4 h-4" />
-                </button>
-                <button 
-                  type="button"
-                  onClick={() => success('Initiating secure campus video link...')}
-                  className="p-1.5 sm:p-2 hover:text-[#0b4627] dark:hover:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-[#16251c] rounded-xl transition" 
-                  title="Campus Video Call"
-                >
-                  <Video className="w-4 h-4" />
-                </button>
-                <button className="p-1.5 sm:p-2 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-[#16251c] rounded-xl transition">
-                  <MoreVertical className="w-4 h-4" />
-                </button>
-              </div>
+                    {!activeConv.isGroup ? (
+                      <Link
+                        to={other.id ? `/student/profile/${other.id}` : '#'}
+                        className="flex items-center gap-2 sm:gap-3 group hover:opacity-95 transition min-w-0 flex-1"
+                        title="View Student Profile"
+                      >
+                        <div className="relative shrink-0">
+                          <Avatar
+                            src={other.avatar}
+                            name={other.name}
+                            size="md"
+                            online={other.online ? true : undefined}
+                          />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <h3 className="font-bold text-sm sm:text-base text-gray-900 dark:text-gray-100 group-hover:text-[#0b4627] dark:group-hover:text-emerald-400 transition-colors truncate leading-tight">
+                            {other.name}
+                          </h3>
+                          {isOtherTyping ? (
+                            <div className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1 leading-none mt-0.5 animate-pulse">
+                              <span className="inline-flex gap-0.5 items-center mr-0.5">
+                                <span className="w-1 h-1 bg-emerald-600 dark:bg-emerald-400 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+                                <span className="w-1 h-1 bg-emerald-600 dark:bg-emerald-400 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+                                <span className="w-1 h-1 bg-emerald-600 dark:bg-emerald-400 rounded-full animate-bounce"></span>
+                              </span>
+                              <span>typing...</span>
+                            </div>
+                          ) : other.online ? (
+                            <div className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1.5 leading-none mt-0.5">
+                              <span className="w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-emerald-100 dark:ring-emerald-950 animate-pulse" />
+                              <span>Online</span>
+                            </div>
+                          ) : (
+                            <div className="text-[11px] text-gray-400 dark:text-gray-500 font-normal truncate leading-none mt-0.5">
+                              {formatLastSeen(other.lastSeen)}
+                            </div>
+                          )}
+                        </div>
+                      </Link>
+                    ) : (
+                      <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                        <Avatar
+                          src={other.avatar}
+                          name={other.name}
+                          size="md"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <h3 className="font-bold text-sm text-gray-900 dark:text-gray-100 truncate leading-tight">{other.name}</h3>
+                          <p className="text-[11px] text-gray-500 dark:text-gray-400 font-normal leading-none mt-0.5">
+                            {activeConv.participants.length} members • Official EATM Group
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Header Action Buttons (Voice Call, Video Call, WhatsApp 3-Dot Menu) */}
+                  <div className="flex items-center gap-0.5 sm:gap-1 text-gray-500 dark:text-gray-400 shrink-0 relative">
+                    <button 
+                      type="button"
+                      onClick={() => success('Initiating encrypted campus voice connection...')}
+                      className="p-2 text-gray-600 dark:text-gray-300 hover:text-[#0b4627] dark:hover:text-emerald-300 hover:bg-gray-100 dark:hover:bg-[#16251c] rounded-full transition active:scale-90 flex items-center justify-center" 
+                      title="Campus Voice Call"
+                      aria-label="Voice Call"
+                    >
+                      <Phone className="w-4 h-4 sm:w-5 sm:h-5" />
+                    </button>
+                    <button 
+                      type="button"
+                      onClick={() => success('Initiating secure campus video link...')}
+                      className="p-2 text-gray-600 dark:text-gray-300 hover:text-[#0b4627] dark:hover:text-emerald-300 hover:bg-gray-100 dark:hover:bg-[#16251c] rounded-full transition active:scale-90 flex items-center justify-center" 
+                      title="Campus Video Call"
+                      aria-label="Video Call"
+                    >
+                      <Video className="w-4 h-4 sm:w-5 sm:h-5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowChatOptionsMenu(prev => !prev);
+                      }}
+                      className={`p-2 rounded-full transition active:scale-90 flex items-center justify-center ${
+                        showChatOptionsMenu
+                          ? 'bg-gray-200 dark:bg-[#1f3326] text-[#0b4627] dark:text-emerald-400'
+                          : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-[#16251c]'
+                      }`}
+                      title="More Options"
+                      aria-label="More Options"
+                    >
+                      <MoreVertical className="w-4 h-4 sm:w-5 sm:h-5" />
+                    </button>
+
+                    {/* WhatsApp 3-Dot Options Dropdown */}
+                    {showChatOptionsMenu && (
+                      <div
+                        onClick={(e) => e.stopPropagation()}
+                        className="absolute top-11 right-0 z-50 bg-white dark:bg-[#202c33] rounded-2xl shadow-2xl border border-gray-200/80 dark:border-[#2a3942] py-2 min-w-[210px] animate-in fade-in zoom-in-95"
+                      >
+                        {!activeConv.isGroup && other.id && (
+                          <Link
+                            to={`/student/profile/${other.id}`}
+                            onClick={() => setShowChatOptionsMenu(false)}
+                            className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-medium text-gray-700 dark:text-gray-200 hover:bg-emerald-50 dark:hover:bg-[#111d15] hover:text-[#0b4627] dark:hover:text-emerald-400 transition"
+                          >
+                            <User className="w-4 h-4 text-gray-400" />
+                            <span>View Contact</span>
+                          </Link>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsSearchingInChat(true);
+                            setShowChatOptionsMenu(false);
+                          }}
+                          className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-medium text-gray-700 dark:text-gray-200 hover:bg-emerald-50 dark:hover:bg-[#111d15] hover:text-[#0b4627] dark:hover:text-emerald-400 transition text-left"
+                        >
+                          <Search className="w-4 h-4 text-gray-400" />
+                          <span>Search in chat</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowMediaGalleryModal(true);
+                            setShowChatOptionsMenu(false);
+                          }}
+                          className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-medium text-gray-700 dark:text-gray-200 hover:bg-emerald-50 dark:hover:bg-[#111d15] hover:text-[#0b4627] dark:hover:text-emerald-400 transition text-left"
+                        >
+                          <ImageIcon className="w-4 h-4 text-gray-400" />
+                          <span>Media, links, and docs</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={toggleMuteChat}
+                          className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-medium text-gray-700 dark:text-gray-200 hover:bg-emerald-50 dark:hover:bg-[#111d15] hover:text-[#0b4627] dark:hover:text-emerald-400 transition text-left"
+                        >
+                          {isChatMuted ? (
+                            <>
+                              <Bell className="w-4 h-4 text-gray-400" />
+                              <span>Unmute notifications</span>
+                            </>
+                          ) : (
+                            <>
+                              <BellOff className="w-4 h-4 text-gray-400" />
+                              <span>Mute notifications</span>
+                            </>
+                          )}
+                        </button>
+                        <div className="h-px bg-gray-100 dark:bg-[#1e3325] my-1" />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowClearChatModal(true);
+                            setShowChatOptionsMenu(false);
+                          }}
+                          className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 transition text-left"
+                        >
+                          <Trash2 className="w-4 h-4 text-red-500" />
+                          <span>Clear chat history</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Messages Stream Area */}
@@ -1335,15 +1528,15 @@ export const MessagesPage: React.FC = () => {
                       className={`relative group ${
                         msg.isDeleted
                           ? isMe
-                            ? 'bg-[#0b4627]/50 dark:bg-[#0f5132]/50 text-emerald-100/80 border border-emerald-800/30'
+                            ? 'bg-[#d9fdd3]/70 dark:bg-[#005c4b]/50 text-gray-700 dark:text-emerald-100/80 border border-emerald-200/40'
                             : 'bg-gray-100/90 dark:bg-[#16251c]/80 text-gray-500 dark:text-gray-400 border border-gray-200/60 dark:border-[#1e3325]'
                           : isAudio && !msg.text
                           ? 'px-3 py-1.5 rounded-2xl max-w-fit'
                           : 'max-w-xs sm:max-w-md px-3.5 py-2.5 rounded-2xl leading-relaxed'
-                      } shadow-sm text-xs rounded-2xl ${
+                      } shadow-xs text-xs rounded-2xl ${
                         isMe
-                          ? 'bg-[#0b4627] dark:bg-[#0f5132] text-white rounded-br-xs'
-                          : 'bg-white dark:bg-[#16251c] text-gray-900 dark:text-gray-100 border border-gray-200/80 dark:border-[#1e3325] rounded-bl-xs'
+                          ? 'bg-[#d9fdd3] dark:bg-[#005c4b] text-gray-900 dark:text-gray-100 rounded-tr-xs'
+                          : 'bg-white dark:bg-[#202c33] text-gray-900 dark:text-gray-100 border border-gray-200/80 dark:border-transparent rounded-tl-xs'
                       }`}
                     >
                       {/* WhatsApp Chevron Action Button (Appears top-right of bubble on hover/tap) */}
@@ -1500,12 +1693,12 @@ export const MessagesPage: React.FC = () => {
                           <div className={`flex items-center justify-end gap-1 ${
                             isAudio && !msg.text ? 'mt-0.5' : 'mt-1'
                           } text-[9px] font-mono ${
-                            isMe ? 'text-emerald-200' : 'text-gray-400 dark:text-gray-500'
+                            isMe ? 'text-gray-500 dark:text-gray-400' : 'text-gray-400 dark:text-gray-500'
                           }`}>
                             <span>
                               {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </span>
-                            {isMe && <CheckCheck className="w-3.5 h-3.5" />}
+                            {isMe && <CheckCheck className="w-3.5 h-3.5 text-[#53bdeb]" />}
                           </div>
                         </>
                       )}
@@ -1721,78 +1914,206 @@ export const MessagesPage: React.FC = () => {
                 </div>
               ) : (
                 <form onSubmit={handleSend} className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowEmojiPicker(!showEmojiPicker);
-                      setShowAttachmentMenu(false);
-                    }}
-                    className="p-2 text-gray-400 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-[#16251c] rounded-xl transition"
-                    title="Insert Emoji"
-                  >
-                    <Smile className="w-5 h-5" />
-                  </button>
+                  <div className="flex-1 flex items-center bg-gray-100/90 dark:bg-[#16251c] border border-gray-200 dark:border-[#1e3325] rounded-full px-3 py-1.5 focus-within:ring-2 focus-within:ring-[#0b4627] dark:focus-within:ring-emerald-500 focus-within:bg-white dark:focus-within:bg-[#111d15] transition shadow-xs">
+                    {/* Emoji Button */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowEmojiPicker(!showEmojiPicker);
+                        setShowAttachmentMenu(false);
+                      }}
+                      className="p-1.5 text-gray-500 dark:text-gray-400 hover:text-amber-500 rounded-full transition active:scale-90 shrink-0"
+                      title="Insert Emoji"
+                      aria-label="Insert Emoji"
+                    >
+                      <Smile className="w-5 h-5" />
+                    </button>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowAttachmentMenu(!showAttachmentMenu);
-                      setShowEmojiPicker(false);
-                    }}
-                    className={`p-2 rounded-xl transition ${
-                      showAttachmentMenu 
-                        ? 'text-[#0b4627] dark:text-emerald-400 bg-emerald-50 dark:bg-[#16251c]' 
-                        : 'text-gray-400 hover:text-[#0b4627] dark:hover:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-[#16251c]'
-                    }`}
-                    title="Attach Media (Photo, Video, Document, Audio)"
-                  >
-                    <Paperclip className="w-5 h-5" />
-                  </button>
+                    {/* Text Input */}
+                    <input
+                      type="text"
+                      value={textInput}
+                      onChange={(e) => {
+                        setTextInput(e.target.value);
+                        if (activeConvId && user?.id) {
+                          broadcastTyping(activeConvId, user.id, true);
+                          if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+                          typingTimeoutRef.current = setTimeout(() => {
+                            broadcastTyping(activeConvId, user.id, false);
+                          }, 2000);
+                        }
+                      }}
+                      placeholder={stagedAttachment ? "Add a caption..." : "Message"}
+                      className="flex-1 bg-transparent border-0 text-xs sm:text-sm px-2.5 py-1.5 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none min-w-0"
+                    />
 
-                  <input
-                    type="text"
-                    value={textInput}
-                    onChange={(e) => {
-                      setTextInput(e.target.value);
-                      if (activeConvId && user?.id) {
-                        broadcastTyping(activeConvId, user.id, true);
-                        if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-                        typingTimeoutRef.current = setTimeout(() => {
-                          broadcastTyping(activeConvId, user.id, false);
-                        }, 2000);
-                      }
-                    }}
-                    placeholder={stagedAttachment ? "Add a caption or note..." : "Type a message or press mic to record..."}
-                    className="flex-1 bg-gray-100/90 dark:bg-[#16251c] border border-gray-200 dark:border-[#1e3325] text-xs sm:text-sm rounded-xl px-4 py-2.5 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-[#0b4627] dark:focus:ring-emerald-500 focus:bg-white dark:focus:bg-[#111d15] transition"
-                  />
+                    {/* Attachment Clip Button */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowAttachmentMenu(!showAttachmentMenu);
+                        setShowEmojiPicker(false);
+                      }}
+                      className={`p-1.5 rounded-full transition active:scale-90 shrink-0 ${
+                        showAttachmentMenu 
+                          ? 'text-[#0b4627] dark:text-emerald-400 bg-emerald-100 dark:bg-[#1f3326]' 
+                          : 'text-gray-500 dark:text-gray-400 hover:text-[#0b4627] dark:hover:text-emerald-300'
+                      }`}
+                      title="Attach File"
+                      aria-label="Attach File"
+                    >
+                      <Paperclip className="w-5 h-5" />
+                    </button>
 
-                  {/* Dynamic Action: Send button if text/attachment exists, Mic button if empty */}
+                    {/* Camera Button */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (isMobileDevice()) {
+                          cameraInputRef.current?.click();
+                        } else {
+                          setShowCameraModal(true);
+                        }
+                      }}
+                      className="p-1.5 text-gray-500 dark:text-gray-400 hover:text-[#0b4627] dark:hover:text-emerald-300 rounded-full transition active:scale-90 shrink-0 ml-0.5"
+                      title="Camera"
+                      aria-label="Take Photo"
+                    >
+                      <Camera className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  {/* WhatsApp Circular FAB: Send or Mic */}
                   {textInput.trim() || stagedAttachment ? (
                     <button
                       type="submit"
                       disabled={isUploading || isSending}
-                      className="p-2.5 rounded-xl bg-[#0b4627] hover:bg-[#0f5132] text-white disabled:opacity-40 shadow-sm transition active:scale-95 shrink-0"
+                      className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-[#0b4627] hover:bg-[#0f5132] text-white disabled:opacity-40 shadow-md flex items-center justify-center transition active:scale-90 shrink-0"
                       title="Send Message"
+                      aria-label="Send Message"
                     >
                       {isUploading || isSending ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <Loader2 className="w-5 h-5 animate-spin" />
                       ) : (
-                        <Send className="w-4 h-4" />
+                        <Send className="w-5 h-5" />
                       )}
                     </button>
                   ) : (
                     <button
                       type="button"
                       onClick={startVoiceRecording}
-                      className="p-2.5 rounded-xl bg-emerald-50 dark:bg-[#16251c] hover:bg-emerald-100 dark:hover:bg-[#1f3326] text-[#0b4627] dark:text-emerald-400 border border-emerald-200/80 dark:border-emerald-800/60 shadow-xs transition active:scale-95 shrink-0"
+                      className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-[#0b4627] hover:bg-[#0f5132] text-white shadow-md flex items-center justify-center transition active:scale-90 shrink-0"
                       title="Record Voice Note"
+                      aria-label="Record Voice Note"
                     >
-                      <Mic className="w-4 h-4" />
+                      <Mic className="w-5 h-5" />
                     </button>
                   )}
                 </form>
               )}
             </div>
+
+            {/* Clear Chat Confirmation Modal */}
+            {showClearChatModal && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-in fade-in">
+                <div className="bg-white dark:bg-[#111d15] rounded-3xl p-6 max-w-sm w-full shadow-2xl border border-gray-100 dark:border-[#1e3325] text-center space-y-4">
+                  <div className="w-12 h-12 rounded-2xl bg-red-50 dark:bg-red-950/60 text-red-600 dark:text-red-400 mx-auto flex items-center justify-center">
+                    <Trash2 className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-base text-gray-900 dark:text-gray-100">Clear chat history?</h3>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 leading-relaxed">
+                      Messages will be cleared from your view in this conversation. This action cannot be undone.
+                    </p>
+                  </div>
+                  <div className="flex gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowClearChatModal(false)}
+                      className="flex-1 py-2.5 px-4 rounded-xl border border-gray-200 dark:border-[#1e3325] text-xs font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#16251c] transition active:scale-95"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleClearChat}
+                      className="flex-1 py-2.5 px-4 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-semibold shadow-xs transition active:scale-95"
+                    >
+                      Clear Chat
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Media, Links & Docs Modal */}
+            {showMediaGalleryModal && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-in fade-in">
+                <div className="bg-white dark:bg-[#111d15] rounded-3xl max-w-md w-full shadow-2xl border border-gray-100 dark:border-[#1e3325] max-h-[80vh] flex flex-col overflow-hidden">
+                  <div className="p-4 border-b border-gray-100 dark:border-[#1e3325] flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <ImageIcon className="w-5 h-5 text-[#0b4627] dark:text-emerald-400" />
+                      <h3 className="font-bold text-sm text-gray-900 dark:text-gray-100">Media, Links & Docs</h3>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowMediaGalleryModal(false)}
+                      className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded-full hover:bg-gray-100 dark:hover:bg-[#16251c]"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <div className="p-4 overflow-y-auto flex-1 space-y-4">
+                    {messages.filter(m => m.mediaUrl).length === 0 ? (
+                      <div className="text-center py-8 text-gray-400 text-xs">
+                        No media shared in this conversation yet.
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-3 gap-2">
+                        {messages.filter(m => m.mediaUrl).map((m) => {
+                          const isImg = m.mediaType === 'image' || /\.(jpe?g|png|gif|webp|svg|bmp)(\?.*)?$/i.test(m.mediaUrl || '');
+                          const isVid = m.mediaType === 'video' || /\.(mp4|mov|avi|mkv)(\?.*)?$/i.test(m.mediaUrl || '');
+                          if (isImg) {
+                            return (
+                              <img
+                                key={m.id}
+                                src={m.mediaUrl}
+                                alt="Media"
+                                onClick={() => {
+                                  setShowMediaGalleryModal(false);
+                                  setLightboxImage({ src: m.mediaUrl!, alt: 'Photo' });
+                                }}
+                                className="w-full aspect-square object-cover rounded-xl cursor-pointer hover:opacity-90 transition"
+                              />
+                            );
+                          }
+                          if (isVid) {
+                            return (
+                              <video
+                                key={m.id}
+                                src={m.mediaUrl}
+                                className="w-full aspect-square object-cover rounded-xl bg-black"
+                              />
+                            );
+                          }
+                          return (
+                            <a
+                              key={m.id}
+                              href={m.mediaUrl}
+                              download={m.fileName || 'file'}
+                              className="w-full aspect-square bg-emerald-50 dark:bg-[#16251c] rounded-xl flex flex-col items-center justify-center p-2 text-center text-[10px] text-[#0b4627] dark:text-emerald-400 border border-emerald-100 dark:border-[#1e3325]"
+                            >
+                              <FileText className="w-5 h-5 mb-1" />
+                              <span className="truncate w-full">{m.fileName || 'Document'}</span>
+                            </a>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
           </>
         ) : (
           <div className="flex-1 hidden sm:flex flex-col items-center justify-center p-8 text-center bg-gray-50/40 dark:bg-[#0c1610]">
