@@ -1,169 +1,186 @@
-# EATM CampusConnect
+# 🎓 EATM CampusConnect
 
-> **"Connect • Collaborate • Grow"**  
-> A private, production-grade digital campus social network and academic collaboration platform built specifically for **Einstein Academy of Technology and Management (EATM)**.
+<div align="center">
+  <img src="public/eatm-official-logo.png" alt="EATM CampusConnect Logo" width="130" />
+  
+  ### **"Connect • Collaborate • Grow"**
+  
+  A modern, high-performance digital campus social network and academic collaboration platform designed specifically for **Einstein Academy of Technology and Management (EATM)**, Bhubaneswar.
+
+  [![React](https://img.shields.io/badge/React-18.3-blue.svg?logo=react)](https://reactjs.org/)
+  [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue.svg?logo=typescript)](https://www.typescriptlang.org/)
+  [![Vite](https://img.shields.io/badge/Vite-6.2-purple.svg?logo=vite)](https://vitejs.dev/)
+  [![Tailwind CSS](https://img.shields.io/badge/TailwindCSS-3.4-38bdf8.svg?logo=tailwind-css)](https://tailwindcss.com/)
+  [![Supabase](https://img.shields.io/badge/Supabase-Database%20%26%20Realtime-3ecf8e.svg?logo=supabase)](https://supabase.com/)
+  [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+</div>
 
 ---
 
-## 📸 Visual Design System & Reference Architecture
+## 🏛️ About EATM CampusConnect
 
-EATM CampusConnect was designed following the official campus platform visual guidelines:
-- **Primary Color Palette**: EATM Deep Forest Green (`#0b4627` / `#062615`), EATM Emerald (`#10b981`), Crisp White (`#ffffff`), and EATM Crimson Accent Red (`#dc2626` / `#b91c1c`).
-- **Typography & Surfaces**: Modern typography (Inter), rounded 2xl/3xl card containers, subtle borders (`border-gray-200/80`), and glassmorphism headers.
-- **Portals**: Dedicated, isolated role layouts for **Students**, **Faculty**, and **Administrators** with route guards, real-time Firestore listeners, and Firebase Security Rules.
+**EATM CampusConnect** unifies campus life into a secure, single-sign-on institutional platform. Students and faculty can exchange study materials, collaborate on engineering projects, form chartered clubs, discover campus placement drives, and communicate in real-time with zero friction.
+
+### 🎨 Visual Identity & Brand System
+- **Primary Color Palette**: 
+  - Deep Institutional Forest Green (`#0b4627` / `#062615`)
+  - Vibrant Emerald (`#10b981` / `#22c55e`)
+  - Accent Crimson Red (`#dc2626` / `#b91c1c`)
+  - Clean Surface White & Dark Slate (`#111d15` / `#16251c`)
+- **Design Tokens**: Rounded `2xl`/`3xl` surfaces, subtle borders, glassmorphic headers, responsive bottom navigation for mobile, and calibrated Instagram-style active green presence dots.
+- **Portals**: Role-based access control protecting **Student** and **Faculty** experiences with Supabase Auth session management.
 
 ---
 
-## 🚀 Key Features
+## ✨ Features Overview
 
-### 1. Public Gateway
-- **Landing Page (`/`)**: Hero section featuring high-resolution EATM campus imagery, "Connect • Collaborate • Grow" branding, video tour modal, 4 quick feature highlights, "Explore EATM" academic cards, and campus banner footer.
-- **Split-Screen Login (`/login`)**: Left campus imagery with institutional values, right authentication form with email/roll-number sign in, show/hide password, Google Sign-In, and instant 1-click Demo Persona switcher.
-- **Role-Based Registration (`/register`)**: Split registration with dedicated tabbed forms for **Students** (Full Name, Roll Number, Department, Year, Semester, Phone) and **Faculty** (Employee ID, Designation, Department). Enforces strict role validation preventing public admin self-elevation.
-- **Password Recovery (`/forgot-password`)**: Firebase Auth reset email trigger.
+### 1. 🌐 Public Gateway & Institutional Identity
+- **Landing Page (`/`)**: 
+  - Hero banner with official EATM crest and collegiate photography.
+  - Interactive video tour modal exploring the EATM campus infrastructure.
+  - 4 quick feature highlights, academic program cards, and institutional contact footer.
+- **Role-Based Authentication (`/login` & `/register`)**:
+  - Secure email & password authentication powered by **Supabase Auth**.
+  - Sign in using either **Institutional Email** or **BPUT Registration / Roll Number**.
+  - Student registration form collecting Full Name, Roll Number, Branch (CSE, EEE, MECH, CIVIL, etc.), Year, Semester, and Phone.
+  - Faculty registration form collecting Employee ID, Designation, and Department.
+  - **Quick Demo Switcher (`DemoAccountBar`)**: One-tap instant testing between student and faculty personas.
+- **Password Recovery (`/forgot-password`)**: Automated reset link dispatch via Supabase Auth.
 
-### 2. Student Community & Social Network (`/student/*`)
-- **Dashboard (`/student/dashboard`)**:
-  - Greeting header: *"Good Morning, Soumyaranjan! Keep learning, keep growing."*
-  - 4 Real-time Metric Cards: Upcoming Events (3), Unread Messages (5), New Opportunities (8), Notifications (12).
-  - Create Post card: Multimedia posting with photo previews, video/file attachments, feeling emoji tags, and campus vs. connections visibility.
-  - Social Feed: Campus posts with live like/unlike toggles synced to Firestore, expandable comment threads, share link copying, bookmarking, and moderation reporting.
-  - Right Sidebar: Live upcoming events with instant registration toggles + quick links.
-- **Student Profile (`/student/profile`)**:
-  - Campus cover image banner, verified student badge, departmental details, roll number.
-  - Stats bar: Connections (128), Posts (24), Clubs (4), Achievements (6).
-  - Skills pills (C++, Java, Python, React, Web Dev, UI/UX), About Me, Interests, Projects showcase, Campus Honors, and interactive Edit Profile modal.
-- **Discover People (`/student/discover`)**:
-  - Search by student name, department, or technical skills.
-  - Department filter chips: *All, CSE, ECE, EEE, Mech, Civil*.
-  - Student cards with interactive `Connect` ➔ `Pending` ➔ `Connected` status flow.
-- **Connections Manager (`/student/connections`)**:
-  - Tabs: *All Connections*, *Requests Received*, *Requests Sent*.
-  - Real-time `Accept` and `Decline` controls with instant notifications.
-- **Real-Time Campus Chat (`/student/messages`)**:
-  - Two-pane messaging interface matching the reference design.
-  - Direct 1-on-1 chats and club group channels.
-  - Speech bubble streams with timestamps and double-check read receipts.
-  - Emoji picker, media attachment action, and real-time synchronization.
-- **Clubs & Communities (`/student/communities`)**:
-  - Chartered societies: Coding Club, Robotics Club, Photography Club, Cultural Club, Sports Club, Entrepreneurship Club.
-  - Live member count counters, `Join` / `Joined` toggles.
-  - Modal to charter a new student society.
-- **Campus Events (`/student/events`)**:
-  - Hackathon 2025, Robotics Competition, Cultural Fest, AI & Deep Learning Workshop.
-  - Category filters, date/location tags, live `Register` / `Registered` button with confetti celebration and seat reservation.
-- **Study Materials & Question Banks (`/student/study-materials`)**:
-  - Course notes, PowerPoint presentations, PDF handouts, and BPUT previous year question papers.
-  - Filter pills (*All, Notes, PPT, PDF, Question Papers*), download trigger buttons, and faculty/student upload dialog.
-- **Internship & Placement Drives (`/student/opportunities`)**:
-  - Opportunities from Google, Microsoft, TCS, Zoho, and regional startups.
-  - Stipend details, eligibility criteria, duration, deadline, Save/Bookmark toggle, and modal application submitter.
-- **Notifications Hub (`/student/notifications`)**:
-  - Filter by category (*Messages, Connections, Events, System*).
-  - Unread indicators, direct actionable links, and "Mark all as read".
-- **Settings & Privacy (`/student/settings`)**:
-  - Profile visibility options, messaging permissions, notification digest preferences, password reset, and light/dark display themes.
+---
 
-### 3. Faculty Portal (`/faculty/*`)
-- **Dashboard (`/faculty/dashboard`)**:
-  - Metrics: Total Students (324), Active Events (8), Assignments (12), Pending Reports (3).
-  - Quick action shortcuts: Broadcast Notice, Upload Material, Create Assignment, Create Event.
-  - Notice Publisher with priority badges (*Urgent*, *Important*, *Normal*).
+### 2. 🎒 Student Social & Academic Portal (`/student/*`)
+
+| Page | Route | Highlights |
+| :--- | :--- | :--- |
+| **Dashboard** | `/student/dashboard` | Personalized morning greeting, real-time KPI counters (Events, Messages, Opportunities), multimedia post composer (images, videos, attachments, feeling tags, campus vs. connections visibility), social feed with live like/unlike toggles, comment threads, and shareable permalinks (`/post/:id`). |
+| **Student Profile** | `/student/profile` | Custom cover photos, profile avatar upload, roll number verification badges, skills pills, project portfolio showcase, campus honors, and interactive profile editor. |
+| **Discover People** | `/student/discover` | Search peers by student name, roll number, or technical skills with departmental filter chips (*CSE, ECE, EEE, Mech, Civil*). Send instant connection requests. |
+| **Connections Manager** | `/student/connections` | Manage incoming and sent connection requests with real-time `Accept` and `Decline` controls. |
+| **Real-time Encrypted Chat** | `/student/messages` | Full-fledged WhatsApp-style campus messaging with Realtime broadcast sync, live voice notes recorder (`ChatAudioPlayer`), camera snapshot modal, file attachment preview lightbox, deduplication engine, typing indicators, active presence green dots, and "Delete for everyone". |
+| **Clubs & Communities** | `/student/communities` | Chartered student clubs (Coding, Robotics, Photography, Cultural, Sports, Entrepreneurship) with live member counts, join toggles, and new club charter modal. |
+| **Campus Events** | `/student/events` | Tech fests, workshops, hackathons, and cultural fests with category filters, seat reservations, and confetti celebration triggers. |
+| **Study Materials** | `/student/study-materials` | BPUT previous year question papers, PowerPoint lecture slides, course notes, and lab manuals with file upload and instant download. |
+| **Opportunities Hub** | `/student/opportunities` | Curated campus placement drives, regional startup internships, stipend details, eligibility criteria, and application submitter. |
+| **Notifications** | `/student/notifications` | Categorized real-time notifications for messages, connection requests, and event announcements. |
+| **Settings & Privacy** | `/student/settings` | Comprehensive controls for profile visibility, messaging permissions, activity status, dark mode theme toggle, and password updates. |
+
+---
+
+### 3. 👨‍🏫 Faculty Portal (`/faculty/*`)
+
+- **Faculty Dashboard (`/faculty/dashboard`)**:
+  - Live metric counters: Total Students, Active Events, Assignments, Pending Reports.
+  - **Campus Notice Publisher**: Broadcast departmental notices with priority badges (*Urgent*, *Important*, *Normal*).
 - **Coursework & Assignments (`/faculty/assignments`)**:
   - Assignment creator with target semester, due date, rubrics, and submission tracking.
 - **Student Cohorts Directory (`/faculty/students`)**:
-  - Searchable departmental directory with academic standing and student roll numbers.
+  - Searchable departmental student directory displaying roll numbers, semester, and academic standing.
 
-### 4. Admin Portal (`/admin/*`)
-- **Executive Analytics (`/admin/dashboard`)**:
-  - High-level KPIs: Students (1,248), Faculty (86), Active Clubs (24), Activities (18).
-  - Interactive SVG User Growth & Enrollment trend chart.
-  - Real-time campus activity audit trail.
-- **User Governance (`/admin/students` & `/admin/faculty`)**:
-  - Search and filter accounts across all 6 engineering branches.
-  - Deactivate / Activate accounts and grant official Campus Verification Badges.
-- **Community Moderation Queue (`/admin/reports`)**:
-  - Review flagged posts, abusive comments, and fake profiles.
-  - Status management: *Pending*, *Under Review*, *Resolved*, *Dismissed*.
+---
+
+### 4. 🛡️ Developer & Administrator Backend Governance
+
+Administration is conducted directly via the **[Supabase Dashboard](https://supabase.com/dashboard)**:
+- **User & Roll Number Verification**: Manage profiles, verify registration numbers, and toggle account status in the `profiles` / `users` table.
+- **Authentication & Security**: Monitor registered users, inspect last login timestamps, and manage sessions in **Authentication &rarr; Users** and **Auth Logs**.
+- **Content & Community Moderation**: Moderate posts, manage comments, review student club charters, and handle reported content with full PostgreSQL control or custom SQL queries.
+- **Zero Exposed Admin Attack Surface**: No client `/admin` route or credentials exposed in the frontend bundle.
 
 ---
 
 ## 🛠️ Technology Stack
 
-- **Frontend**: React 18, TypeScript, Vite, Tailwind CSS
-- **Icons**: Lucide React
-- **Animations & Effects**: Canvas Confetti, Tailwind CSS transitions
-- **Backend & Cloud Database**: Firebase Modular SDK v11 (Authentication, Cloud Firestore, Firebase Storage)
-- **Deployment**: Firebase Hosting
+- **Frontend Core**: React 18, TypeScript, Vite
+- **Styling & UI**: Tailwind CSS, PostCSS, Lucide React Icons
+- **Real-Time Database & Auth**: [Supabase](https://supabase.com/) (`@supabase/supabase-js`)
+  - **Database**: PostgreSQL with Row-Level Security (RLS)
+  - **Auth**: Supabase Auth (Email & Password, Metadata)
+  - **Storage**: Supabase Storage (`campus-uploads` bucket)
+  - **Realtime**: Supabase Realtime Channels (Broadcast & Postgres Changes)
+- **Effects**: Canvas Confetti
+- **Routing**: React Router DOM v6
 
 ---
 
-## 📁 Project Structure
+## 📁 Project Directory Structure
 
 ```text
 EATM CampusConnect/
-├── .env.example                     # Environment variables template
-├── firebase.json                    # Firebase hosting, firestore, and storage config
-├── firestore.rules                  # Production Cloud Firestore security rules
-├── storage.rules                    # Production Firebase Storage security rules
-├── index.html                       # HTML5 template with Inter font
-├── package.json                     # Dependencies and build scripts
-├── tailwind.config.js               # EATM forest green & crimson design tokens
-├── tsconfig.json                    # TypeScript compiler configuration
-├── vite.config.ts                   # Vite configuration
+├── .env.example                         # Environment variables template
+├── index.html                           # HTML5 template with Inter font & meta tags
+├── package.json                         # Dependencies and build scripts
+├── tailwind.config.js                   # EATM institutional color palette & design tokens
+├── tsconfig.json                        # TypeScript compiler options
+├── vite.config.ts                       # Vite build configuration
 ├── public/
-│   └── eatm-logo.svg                # Official EATM shield crest SVG
+│   ├── eatm-official-logo.png           # Official EATM emblem
+│   └── eatm-emblem.png                  # Collegiate crest
 └── src/
-    ├── main.tsx                     # React DOM entry point
-    ├── App.tsx                      # Main application router with role layouts
-    ├── index.css                    # Tailwind directives and custom scrollbars
+    ├── main.tsx                         # React application entry point
+    ├── App.tsx                          # App router with student & faculty layouts
+    ├── index.css                        # Tailwind directives and custom scrollbars
     ├── types/
-    │   └── index.ts                 # Full TypeScript interfaces
-    ├── firebase/
-    │   ├── config.ts                # Firebase modular initialization & detection
-    │   ├── auth.ts                  # Authentication service
-    │   ├── firestore.ts             # Centralized Firestore & persistent fallback service
-    │   ├── storage.ts               # Storage file upload with progress tracking
-    │   └── seedData.ts              # Authentic campus data (students, clubs, events, posts)
+    │   └── index.ts                     # TypeScript interfaces (User, Post, Message, Event, etc.)
     ├── contexts/
-    │   ├── AuthContext.tsx          # Auth state, login/register, demo persona switcher
-    │   └── ToastContext.tsx         # Notification toast system
+    │   ├── AuthContext.tsx              # Auth state, login/register, demo switcher
+    │   └── ToastContext.tsx             # Notification toast provider
     ├── components/
-    │   ├── ui/                      # Button, Input, Select, Card, Avatar, Badge, Tabs, Modal, Skeleton
-    │   ├── layout/                  # Navbar, Sidebar, RightSidebar, MobileBottomNav, Layouts
-    │   ├── posts/                   # CreatePostCard, PostCard, CommentSection
-    │   └── common/                  # DemoAccountBar, GlobalSearchModal, ReportModal
-    └── pages/
-        ├── public/                  # LandingPage, LoginPage, RegisterPage, ForgotPasswordPage
-        ├── student/                 # StudentDashboard, StudentProfile, DiscoverPeople, Connections, etc.
-        ├── faculty/                 # FacultyDashboard, FacultyAssignments, FacultyStudents
-        ├── admin/                   # AdminDashboard, AdminUserManagement, AdminReports
-        └── common/                  # AccessDenied, NotFound
+    │   ├── ui/                          # Avatar, Button, Card, Badge, Modal, Input, etc.
+    │   ├── layout/                      # Navbar, Sidebar, RightSidebar, MobileBottomNav, Layouts
+    │   ├── chat/                        # CameraModal, ChatAudioPlayer, MediaLightbox
+    │   ├── posts/                       # CreatePostCard, PostCard, CommentSection
+    │   └── common/                      # DemoAccountBar, GlobalSearchModal, ReportModal
+    ├── pages/
+    │   ├── public/                      # LandingPage, LoginPage, RegisterPage, ForgotPasswordPage
+    │   ├── student/                     # StudentDashboard, Profile, Messages, Communities, Events, etc.
+    │   ├── faculty/                     # FacultyDashboard, FacultyAssignments, FacultyStudents
+    │   └── common/                      # PostDetailPage, AccessDenied, NotFound
+    └── supabase/
+        ├── client.ts                    # Supabase client initialization & connection checks
+        ├── auth.ts                      # Supabase Auth operations & credential resolution
+        ├── db.ts                        # Centralized database CRUD, queries & real-time sync
+        ├── presence.ts                  # Real-time online presence, heartbeats & typing indicators
+        ├── storage.ts                   # Supabase Storage file uploader (campus-uploads)
+        ├── schema.sql                   # Complete PostgreSQL schema, tables, policies & realtime
+        └── seedData.ts                  # Realistic campus seed data (students, clubs, events, posts)
 ```
 
 ---
 
-## ⚙️ Environment Variables Setup
+## ⚙️ Environment Configuration
 
-Create a `.env` file in the root directory:
+1. Create a `.env` file in the root directory:
+   ```env
+   VITE_SUPABASE_URL=https://your-project-id.supabase.co
+   VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
+   ```
 
-```env
-VITE_FIREBASE_API_KEY=your_api_key_here
-VITE_FIREBASE_AUTH_DOMAIN=your_project_id.firebaseapp.com
-VITE_FIREBASE_PROJECT_ID=your_project_id
-VITE_FIREBASE_STORAGE_BUCKET=your_project_id.appspot.com
-VITE_FIREBASE_MESSAGING_SENDER_ID=your_messaging_sender_id
-VITE_FIREBASE_APP_ID=your_app_id
-```
+> **Zero-Config Sandbox Mode**:  
+> If Supabase credentials are not provided, the application will automatically run in **Local Persistence Mode** with preloaded campus seed data. All features (posting, liking, messaging, connections, events) will work out of the box for testing and evaluation!
 
-> **Note on Zero-Config Sandbox Mode**:  
-> If you have not created a Firebase project yet, **the application will automatically run in Sandbox Persistence Mode** with realistic seed data preloaded! All features (posting, liking, messaging, connecting, registering, uploading) function out of the box. Once you add your live `.env` credentials, it connects seamlessly to your live Firebase backend.
+---
 
-## 💻 Running the Application Locally
+## 🗄️ Database Setup (Supabase)
 
-1. **Clone or navigate to the workspace directory**:
+To link your live Supabase project:
+1. Open your project on the [Supabase Dashboard](https://supabase.com/dashboard).
+2. Go to **SQL Editor** &rarr; **New Query**.
+3. Copy the entire contents of [`src/supabase/schema.sql`](src/supabase/schema.sql) and click **Run**.
+4. This script automatically:
+   - Creates the public storage bucket `campus-uploads` with public read/write policies.
+   - Creates tables: `users`, `posts`, `comments`, `communities`, `conversations`, `messages`, `connections`, `notifications`, `reports`.
+   - Enables Row-Level Security (RLS) policies.
+   - Activates PostgreSQL publications for `supabase_realtime` on messages, posts, comments, connections, and notifications.
+
+---
+
+## 💻 Local Development Setup
+
+1. **Clone the repository**:
    ```bash
-   cd "EATM CampusConnect"
+   git clone https://github.com/S-R-Sahoo/EATM-CampusConnect.git
+   cd EATM-CampusConnect
    ```
 
 2. **Install dependencies**:
@@ -171,46 +188,32 @@ VITE_FIREBASE_APP_ID=your_app_id
    npm install
    ```
 
-3. **Start the local development server**:
+3. **Start the development server**:
    ```bash
    npm run dev
    ```
-   Open your browser at `http://localhost:3000`.
+   Open your browser at `http://localhost:5173` (or the port shown in terminal).
 
-4. **Verify production bundle**:
+4. **Verify the production build**:
    ```bash
    npm run build
    ```
 
 ---
 
-## 🛡️ Creating the First Firebase Admin
+## 🚢 Production Deployment
 
-To designate an administrator in your live Firebase project:
-1. Register an account with an institutional email (e.g. `admin.dean@eatm.in`) through the app or Firebase Console Authentication.
-2. In Firebase Console, navigate to **Cloud Firestore** ➔ `users` collection.
-3. Locate the user document corresponding to the account's UID.
-4. Set the field `role` to `'admin'`.
-5. The user will immediately be granted access to `/admin/*` dashboards.
+The project builds standard optimized static assets in `dist/`. It can be deployed to:
+- **Vercel**: Import the GitHub repo and deploy with default Vite preset.
+- **Netlify**: Connect repository, set build command `npm run build` and publish directory `dist`.
+- **Cloudflare Pages / GitHub Pages**: Deploy the `dist` directory with SPA rewrite rules (`/*` &rarr; `/index.html`).
 
 ---
 
-## ☁️ Deploying to Firebase Hosting
+## 📄 License
 
-1. **Install the Firebase CLI**:
-   ```bash
-   npm install -g firebase-tools
-   ```
+This project is licensed under the **MIT License**.
 
-2. **Log in to Firebase**:
-   ```bash
-   firebase login
-   ```
-
-3. **Deploy security rules and frontend**:
-   ```bash
-   npm run build
-   firebase deploy
-   ```
-
-The application is now live on your Firebase domain!
+<div align="center">
+  <sub>Built with ❤️ for Einstein Academy of Technology and Management (EATM), Bhubaneswar.</sub>
+</div>
