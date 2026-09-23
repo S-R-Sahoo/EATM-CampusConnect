@@ -12,7 +12,7 @@ export const MediaLightbox: React.FC<MediaLightboxProps> = ({ src, alt = 'Campus
 
   return (
     <div 
-      className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex flex-col justify-between p-4 transition-opacity animate-in fade-in duration-200"
+      className="fixed inset-0 z-[60] bg-black/90 backdrop-blur-md flex flex-col justify-between p-4 transition-opacity animate-in fade-in duration-200"
       onClick={onClose}
     >
       {/* Top action bar */}

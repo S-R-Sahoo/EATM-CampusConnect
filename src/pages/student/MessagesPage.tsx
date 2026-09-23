@@ -75,7 +75,7 @@ export const MessagesPage: React.FC = () => {
   const { error, success } = useToast();
   const { markMessageNotificationsAsRead } = useNotifications();
   const location = useLocation();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   useEffect(() => {
     markMessageNotificationsAsRead();
@@ -329,11 +329,40 @@ export const MessagesPage: React.FC = () => {
     };
   }, [activeConvId, user?.id]);
 
+  const [usersMap, setUsersMap] = useState<Record<string, { displayName: string; photoURL?: string; lastSeen?: string }>>({});
+
+  useEffect(() => {
+    fetchUsers().then(users => {
+      const map: Record<string, { displayName: string; photoURL?: string; lastSeen?: string }> = {};
+      users.forEach(u => {
+        map[u.id] = { displayName: u.displayName, photoURL: u.photoURL, lastSeen: u.lastSeen };
+        if (u.uid) {
+          map[u.uid] = { displayName: u.displayName, photoURL: u.photoURL, lastSeen: u.lastSeen };
+        }
+      });
+      setUsersMap(map);
+    }).catch(() => {});
+  }, []);
+
+  // Lock background body scroll on mobile during active conversation to prevent header hiding or rubber-banding
+  useEffect(() => {
+    if (activeConvId && isMobileDevice()) {
+      const prevOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = prevOverflow;
+      };
+    }
+  }, [activeConvId]);
+
   // Get active other party info with authentic WhatsApp-style presence
   const getOtherParty = () => {
-    if (!activeConv || !user) return { name: 'Campus Chat', avatar: undefined, online: false, lastSeen: undefined, isGroup: false };
+    if (!activeConv || !user) {
+      return { id: '', name: 'Campus Chat', avatar: undefined, online: false, lastSeen: undefined, isGroup: false };
+    }
     if (activeConv.isGroup) {
       return {
+        id: '',
         name: activeConv.groupName || 'Study Group',
         avatar: activeConv.groupAvatar,
         online: false,
@@ -341,15 +370,21 @@ export const MessagesPage: React.FC = () => {
         isGroup: true
       };
     }
-    const otherId = activeConv.participants.find(id => id !== user.id) || '';
+    const otherId = activeConv.participants.find(id => id !== user.id) || 
+      activeConv.participants.find(id => id !== 'user_soumya') || 
+      (activeConv.participants.length > 0 ? activeConv.participants[0] : '');
+
     const detail = activeConv.participantDetails?.[otherId];
-    const currentlyOnline = isUserOnline(otherId);
-    const lastSeenTime = getUserLastSeen(otherId) || detail?.lastSeen;
+    const userFallback = otherId ? usersMap[otherId] : undefined;
+    const name = detail?.name || userFallback?.displayName || (otherId === 'user_priya' ? 'Priya Sharma' : 'Student Peer');
+    const avatar = detail?.avatar || userFallback?.photoURL || (otherId === 'user_priya' ? 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&auto=format&fit=crop&q=80' : undefined);
+    const currentlyOnline = otherId ? isUserOnline(otherId) : false;
+    const lastSeenTime = (otherId ? getUserLastSeen(otherId) : undefined) || detail?.lastSeen || userFallback?.lastSeen;
 
     return {
       id: otherId,
-      name: detail?.name || 'Student Peer',
-      avatar: detail?.avatar,
+      name,
+      avatar,
       online: currentlyOnline,
       lastSeen: lastSeenTime,
       isGroup: false
@@ -861,7 +896,11 @@ export const MessagesPage: React.FC = () => {
   const other = getOtherParty();
 
   return (
-    <div className="max-w-6xl mx-auto h-[calc(100vh-130px)] min-h-[580px] bg-white dark:bg-[#111d15] rounded-3xl border border-gray-200/80 dark:border-[#1e3325] shadow-card flex overflow-hidden transition-colors">
+    <div className={`max-w-6xl mx-auto h-[calc(100dvh-125px)] sm:h-[calc(100vh-130px)] sm:min-h-[580px] bg-white dark:bg-[#111d15] rounded-none sm:rounded-3xl border-0 sm:border border-gray-200/80 dark:border-[#1e3325] sm:shadow-card flex overflow-hidden transition-colors ${
+      activeConvId 
+        ? 'max-sm:fixed max-sm:inset-0 max-sm:z-50 max-sm:h-[100dvh] max-sm:w-full max-sm:rounded-none max-sm:border-0' 
+        : 'h-[calc(100dvh-125px)]'
+    }`}>
       {/* Hidden File Pickers: Document, Photos & Video, Camera, Audio */}
       <input
         type="file"
@@ -917,7 +956,7 @@ export const MessagesPage: React.FC = () => {
       {/* WhatsApp Style Delete Confirmation Modal */}
       {messageToDelete && (
         <div 
-          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150"
+          className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150"
           onClick={() => setMessageToDelete(null)}
         >
           <div 
@@ -1128,58 +1167,65 @@ export const MessagesPage: React.FC = () => {
         {activeConv ? (
           <>
             {/* Chat Window Header */}
-            <div className="p-3.5 sm:p-4 bg-white dark:bg-[#111d15] border-b border-gray-200/80 dark:border-[#1e3325] flex items-center justify-between shadow-xs">
-              <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+            <div className="sticky top-0 z-30 shrink-0 bg-white dark:bg-[#111d15] border-b border-gray-200/80 dark:border-[#1e3325] px-2.5 py-2 sm:px-4 sm:py-3.5 flex items-center justify-between shadow-xs pt-[max(0.625rem,env(safe-area-inset-top,0px))]">
+              <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1 mr-2">
                 <button
                   type="button"
-                  onClick={() => setActiveConvId('')}
-                  className="sm:hidden p-1.5 -ml-1 text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-[#16251c] rounded-xl transition"
+                  onClick={() => {
+                    setActiveConvId('');
+                    if (searchParams.get('conversationId') || searchParams.get('userId')) {
+                      setSearchParams({});
+                    }
+                  }}
+                  className="sm:hidden p-1.5 -ml-1 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-[#16251c] rounded-full transition active:scale-95 shrink-0 flex items-center justify-center"
                   title="Back to conversations"
                 >
                   <ArrowLeft className="w-5 h-5 text-[#0b4627] dark:text-emerald-400" />
                 </button>
-                {(!activeConv.isGroup && other.id) ? (
+                {!activeConv.isGroup ? (
                   <Link
-                    to={`/student/profile/${other.id}`}
-                    className="flex items-center gap-2.5 sm:gap-3 group/peer hover:opacity-95 transition min-w-0"
+                    to={other.id ? `/student/profile/${other.id}` : '#'}
+                    className="flex items-center gap-2.5 sm:gap-3 group/peer hover:opacity-95 transition min-w-0 flex-1"
                     title="View Student Profile"
                   >
-                    <Avatar
-                      src={other.avatar}
-                      name={other.name}
-                      size="md"
-                      online={other.online ? true : undefined}
-                    />
-                    <div className="min-w-0">
-                      <h3 className="font-bold text-sm text-gray-900 dark:text-gray-100 group-hover/peer:text-[#0b4627] dark:group-hover/peer:text-emerald-400 transition-colors truncate">
+                    <div className="relative shrink-0">
+                      <Avatar
+                        src={other.avatar}
+                        name={other.name}
+                        size="md"
+                        online={other.online ? true : undefined}
+                      />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="font-bold text-sm sm:text-base text-gray-900 dark:text-gray-100 group-hover/peer:text-[#0b4627] dark:group-hover/peer:text-emerald-400 transition-colors truncate leading-tight">
                         {other.name}
                       </h3>
                       {isOtherTyping ? (
-                        <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold italic flex items-center gap-1 animate-pulse">
+                        <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold italic flex items-center gap-1 animate-pulse leading-none mt-1">
                           typing...
                         </p>
                       ) : other.online ? (
-                        <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1.5">
-                          <span className="w-1.5 h-1.5 rounded-full bg-[#22c55e] ring-1 ring-white dark:ring-[#111d15] shadow-xs" />
+                        <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1.5 leading-none mt-1">
+                          <span className="w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-emerald-100 dark:ring-emerald-950 animate-pulse" />
                           <span>Online</span>
                         </p>
                       ) : (
-                        <p className="text-[11px] text-gray-400 dark:text-gray-500 font-normal truncate">
+                        <p className="text-[11px] text-gray-400 dark:text-gray-500 font-normal truncate leading-none mt-1">
                           {formatLastSeen(other.lastSeen)}
                         </p>
                       )}
                     </div>
                   </Link>
                 ) : (
-                  <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+                  <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
                     <Avatar
                       src={other.avatar}
                       name={other.name}
                       size="md"
                     />
-                    <div className="min-w-0">
-                      <h3 className="font-bold text-sm text-gray-900 dark:text-gray-100 truncate">{other.name}</h3>
-                      <p className="text-[11px] text-gray-500 dark:text-gray-400 font-normal">
+                    <div className="min-w-0 flex-1">
+                      <h3 className="font-bold text-sm text-gray-900 dark:text-gray-100 truncate leading-tight">{other.name}</h3>
+                      <p className="text-[11px] text-gray-500 dark:text-gray-400 font-normal leading-none mt-1">
                         {activeConv.participants.length} members • Official EATM Group
                       </p>
                     </div>
@@ -1187,11 +1233,11 @@ export const MessagesPage: React.FC = () => {
                 )}
               </div>
 
-              <div className="flex items-center gap-1 text-gray-400 dark:text-gray-400 shrink-0">
+              <div className="flex items-center gap-0.5 sm:gap-1 text-gray-500 dark:text-gray-400 shrink-0">
                 <button 
                   type="button"
                   onClick={() => success('Initiating encrypted campus voice connection...')}
-                  className="p-2 hover:text-[#0b4627] dark:hover:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-[#16251c] rounded-xl transition" 
+                  className="p-1.5 sm:p-2 hover:text-[#0b4627] dark:hover:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-[#16251c] rounded-xl transition" 
                   title="Campus Voice Call"
                 >
                   <Phone className="w-4 h-4" />
@@ -1199,19 +1245,19 @@ export const MessagesPage: React.FC = () => {
                 <button 
                   type="button"
                   onClick={() => success('Initiating secure campus video link...')}
-                  className="p-2 hover:text-[#0b4627] dark:hover:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-[#16251c] rounded-xl transition" 
+                  className="p-1.5 sm:p-2 hover:text-[#0b4627] dark:hover:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-[#16251c] rounded-xl transition" 
                   title="Campus Video Call"
                 >
                   <Video className="w-4 h-4" />
                 </button>
-                <button className="p-2 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-[#16251c] rounded-xl transition">
+                <button className="p-1.5 sm:p-2 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-[#16251c] rounded-xl transition">
                   <MoreVertical className="w-4 h-4" />
                 </button>
               </div>
             </div>
 
             {/* Messages Stream Area */}
-            <div className="flex-1 p-4 sm:p-6 overflow-y-auto space-y-3.5">
+            <div className="flex-1 p-3.5 sm:p-6 overflow-y-auto space-y-3.5 overscroll-contain">
               {/* Institutional Encrypted Network Badge */}
               <div className="text-center my-1">
                 <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-800 dark:text-emerald-300 bg-emerald-50/80 dark:bg-emerald-950/40 px-3.5 py-1 rounded-full border border-emerald-200/60 dark:border-emerald-800/40 shadow-xs">
@@ -1458,7 +1504,7 @@ export const MessagesPage: React.FC = () => {
             </div>
 
             {/* Bottom Message & Media Input Bar */}
-            <div className="p-3 sm:p-4 bg-white dark:bg-[#111d15] border-t border-gray-200/80 dark:border-[#1e3325] relative">
+            <div className="p-2.5 sm:p-4 bg-white dark:bg-[#111d15] border-t border-gray-200/80 dark:border-[#1e3325] pb-[max(0.625rem,env(safe-area-inset-bottom,0px))] relative shrink-0">
               {/* Emoji Picker Drawer */}
               {showEmojiPicker && (
                 <div className="absolute bottom-full mb-2 left-4 bg-white dark:bg-[#111d15] rounded-2xl shadow-xl border border-gray-100 dark:border-[#1e3325] p-2 flex gap-1.5 z-30 animate-in fade-in zoom-in-95">

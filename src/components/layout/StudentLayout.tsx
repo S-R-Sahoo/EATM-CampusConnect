@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Outlet, Navigate } from 'react-router-dom';
+import { Outlet, Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { Sidebar } from './Sidebar';
 import { Navbar } from './Navbar';
@@ -11,6 +11,9 @@ export const StudentLayout: React.FC = () => {
   const { user, isLoading } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchModalOpen, setSearchModalOpen] = useState(false);
+
+  const location = useLocation();
+  const isMessages = location.pathname.includes('/messages');
 
   if (isLoading) {
     return (
@@ -54,7 +57,7 @@ export const StudentLayout: React.FC = () => {
         )}
 
         {/* Central Content View */}
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 min-w-0 overflow-x-hidden">
+        <main className={`flex-1 min-w-0 ${isMessages ? 'p-0 sm:p-6 lg:p-8' : 'p-4 sm:p-6 lg:p-8 overflow-x-hidden'}`}>
           <Outlet />
         </main>
       </div>

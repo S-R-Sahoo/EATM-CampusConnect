@@ -164,7 +164,7 @@ export const CameraModal: React.FC<CameraModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-[#0c1317] flex flex-col justify-between p-4 sm:p-6 animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[60] bg-[#0c1317] flex flex-col justify-between p-4 sm:p-6 animate-in fade-in duration-200">
       {/* WhatsApp Web Style Top App Bar */}
       <div className="flex items-center justify-between max-w-5xl mx-auto w-full py-1 text-white z-20">
         <div className="flex items-center gap-3">
