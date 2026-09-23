@@ -6,13 +6,13 @@ import { Home, Compass, MessageSquare, Bell, User } from 'lucide-react';
 
 export const MobileBottomNav: React.FC = () => {
   const { user } = useAuth();
-  const { unreadCount } = useNotifications();
+  const { unreadCount, unreadMessagesCount } = useNotifications();
 
   const navItems = [
     { to: `/${user?.role || 'student'}/dashboard`, icon: Home, label: 'Home' },
     { to: `/${user?.role || 'student'}/discover`, icon: Compass, label: 'Discover' },
-    { to: `/${user?.role || 'student'}/messages`, icon: MessageSquare, label: 'Messages', badge: 1 },
-    { to: `/${user?.role || 'student'}/notifications`, icon: Bell, label: 'Alerts', badge: unreadCount },
+    { to: `/${user?.role || 'student'}/messages`, icon: MessageSquare, label: 'Messages', badge: unreadMessagesCount > 0 ? unreadMessagesCount : undefined },
+    { to: `/${user?.role || 'student'}/notifications`, icon: Bell, label: 'Alerts', badge: unreadCount > 0 ? unreadCount : undefined },
     { to: `/${user?.role || 'student'}/profile`, icon: User, label: 'Profile' },
   ];
 

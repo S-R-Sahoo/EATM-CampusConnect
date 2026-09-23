@@ -19,7 +19,7 @@ interface NavbarProps {
 export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileMenu, onOpenSearch }) => {
   const { user, logout } = useAuth();
   const { theme, resolvedTheme, toggleTheme } = useTheme();
-  const { unreadCount } = useNotifications();
+  const { unreadCount, unreadMessagesCount } = useNotifications();
   const navigate = useNavigate();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -117,7 +117,9 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileMenu, onOpenSearch
             aria-label="Messages"
           >
             <MessageSquare className="w-5 h-5" />
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-[#dc2626] rounded-full ring-2 ring-white dark:ring-[#0f1b14]" />
+            {unreadMessagesCount > 0 && (
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-[#dc2626] rounded-full ring-2 ring-white dark:ring-[#0f1b14]" />
+            )}
           </Link>
 
           {/* Notifications shortcut */}

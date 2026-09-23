@@ -9,9 +9,11 @@ import { NotificationItem } from '../types';
 interface NotificationContextType {
   notifications: NotificationItem[];
   unreadCount: number;
+  unreadMessagesCount: number;
   loading: boolean;
   markAsRead: (id: string) => Promise<void>;
   markAllAsRead: () => Promise<void>;
+  markMessageNotificationsAsRead: () => Promise<void>;
   deleteOne: (id: string) => Promise<void>;
   clearAll: (onlyRead?: boolean) => Promise<void>;
   refresh: () => Promise<void>;
@@ -102,16 +104,34 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }
   };
 
+  const markMessageNotificationsAsRead = async () => {
+    const unreadMsgNotifs = notifications.filter(n => !n.read && n.type === 'message');
+    if (unreadMsgNotifs.length === 0) return;
+    setNotifications(prev =>
+      prev.map(n => n.type === 'message' ? { ...n, read: true } : n)
+    );
+    for (const n of unreadMsgNotifs) {
+      try {
+        await markNotificationAsRead(n.id);
+      } catch (err) {
+        console.warn('Failed to mark message notification as read:', err);
+      }
+    }
+  };
+
   const unreadCount = notifications.filter(n => !n.read).length;
+  const unreadMessagesCount = notifications.filter(n => !n.read && n.type === 'message').length;
 
   return (
     <NotificationContext.Provider
       value={{
         notifications,
         unreadCount,
+        unreadMessagesCount,
         loading,
         markAsRead,
         markAllAsRead,
+        markMessageNotificationsAsRead,
         deleteOne,
         clearAll,
         refresh: loadNotifs

@@ -677,7 +677,7 @@ export const SEED_CONVERSATIONS: Conversation[] = [
     },
     unreadCount: {
       user_soumya: 0,
-      user_priya: 1
+      user_priya: 0
     },
     updatedAt: '2025-02-20T14:34:00Z'
   },
@@ -698,7 +698,7 @@ export const SEED_CONVERSATIONS: Conversation[] = [
       timestamp: '1:28 PM',
       read: true
     },
-    unreadCount: { user_soumya: 1 },
+    unreadCount: { user_soumya: 0 },
     updatedAt: '2025-02-20T13:28:00Z'
   },
   {

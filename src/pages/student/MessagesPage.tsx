@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
+import { useNotifications } from '../../contexts/NotificationContext';
 import { 
   fetchConversations, fetchMessages, sendChatMessage, fetchUsers, 
   subscribeToMessages, getOrCreateConversation, fetchConnections,
@@ -72,8 +73,13 @@ export const dedupeMessageList = (list: Message[]): Message[] => {
 export const MessagesPage: React.FC = () => {
   const { user } = useAuth();
   const { error, success } = useToast();
+  const { markMessageNotificationsAsRead } = useNotifications();
   const location = useLocation();
   const [searchParams] = useSearchParams();
+
+  useEffect(() => {
+    markMessageNotificationsAsRead();
+  }, [markMessageNotificationsAsRead]);
 
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeConvId, setActiveConvId] = useState<string>('');
