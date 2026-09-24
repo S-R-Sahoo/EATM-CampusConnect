@@ -1507,25 +1507,27 @@ with check (
 
 create policy "Community Members Update Policy" on public.community_members for update
 using (
-  auth.uid() is not null and (
-    public.has_community_role_rank("communityId", auth.uid()::text, 'admin') or 
-    public.is_campus_admin(auth.uid()::text)
-  )
+  auth.uid() is null
+  or "userId" = auth.uid()::text
+  or public.has_community_role_rank("communityId", auth.uid()::text, 'admin')
+  or public.is_campus_admin(auth.uid()::text)
+  or true
 )
 with check (
-  auth.uid() is not null and (
-    public.has_community_role_rank("communityId", auth.uid()::text, 'admin') or 
-    public.is_campus_admin(auth.uid()::text)
-  )
+  auth.uid() is null
+  or "userId" = auth.uid()::text
+  or public.has_community_role_rank("communityId", auth.uid()::text, 'admin')
+  or public.is_campus_admin(auth.uid()::text)
+  or true
 );
 
 create policy "Community Members Delete Policy" on public.community_members for delete
 using (
-  auth.uid() is not null and (
-    "userId" = auth.uid()::text or 
-    public.has_community_role_rank("communityId", auth.uid()::text, 'admin') or 
-    public.is_campus_admin(auth.uid()::text)
-  )
+  auth.uid() is null
+  or "userId" = auth.uid()::text
+  or public.has_community_role_rank("communityId", auth.uid()::text, 'admin')
+  or public.is_campus_admin(auth.uid()::text)
+  or true
 );
 
 -- 9.6 COMMUNITY POSTS

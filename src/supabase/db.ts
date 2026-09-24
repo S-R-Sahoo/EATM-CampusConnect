@@ -2014,11 +2014,12 @@ export async function fetchCommunities(): Promise<Community[]> {
           const moderators = approved.filter((m: any) => m.role === 'moderator').map((m: any) => m.userId);
           const membersList = approved.map((m: any) => m.userId);
 
-          const finalMembers = membersList.length > 0 ? membersList : (Array.isArray(c.members) && c.members.length > 0 ? c.members : (c.ownerId ? [c.ownerId] : []));
-          const finalAdmins = admins.length > 0 ? admins : (Array.isArray(c.admins) && c.admins.length > 0 ? c.admins : (c.ownerId ? [c.ownerId] : []));
-          const finalMods = moderators.length > 0 ? moderators : (Array.isArray(c.moderators) ? c.moderators : []);
-          const finalPending = pending.length > 0 ? pending : (Array.isArray(c.pendingRequests) ? c.pendingRequests : []);
-          const finalBanned = banned.length > 0 ? banned : (Array.isArray(c.bannedUsers) ? c.bannedUsers : []);
+          const hasMemberRows = membersData.length > 0;
+          const finalMembers = (hasMemberRows || membersList.length > 0) ? membersList : (Array.isArray(c.members) && c.members.length > 0 ? c.members : (c.ownerId ? [c.ownerId] : []));
+          const finalAdmins = (hasMemberRows || admins.length > 0) ? admins : (Array.isArray(c.admins) && c.admins.length > 0 ? c.admins : (c.ownerId ? [c.ownerId] : []));
+          const finalMods = hasMemberRows ? moderators : (Array.isArray(c.moderators) ? c.moderators : []);
+          const finalPending = hasMemberRows ? pending : (Array.isArray(c.pendingRequests) ? c.pendingRequests : []);
+          const finalBanned = hasMemberRows ? banned : (Array.isArray(c.bannedUsers) ? c.bannedUsers : []);
 
           return {
             ...c,
@@ -2090,11 +2091,12 @@ export async function fetchCommunityById(id: string): Promise<Community | null> 
         const moderators = approved.filter((m: any) => m.role === 'moderator').map((m: any) => m.userId);
         const membersList = approved.map((m: any) => m.userId);
 
-        const finalMembers = membersList.length > 0 ? membersList : (Array.isArray(c.members) && c.members.length > 0 ? c.members : (c.ownerId ? [c.ownerId] : []));
-        const finalAdmins = admins.length > 0 ? admins : (Array.isArray(c.admins) && c.admins.length > 0 ? c.admins : (c.ownerId ? [c.ownerId] : []));
-        const finalMods = moderators.length > 0 ? moderators : (Array.isArray(c.moderators) ? c.moderators : []);
-        const finalPending = pending.length > 0 ? pending : (Array.isArray(c.pendingRequests) ? c.pendingRequests : []);
-        const finalBanned = banned.length > 0 ? banned : (Array.isArray(c.bannedUsers) ? c.bannedUsers : []);
+        const hasMemberRows = memRes.data !== null && memRes.data !== undefined;
+        const finalMembers = (hasMemberRows || membersList.length > 0) ? membersList : (Array.isArray(c.members) && c.members.length > 0 ? c.members : (c.ownerId ? [c.ownerId] : []));
+        const finalAdmins = (hasMemberRows || admins.length > 0) ? admins : (Array.isArray(c.admins) && c.admins.length > 0 ? c.admins : (c.ownerId ? [c.ownerId] : []));
+        const finalMods = hasMemberRows ? moderators : (Array.isArray(c.moderators) ? c.moderators : []);
+        const finalPending = hasMemberRows ? pending : (Array.isArray(c.pendingRequests) ? c.pendingRequests : []);
+        const finalBanned = hasMemberRows ? banned : (Array.isArray(c.bannedUsers) ? c.bannedUsers : []);
 
         const community: Community = {
           ...c,
@@ -2271,6 +2273,24 @@ export async function joinCommunity(
 ): Promise<{ status: 'joined' | 'requested' | 'already_member' | 'banned'; count: number; community?: Community }> {
   if (isSupabaseConfigured() && supabase) {
     try {
+      // 0. Ensure user profile exists in public.users to satisfy Foreign Key constraints
+      try {
+        const allUsers = await fetchUsers();
+        const currentStudent = allUsers.find(u => u.id === userId || u.uid === userId);
+        await supabase.from('users').upsert([{
+          id: userId,
+          uid: currentStudent?.uid || userId,
+          email: currentStudent?.email || `${userId}@campus.eatm.ac.in`,
+          displayName: currentStudent?.displayName || 'Campus Member',
+          role: currentStudent?.role || 'student',
+          department: currentStudent?.department || 'CSE',
+          status: 'active',
+          verified: true
+        }]);
+      } catch (userErr) {
+        console.warn('User profile pre-sync note on join:', userErr);
+      }
+
       const { data: comm } = await supabase.from('communities').select('*').eq('id', communityId).maybeSingle();
       if (!comm) return { status: 'already_member', count: 0 };
 
@@ -2317,11 +2337,22 @@ export async function joinCommunity(
       const approvedIds = approvedList.map((m: any) => m.userId);
       const newCount = approvedIds.length;
 
-      if (isPrivate) {
-        await supabase.from('communities').update({
-          pendingRequests: pendingList
-        }).eq('id', communityId);
+      try {
+        if (isPrivate) {
+          await supabase.from('communities').update({
+            pendingRequests: pendingList
+          }).eq('id', communityId);
+        } else {
+          await supabase.from('communities').update({
+            memberCount: newCount,
+            members: approvedIds
+          }).eq('id', communityId);
+        }
+      } catch (commUpdErr) {
+        console.warn('Community table count sync notice:', commUpdErr);
+      }
 
+      if (isPrivate) {
         // Notify community owner & admins
         const adminIds = approvedList.filter((m: any) => m.role === 'owner' || m.role === 'admin').map((m: any) => m.userId);
         const targets = Array.from(new Set([comm.ownerId, ...adminIds])).filter(Boolean);
@@ -2336,15 +2367,20 @@ export async function joinCommunity(
             });
           }
         }
-        return { status: 'requested', count: comm.memberCount || 1 };
-      } else {
-        await supabase.from('communities').update({
-          memberCount: newCount,
-          members: approvedIds
-        }).eq('id', communityId);
-
-        return { status: 'joined', count: newCount };
       }
+
+      const updatedComm = await fetchCommunityById(communityId);
+      if (updatedComm) {
+        const list = getLocalData<Community[]>('communities', []);
+        setLocalData('communities', [updatedComm, ...list.filter(c => c.id !== communityId)]);
+        window.dispatchEvent(new CustomEvent('eatm_communities_changed', { detail: [updatedComm, ...list] }));
+      }
+
+      return { 
+        status: isPrivate ? 'requested' : 'joined', 
+        count: isPrivate ? (comm.memberCount || 1) : newCount, 
+        community: updatedComm || undefined 
+      };
     } catch (err: any) {
       console.warn('Supabase joinCommunity error:', err);
       if (err.message && !err.message.includes('network')) {
@@ -2371,12 +2407,14 @@ export async function joinCommunity(
       community.pendingRequests.push(userId);
     }
     setLocalData('communities', [...list]);
+    window.dispatchEvent(new CustomEvent('eatm_communities_changed', { detail: list }));
     return { status: 'requested', count: community.memberCount, community };
   }
 
   community.members.push(userId);
   community.memberCount = (community.memberCount || 0) + 1;
   setLocalData('communities', [...list]);
+  window.dispatchEvent(new CustomEvent('eatm_communities_changed', { detail: list }));
   return { status: 'joined', count: community.memberCount, community };
 }
 
@@ -2422,12 +2460,23 @@ export async function leaveCommunity(
       const modIds = approvedList.filter((m: any) => m.role === 'moderator').map((m: any) => m.userId);
       const newCount = approvedIds.length;
 
-      await supabase.from('communities').update({
-        memberCount: newCount,
-        members: approvedIds,
-        admins: adminIds,
-        moderators: modIds
-      }).eq('id', communityId);
+      try {
+        await supabase.from('communities').update({
+          memberCount: newCount,
+          members: approvedIds,
+          admins: adminIds,
+          moderators: modIds
+        }).eq('id', communityId);
+      } catch (commUpdErr) {
+        console.warn('Community leave sync note:', commUpdErr);
+      }
+
+      const updatedComm = await fetchCommunityById(communityId);
+      if (updatedComm) {
+        const list = getLocalData<Community[]>('communities', []);
+        setLocalData('communities', [updatedComm, ...list.filter(c => c.id !== communityId)]);
+        window.dispatchEvent(new CustomEvent('eatm_communities_changed', { detail: [updatedComm, ...list] }));
+      }
 
       return { success: true, count: newCount };
     } catch (err: any) {
@@ -2451,6 +2500,7 @@ export async function leaveCommunity(
   community.moderators = (community.moderators || []).filter(id => id !== userId);
   community.memberCount = Math.max(0, (community.memberCount || 1) - 1);
   setLocalData('communities', [...list]);
+  window.dispatchEvent(new CustomEvent('eatm_communities_changed', { detail: list }));
 
   return { success: true, count: community.memberCount };
 }
@@ -2476,7 +2526,12 @@ export async function handleCommunityJoinRequest(
 ): Promise<{ success: boolean; community?: Community }> {
   const currentComm = await fetchCommunityById(communityId);
   if (!currentComm) return { success: false };
-  const isAuthorized = currentComm.ownerId === adminId || (currentComm.admins || []).includes(adminId);
+  
+  const allUsers = await fetchUsers();
+  const caller = allUsers.find(u => u.id === adminId || u.uid === adminId);
+  const isCampusAdmin = caller?.role === 'admin';
+  const isAuthorized = isCampusAdmin || currentComm.ownerId === adminId || (currentComm.admins || []).includes(adminId);
+  
   if (!isAuthorized) {
     console.warn('Unauthorized join request action attempt by:', adminId);
     return { success: false };
@@ -2505,11 +2560,15 @@ export async function handleCommunityJoinRequest(
         const pendingIds = (allMembers || []).filter((m: any) => m.status === 'pending').map((m: any) => m.userId);
         const newCount = approvedIds.length;
 
-        await supabase.from('communities').update({
-          memberCount: newCount,
-          members: approvedIds,
-          pendingRequests: pendingIds
-        }).eq('id', communityId);
+        try {
+          await supabase.from('communities').update({
+            memberCount: newCount,
+            members: approvedIds,
+            pendingRequests: pendingIds
+          }).eq('id', communityId);
+        } catch (commUpdErr) {
+          console.warn('Community pendingRequests sync note:', commUpdErr);
+        }
 
         await createNotification({
           recipientId: targetUserId,
@@ -2530,9 +2589,13 @@ export async function handleCommunityJoinRequest(
           .eq('communityId', communityId);
 
         const pendingIds = (allMembers || []).filter((m: any) => m.status === 'pending').map((m: any) => m.userId);
-        await supabase.from('communities').update({
-          pendingRequests: pendingIds
-        }).eq('id', communityId);
+        try {
+          await supabase.from('communities').update({
+            pendingRequests: pendingIds
+          }).eq('id', communityId);
+        } catch (commUpdErr) {
+          console.warn('Community pendingRequests sync note:', commUpdErr);
+        }
 
         await createNotification({
           recipientId: targetUserId,
@@ -2544,6 +2607,11 @@ export async function handleCommunityJoinRequest(
       }
 
       const updatedComm = await fetchCommunityById(communityId);
+      if (updatedComm) {
+        const list = getLocalData<Community[]>('communities', []);
+        setLocalData('communities', [updatedComm, ...list.filter(c => c.id !== communityId)]);
+        window.dispatchEvent(new CustomEvent('eatm_communities_changed', { detail: [updatedComm, ...list] }));
+      }
       return { success: true, community: updatedComm || undefined };
     } catch (err) {
       console.warn('Supabase handleCommunityJoinRequest error:', err);
@@ -2564,6 +2632,7 @@ export async function handleCommunityJoinRequest(
     }
   }
   setLocalData('communities', [...list]);
+  window.dispatchEvent(new CustomEvent('eatm_communities_changed', { detail: list }));
   return { success: true, community };
 }
 
