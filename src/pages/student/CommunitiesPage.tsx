@@ -13,7 +13,8 @@ import { Input } from '../../components/ui/Input';
 import { 
   Search, Plus, Users, Award, Check, Upload, X, ShieldCheck, 
   Lock, Globe, Sparkles, Filter, ArrowRight, BookOpen, 
-  Flame, Calendar, ExternalLink, ChevronRight, Layers, HelpCircle
+  Flame, Calendar, ExternalLink, ChevronRight, Layers, HelpCircle,
+  AlertTriangle, RefreshCw
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -37,6 +38,7 @@ export const CommunitiesPage: React.FC = () => {
 
   const [communities, setCommunities] = useState<Community[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [sortBy, setSortBy] = useState<'popular' | 'newest' | 'members'>('popular');
@@ -64,10 +66,12 @@ export const CommunitiesPage: React.FC = () => {
   const loadData = async (showLoading = true) => {
     try {
       if (showLoading) setLoading(true);
+      setFetchError(null);
       const data = await fetchCommunities();
       setCommunities(data);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to load communities:', err);
+      setFetchError(err.message || 'Unable to connect to campus community directory.');
     } finally {
       if (showLoading) setLoading(false);
     }
@@ -400,26 +404,61 @@ export const CommunitiesPage: React.FC = () => {
               </div>
             ))}
           </div>
+        ) : fetchError && communities.length === 0 ? (
+          <div className="bg-white dark:bg-[#111d15] rounded-2xl border border-rose-200 dark:border-rose-900/50 p-10 text-center shadow-xs">
+            <div className="w-14 h-14 rounded-2xl bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 mx-auto flex items-center justify-center mb-3">
+              <AlertTriangle className="w-7 h-7" />
+            </div>
+            <h3 className="text-base font-bold text-gray-900 dark:text-gray-100">Unable to load societies directory</h3>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 max-w-md mx-auto">
+              {fetchError}
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => loadData(true)}
+              icon={<RefreshCw className="w-3.5 h-3.5" />}
+              className="mt-4"
+            >
+              Retry Connection
+            </Button>
+          </div>
         ) : filteredClubs.length === 0 ? (
           <div className="bg-white dark:bg-[#111d15] rounded-2xl border border-gray-200 dark:border-[#1e3325] p-12 text-center">
             <div className="w-14 h-14 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 text-[#0b4627] dark:text-emerald-400 mx-auto flex items-center justify-center mb-3">
               <Award className="w-7 h-7" />
             </div>
-            <h3 className="text-base font-bold text-gray-900 dark:text-gray-100">No communities found</h3>
+            <h3 className="text-base font-bold text-gray-900 dark:text-gray-100">
+              {searchQuery || selectedCategory !== 'All' ? 'No matching communities found' : 'No student societies established yet'}
+            </h3>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 max-w-sm mx-auto">
-              No societies match your current search or category filter. Try clearing your filters or create a new student club!
+              {searchQuery || selectedCategory !== 'All'
+                ? 'No societies match your current search or category filter. Try clearing your filters or create a new student club!'
+                : 'Be the first pioneer to establish and lead a student community at EATM Campus!'}
             </p>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setSearchQuery('');
-                setSelectedCategory('All');
-              }}
-              className="mt-4"
-            >
-              Reset Filters
-            </Button>
+            {searchQuery || selectedCategory !== 'All' ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setSearchQuery('');
+                  setSelectedCategory('All');
+                }}
+                className="mt-4"
+              >
+                Reset Filters
+              </Button>
+            ) : (
+              <Button
+                variant="crimson"
+                size="sm"
+                onClick={() => setCreateModalOpen(true)}
+                icon={<Plus className="w-4 h-4" />}
+                className="mt-4 font-semibold"
+              >
+                Create First Club
+              </Button>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">

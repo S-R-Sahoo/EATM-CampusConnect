@@ -1991,7 +1991,6 @@ async function seedCommunityDataIfEmpty(): Promise<void> {
 }
 
 export async function fetchCommunities(): Promise<Community[]> {
-  let list: Community[] = [];
   if (isSupabaseConfigured() && supabase) {
     try {
       const [commRes, memRes] = await Promise.all([
@@ -1999,7 +1998,12 @@ export async function fetchCommunities(): Promise<Community[]> {
         supabase.from('community_members').select('*')
       ]);
 
-      if (!commRes.error && commRes.data && commRes.data.length > 0) {
+      if (commRes.error) {
+        console.error('❌ Supabase fetchCommunities error:', commRes.error);
+        throw new Error(commRes.error.message || 'Failed to load communities directory from server.');
+      }
+
+      if (commRes.data && commRes.data.length > 0) {
         const membersData = memRes.data || [];
         const normalized: Community[] = commRes.data.map(c => {
           const clubMembers = membersData.filter((m: any) => m.communityId === c.id);
@@ -2010,8 +2014,8 @@ export async function fetchCommunities(): Promise<Community[]> {
           const moderators = approved.filter((m: any) => m.role === 'moderator').map((m: any) => m.userId);
           const membersList = approved.map((m: any) => m.userId);
 
-          const finalMembers = membersList.length > 0 ? membersList : (Array.isArray(c.members) ? c.members : (c.ownerId ? [c.ownerId] : []));
-          const finalAdmins = admins.length > 0 ? admins : (Array.isArray(c.admins) ? c.admins : (c.ownerId ? [c.ownerId] : []));
+          const finalMembers = membersList.length > 0 ? membersList : (Array.isArray(c.members) && c.members.length > 0 ? c.members : (c.ownerId ? [c.ownerId] : []));
+          const finalAdmins = admins.length > 0 ? admins : (Array.isArray(c.admins) && c.admins.length > 0 ? c.admins : (c.ownerId ? [c.ownerId] : []));
           const finalMods = moderators.length > 0 ? moderators : (Array.isArray(c.moderators) ? c.moderators : []);
           const finalPending = pending.length > 0 ? pending : (Array.isArray(c.pendingRequests) ? c.pendingRequests : []);
           const finalBanned = banned.length > 0 ? banned : (Array.isArray(c.bannedUsers) ? c.bannedUsers : []);
@@ -2034,18 +2038,18 @@ export async function fetchCommunities(): Promise<Community[]> {
 
         setLocalData('communities', normalized);
         return normalized;
-      } else if (!commRes.error && (!commRes.data || commRes.data.length === 0)) {
+      } else if (commRes.data && commRes.data.length === 0) {
         await seedCommunityDataIfEmpty();
         const recheck = await supabase.from('communities').select('*').order('name', { ascending: true });
         if (recheck.data && recheck.data.length > 0) {
-          const norm = recheck.data.map(c => ({
+          const norm: Community[] = recheck.data.map(c => ({
             ...c,
             logoUrl: c.logoUrl || c.logo || 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=300&auto=format&fit=crop&q=80',
             coverUrl: c.coverUrl || c.cover || 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=1200&auto=format&fit=crop&q=80',
             type: (c.type as CommunityType) || 'public',
             memberCount: typeof c.memberCount === 'number' ? c.memberCount : (c.members?.length || 1),
-            members: Array.isArray(c.members) ? c.members : [],
-            admins: Array.isArray(c.admins) ? c.admins : [],
+            members: Array.isArray(c.members) && c.members.length > 0 ? c.members : (c.ownerId ? [c.ownerId] : []),
+            admins: Array.isArray(c.admins) && c.admins.length > 0 ? c.admins : (c.ownerId ? [c.ownerId] : []),
             moderators: Array.isArray(c.moderators) ? c.moderators : [],
             pendingRequests: Array.isArray(c.pendingRequests) ? c.pendingRequests : [],
             bannedUsers: Array.isArray(c.bannedUsers) ? c.bannedUsers : [],
@@ -2055,16 +2059,17 @@ export async function fetchCommunities(): Promise<Community[]> {
           setLocalData('communities', norm);
           return norm;
         }
+        return [];
       }
-    } catch (err) {
-      console.warn('Supabase fetchCommunities error, using local cache:', err);
+    } catch (err: any) {
+      console.warn('Supabase fetchCommunities exception:', err);
+      if (err.message && !err.message.includes('network')) {
+        throw err;
+      }
     }
   }
 
-  if (list.length === 0) {
-    list = getLocalData<Community[]>('communities', SEED_COMMUNITIES);
-  }
-  return list;
+  return getLocalData<Community[]>('communities', SEED_COMMUNITIES);
 }
 
 export async function fetchCommunityById(id: string): Promise<Community | null> {
@@ -2085,8 +2090,8 @@ export async function fetchCommunityById(id: string): Promise<Community | null> 
         const moderators = approved.filter((m: any) => m.role === 'moderator').map((m: any) => m.userId);
         const membersList = approved.map((m: any) => m.userId);
 
-        const finalMembers = membersList.length > 0 ? membersList : (Array.isArray(c.members) ? c.members : (c.ownerId ? [c.ownerId] : []));
-        const finalAdmins = admins.length > 0 ? admins : (Array.isArray(c.admins) ? c.admins : (c.ownerId ? [c.ownerId] : []));
+        const finalMembers = membersList.length > 0 ? membersList : (Array.isArray(c.members) && c.members.length > 0 ? c.members : (c.ownerId ? [c.ownerId] : []));
+        const finalAdmins = admins.length > 0 ? admins : (Array.isArray(c.admins) && c.admins.length > 0 ? c.admins : (c.ownerId ? [c.ownerId] : []));
         const finalMods = moderators.length > 0 ? moderators : (Array.isArray(c.moderators) ? c.moderators : []);
         const finalPending = pending.length > 0 ? pending : (Array.isArray(c.pendingRequests) ? c.pendingRequests : []);
         const finalBanned = banned.length > 0 ? banned : (Array.isArray(c.bannedUsers) ? c.bannedUsers : []);
@@ -2120,6 +2125,10 @@ export async function createCommunity(
   data: Partial<Community> & { name: string; category: string; description: string },
   creatorId: string
 ): Promise<Community> {
+  if (!creatorId) {
+    throw new Error('Creator ID is required to register a community.');
+  }
+
   const users = await fetchUsers();
   const creator = users.find(u => u.id === creatorId || u.uid === creatorId);
   const isCampusAdmin = creator?.role === 'admin';
@@ -2155,43 +2164,71 @@ export async function createCommunity(
   };
 
   if (isSupabaseConfigured() && supabase) {
-    try {
-      await supabase.from('communities').insert([{
-        id: newCommunity.id,
-        name: newCommunity.name,
-        description: newCommunity.description,
-        category: newCommunity.category,
-        type: newCommunity.type,
-        logo: newCommunity.logoUrl,
-        "logoUrl": newCommunity.logoUrl,
-        cover: newCommunity.coverUrl,
-        "coverUrl": newCommunity.coverUrl,
-        "ownerId": creatorId,
-        "isOfficial": newCommunity.isOfficial,
-        "verificationStatus": newCommunity.verificationStatus,
-        "memberCount": 1,
-        members: [creatorId],
-        admins: [creatorId],
-        moderators: [],
-        "pendingRequests": [],
-        "bannedUsers": [],
-        rules: newCommunity.rules,
-        tags: newCommunity.tags
-      }]);
+    // 1. Insert Community record into Supabase
+    const { error: commError } = await supabase.from('communities').insert([{
+      id: newCommunity.id,
+      name: newCommunity.name,
+      description: newCommunity.description,
+      category: newCommunity.category,
+      type: newCommunity.type,
+      logo: newCommunity.logoUrl,
+      logoUrl: newCommunity.logoUrl,
+      cover: newCommunity.coverUrl,
+      coverUrl: newCommunity.coverUrl,
+      ownerId: creatorId,
+      isOfficial: newCommunity.isOfficial,
+      verificationStatus: newCommunity.verificationStatus,
+      memberCount: 1,
+      members: [creatorId],
+      admins: [creatorId],
+      moderators: [],
+      pendingRequests: [],
+      bannedUsers: [],
+      rules: newCommunity.rules,
+      tags: newCommunity.tags
+    }]);
 
-      await supabase.from('community_members').insert([{
-        id: 'cm_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
-        "communityId": newCommunity.id,
-        "userId": creatorId,
-        role: 'owner',
-        status: 'approved',
-        "joinedAt": new Date().toISOString()
-      }]);
-    } catch (err) {
-      console.warn('Supabase createCommunity error:', err);
+    if (commError) {
+      console.error('❌ Supabase community creation error:', commError);
+      throw new Error(commError.message || 'Failed to create community in Supabase database.');
     }
+
+    // 2. Insert Owner Membership record into community_members table
+    const { error: memError } = await supabase.from('community_members').insert([{
+      id: 'cm_' + newCommunity.id + '_' + creatorId,
+      communityId: newCommunity.id,
+      userId: creatorId,
+      role: 'owner',
+      status: 'approved',
+      joinedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    }]);
+
+    if (memError) {
+      console.error('❌ Supabase community owner membership creation error:', memError);
+      // Clean up orphaned community
+      await supabase.from('communities').delete().eq('id', newCommunity.id);
+      throw new Error(memError.message || 'Failed to establish community owner membership in database.');
+    }
+
+    // 3. Verify record existence in Supabase
+    const { data: verifyData, error: verifyError } = await supabase
+      .from('communities')
+      .select('*')
+      .eq('id', newCommunity.id)
+      .single();
+
+    if (verifyError || !verifyData) {
+      throw new Error('Community verification failed after database insertion.');
+    }
+
+    // Update local cache only upon verified success
+    const list = getLocalData<Community[]>('communities', []);
+    setLocalData('communities', [newCommunity, ...list.filter(c => c.id !== newCommunity.id)]);
+    return newCommunity;
   }
 
+  // Offline Sandbox fallback
   const list = getLocalData<Community[]>('communities', SEED_COMMUNITIES);
   setLocalData('communities', [newCommunity, ...list]);
   return newCommunity;
