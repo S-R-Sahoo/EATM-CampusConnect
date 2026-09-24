@@ -1232,9 +1232,10 @@ export async function fetchConversations(userId: string): Promise<Conversation[]
     }
   }
 
-  // Enrich participantDetails from live user directory (using memory cache)
-  const allUsers = await fetchUsers();
-  const userMap = new Map(allUsers.map(u => [u.id, u]));
+  // Enrich participantDetails from live user directory (optimized: query only conversation participants)
+  const participantIds = Array.from(new Set(list.flatMap(c => c.participants || [])));
+  const users = await fetchUsersByIds(participantIds);
+  const userMap = new Map(users.map(u => [u.id, u]));
 
   // Enrich participantDetails and sync true latest message from message bank
   const allMessages = getLocalData<Message[]>('messages', SEED_MESSAGES);
@@ -1375,28 +1376,35 @@ export function markMessageDeletedForMe(userId: string, messageId: string): void
   } catch (e) {}
 }
 
+// In-memory message cache for instant 0ms retrieval on chat open & switch
+const messagesMemoryCache = new Map<string, { msgs: Message[]; ts: number }>();
+
+export function getMemoryCachedMessages(conversationId: string, currentUserId?: string): Message[] {
+  if (!conversationId) return [];
+  const deletedForMeSet = currentUserId ? getDeletedForMeIds(currentUserId) : new Set<string>();
+  const mem = messagesMemoryCache.get(conversationId);
+  if (mem && mem.msgs) {
+    return mem.msgs.filter(m => {
+      if (deletedForMeSet.has(m.id)) return false;
+      if (currentUserId && m.deletedFor && m.deletedFor.includes(currentUserId)) return false;
+      return true;
+    });
+  }
+  const localMsgs = getLocalData<Message[]>('messages', SEED_MESSAGES);
+  const convMsgs = localMsgs.filter(m => m.conversationId === conversationId);
+  if (convMsgs.length > 0) {
+    messagesMemoryCache.set(conversationId, { msgs: convMsgs, ts: Date.now() });
+    return convMsgs.filter(m => {
+      if (deletedForMeSet.has(m.id)) return false;
+      if (currentUserId && m.deletedFor && m.deletedFor.includes(currentUserId)) return false;
+      return true;
+    });
+  }
+  return [];
+}
+
 export async function fetchMessages(conversationId: string, currentUserId?: string): Promise<Message[]> {
   const deletedForMeSet = currentUserId ? getDeletedForMeIds(currentUserId) : new Set<string>();
-  const allUsers = await fetchUsers();
-  const userMap = new Map(allUsers.map(u => [u.id, u]));
-
-  const enrichMsg = (m: Message): Message => {
-    const isDeletedMsg = m.isDeleted === true || m.text === '__DELETED_FOR_EVERYONE__';
-    const u = userMap.get(m.senderId);
-    const userPhoto = u?.photoURL;
-    const resolvedAvatar = isCustomPhoto(userPhoto)
-      ? userPhoto
-      : (isCustomPhoto(m.senderAvatar) ? m.senderAvatar : undefined);
-    return {
-      ...m,
-      isDeleted: isDeletedMsg,
-      text: isDeletedMsg ? '' : m.text,
-      mediaUrl: isDeletedMsg ? undefined : m.mediaUrl,
-      mediaType: isDeletedMsg ? undefined : detectChatMessageMediaType(m.mediaUrl, m.mediaType),
-      senderName: m.senderName || u?.displayName || (m.senderId === 'system' ? 'CampusConnect' : 'Student'),
-      senderAvatar: resolvedAvatar
-    };
-  };
 
   if (isSupabaseConfigured() && supabase) {
     try {
@@ -1407,7 +1415,33 @@ export async function fetchMessages(conversationId: string, currentUserId?: stri
         .order('createdAt', { ascending: true });
 
       if (!error && data && data.length > 0) {
-        const enriched = (data as Message[]).map(enrichMsg);
+        const rawMsgs = data as Message[];
+        const senderIds = Array.from(new Set(rawMsgs.map(m => m.senderId).filter(Boolean)));
+        const senders = await fetchUsersByIds(senderIds);
+        const userMap = new Map(senders.map(u => [u.id, u]));
+
+        const enrichMsg = (m: Message): Message => {
+          const isDeletedMsg = m.isDeleted === true || m.text === '__DELETED_FOR_EVERYONE__';
+          const u = userMap.get(m.senderId);
+          const userPhoto = u?.photoURL;
+          const resolvedAvatar = isCustomPhoto(userPhoto)
+            ? userPhoto
+            : (isCustomPhoto(m.senderAvatar) ? m.senderAvatar : undefined);
+          return {
+            ...m,
+            isDeleted: isDeletedMsg,
+            text: isDeletedMsg ? '' : m.text,
+            mediaUrl: isDeletedMsg ? undefined : m.mediaUrl,
+            mediaType: isDeletedMsg ? undefined : detectChatMessageMediaType(m.mediaUrl, m.mediaType),
+            senderName: m.senderName || u?.displayName || (m.senderId === 'system' ? 'CampusConnect' : 'Student'),
+            senderAvatar: resolvedAvatar
+          };
+        };
+
+        const enriched = rawMsgs.map(enrichMsg);
+
+        // Update in-memory cache immediately
+        messagesMemoryCache.set(conversationId, { msgs: enriched, ts: Date.now() });
 
         // Sync local cache
         const localMsgs = getLocalData<Message[]>('messages', SEED_MESSAGES);
@@ -1427,9 +1461,33 @@ export async function fetchMessages(conversationId: string, currentUserId?: stri
   }
 
   const msgs = getLocalData<Message[]>('messages', SEED_MESSAGES);
-  const convMsgs = msgs.filter(m => m.conversationId === conversationId).map(enrichMsg);
+  const convMsgs = msgs.filter(m => m.conversationId === conversationId);
+  const senderIds = Array.from(new Set(convMsgs.map(m => m.senderId).filter(Boolean)));
+  const senders = await fetchUsersByIds(senderIds);
+  const userMap = new Map(senders.map(u => [u.id, u]));
 
-  return convMsgs.filter(m => {
+  const enrichMsg = (m: Message): Message => {
+    const isDeletedMsg = m.isDeleted === true || m.text === '__DELETED_FOR_EVERYONE__';
+    const u = userMap.get(m.senderId);
+    const userPhoto = u?.photoURL;
+    const resolvedAvatar = isCustomPhoto(userPhoto)
+      ? userPhoto
+      : (isCustomPhoto(m.senderAvatar) ? m.senderAvatar : undefined);
+    return {
+      ...m,
+      isDeleted: isDeletedMsg,
+      text: isDeletedMsg ? '' : m.text,
+      mediaUrl: isDeletedMsg ? undefined : m.mediaUrl,
+      mediaType: isDeletedMsg ? undefined : detectChatMessageMediaType(m.mediaUrl, m.mediaType),
+      senderName: m.senderName || u?.displayName || (m.senderId === 'system' ? 'CampusConnect' : 'Student'),
+      senderAvatar: resolvedAvatar
+    };
+  };
+
+  const enrichedLocal = convMsgs.map(enrichMsg);
+  messagesMemoryCache.set(conversationId, { msgs: enrichedLocal, ts: Date.now() });
+
+  return enrichedLocal.filter(m => {
     if (deletedForMeSet.has(m.id)) return false;
     if (currentUserId && m.deletedFor && m.deletedFor.includes(currentUserId)) return false;
     return true;
@@ -1486,6 +1544,20 @@ export async function sendChatMessage(msg: Omit<Message, 'id' | 'createdAt' | 'r
   const msgs = getLocalData<Message[]>('messages', SEED_MESSAGES);
   if (!msgs.some(m => m.id === newMsg.id)) {
     setLocalData('messages', [...msgs, newMsg]);
+  }
+
+  // Update in-memory message cache immediately
+  const cachedMem = messagesMemoryCache.get(newMsg.conversationId);
+  if (cachedMem) {
+    messagesMemoryCache.set(newMsg.conversationId, {
+      msgs: [...cachedMem.msgs.filter(m => m.id !== newMsg.id), newMsg],
+      ts: Date.now()
+    });
+  } else {
+    messagesMemoryCache.set(newMsg.conversationId, {
+      msgs: [newMsg],
+      ts: Date.now()
+    });
   }
 
   let previewText = msg.text;
@@ -1645,6 +1717,15 @@ export async function deleteMessageForEveryone(messageId: string, conversationId
   });
   setLocalData('messages', updatedMsgs);
 
+  // Update in-memory message cache
+  const memEveryone = messagesMemoryCache.get(conversationId);
+  if (memEveryone) {
+    messagesMemoryCache.set(conversationId, {
+      msgs: memEveryone.msgs.map(m => m.id === messageId ? { ...m, isDeleted: true, text: '', mediaUrl: undefined, mediaType: undefined, fileName: undefined, fileSize: undefined, audioDuration: undefined } : m),
+      ts: Date.now()
+    });
+  }
+
   // Update conversation last message if this was the last message
   const convs = getLocalData<Conversation[]>('conversations', SEED_CONVERSATIONS);
   const conv = convs.find(c => c.id === conversationId);
@@ -1750,6 +1831,24 @@ export async function deleteMessageForMe(messageId: string, conversationId: stri
     return m;
   });
   setLocalData('messages', updatedMsgs);
+
+  // Update in-memory message cache
+  const memMe = messagesMemoryCache.get(conversationId);
+  if (memMe) {
+    messagesMemoryCache.set(conversationId, {
+      msgs: memMe.msgs.map(m => {
+        if (m.id === messageId) {
+          const existing = m.deletedFor || [];
+          return {
+            ...m,
+            deletedFor: existing.includes(userId) ? existing : [...existing, userId]
+          };
+        }
+        return m;
+      }),
+      ts: Date.now()
+    });
+  }
 
   // 3. Dispatch local event
   window.dispatchEvent(new CustomEvent('eatm_chat_message_deleted_for_me', {
@@ -1917,15 +2016,39 @@ export function subscribeToMessages(
   onInsert: (newMsg: Message) => void,
   onDeleteForEveryone?: (messageId: string) => void
 ): () => void {
+  const handleIncomingLiveMsg = (m: Message) => {
+    const mem = messagesMemoryCache.get(conversationId);
+    if (mem) {
+      if (!mem.msgs.some(existing => existing.id === m.id)) {
+        messagesMemoryCache.set(conversationId, {
+          msgs: [...mem.msgs, m],
+          ts: Date.now()
+        });
+      }
+    }
+    onInsert(m);
+  };
+
+  const handleIncomingDelete = (messageId: string) => {
+    const mem = messagesMemoryCache.get(conversationId);
+    if (mem) {
+      messagesMemoryCache.set(conversationId, {
+        msgs: mem.msgs.map(m => m.id === messageId ? { ...m, isDeleted: true, text: '', mediaUrl: undefined, mediaType: undefined, fileName: undefined, fileSize: undefined, audioDuration: undefined } : m),
+        ts: Date.now()
+      });
+    }
+    onDeleteForEveryone?.(messageId);
+  };
+
   // 1. Listen to local window events (syncs instant updates across tabs/components)
   const windowListener = (e: CustomEvent<Message>) => {
     if (e.detail && e.detail.conversationId === conversationId) {
-      onInsert(e.detail);
+      handleIncomingLiveMsg(e.detail);
     }
   };
   const deleteListener = (e: CustomEvent<{ messageId: string; conversationId: string }>) => {
     if (e.detail && e.detail.conversationId === conversationId) {
-      onDeleteForEveryone?.(e.detail.messageId);
+      handleIncomingDelete(e.detail.messageId);
     }
   };
 
@@ -1949,7 +2072,7 @@ export function subscribeToMessages(
       (event) => {
         if (event.payload && event.payload.conversationId === conversationId) {
           const m = event.payload as Message;
-          onInsert({
+          handleIncomingLiveMsg({
             ...m,
             mediaType: detectChatMessageMediaType(m.mediaUrl, m.mediaType)
           });
@@ -1961,7 +2084,7 @@ export function subscribeToMessages(
       { event: 'message_deleted_for_everyone' },
       (event) => {
         if (event.payload && event.payload.conversationId === conversationId) {
-          onDeleteForEveryone?.(event.payload.messageId);
+          handleIncomingDelete(event.payload.messageId);
         }
       }
     )
@@ -1990,7 +2113,7 @@ export function subscribeToMessages(
             isDeleted: raw.isDeleted || raw.isdeleted || false,
             deletedFor: raw.deletedFor || raw.deletedfor || []
           };
-          onInsert(m);
+          handleIncomingLiveMsg(m);
         }
       }
     )
@@ -2003,7 +2126,7 @@ export function subscribeToMessages(
         const convId = raw.conversationId || raw.conversationid;
         if (convId === conversationId) {
           if (raw.isDeleted || raw.isdeleted) {
-            onDeleteForEveryone?.(raw.id);
+            handleIncomingDelete(raw.id);
           }
         }
       }

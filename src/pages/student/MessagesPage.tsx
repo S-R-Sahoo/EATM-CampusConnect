@@ -5,7 +5,8 @@ import { useNotifications } from '../../contexts/NotificationContext';
 import { 
   fetchConversations, fetchMessages, sendChatMessage, fetchUsers, 
   subscribeToMessages, getOrCreateConversation, fetchConnections,
-  deleteMessageForEveryone, deleteMessageForMe, markConversationMessagesAsRead
+  deleteMessageForEveryone, deleteMessageForMe, markConversationMessagesAsRead,
+  getMemoryCachedMessages
 } from '../../supabase/db';
 import { SEED_CONVERSATIONS } from '../../supabase/seedData';
 import { uploadFile } from '../../supabase/storage';
@@ -96,27 +97,17 @@ export const MessagesPage: React.FC = () => {
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const getCachedMessages = (convId: string): Message[] => {
+  const getCachedMessages = useCallback((convId: string): Message[] => {
     if (!convId) return [];
-    try {
-      const raw = localStorage.getItem('eatm_campus_messages');
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) {
-          return parsed.filter((m: Message) => m.conversationId === convId);
-        }
-      }
-    } catch {}
-    return [];
-  };
+    return getMemoryCachedMessages(convId, user?.id);
+  }, [user?.id]);
 
   const getUnreadCountForConversation = (convId: string, userId: string, conv?: Conversation): number => {
     let count = 0;
     try {
-      const raw = localStorage.getItem('eatm_campus_messages');
-      if (raw) {
-        const msgs: Message[] = JSON.parse(raw);
-        count = msgs.filter(m => m.conversationId === convId && m.senderId !== userId && !m.read && !m.isDeleted).length;
+      const cached = getMemoryCachedMessages(convId, userId);
+      if (cached.length > 0) {
+        count = cached.filter(m => m.senderId !== userId && !m.read && !m.isDeleted).length;
       }
     } catch {}
     if (count === 0 && conv?.unreadCount && typeof conv.unreadCount[userId] === 'number') {
@@ -149,7 +140,7 @@ export const MessagesPage: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>(() => {
     const initId = (location.state as any)?.conversationId || searchParams.get('conversationId');
     if (initId) {
-      return getCachedMessages(initId);
+      return getMemoryCachedMessages(initId, user?.id);
     }
     return [];
   });
@@ -171,13 +162,15 @@ export const MessagesPage: React.FC = () => {
         })
       );
     }
-    const cached = getCachedMessages(convId);
+    const cached = getMemoryCachedMessages(convId, user?.id);
     if (cached.length > 0) {
-      const dedupedCached = dedupeMessageList(cached);
+      const dedupedCached = dedupeMessageList(cached).sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
       setMessages(prev => (areMessageListsEqual(prev, dedupedCached) ? prev : dedupedCached));
       setTimeout(() => {
         if (messagesScrollRef.current) messagesScrollRef.current.scrollTop = messagesScrollRef.current.scrollHeight;
       }, 10);
+    } else {
+      setMessages([]);
     }
     markMessageNotificationsAsRead();
   }, [markMessageNotificationsAsRead, user?.id]);
@@ -394,40 +387,17 @@ export const MessagesPage: React.FC = () => {
     let isMounted = true;
     const initConvs = async () => {
       try {
-        let convs = await fetchConversations(user.id);
+        const convs = await fetchConversations(user.id);
         if (!isMounted) return;
-
-        let isFirstTimeConnection = false;
-        // Auto-link all accepted friends into conversation list so peer list is consistent
-        try {
-          const conns = await fetchConnections(user.id);
-          const acceptedConns = conns.filter(c => c.status === 'accepted');
-          for (const conn of acceptedConns) {
-            const friendId = conn.requesterId === user.id ? conn.recipientId : conn.requesterId;
-            const existing = convs.find(c => !c.isGroup && c.participants && c.participants.includes(friendId));
-            if (!existing) {
-              const directConv = await getOrCreateConversation(user.id, friendId);
-              convs.push(directConv);
-            }
-          }
-          if (acceptedConns.length > 0) {
-            const firstConnKey = `eatm_first_conn_opened_${user.id}`;
-            if (!localStorage.getItem(firstConnKey)) {
-              isFirstTimeConnection = true;
-              localStorage.setItem(firstConnKey, 'true');
-            }
-          }
-        } catch (linkErr) {
-          console.warn('Auto-link friends error:', linkErr);
-        }
-
-        if (isMounted) {
-          setConversations(sortConversationsList(convs));
-        }
 
         const targetConvId = (location.state as any)?.conversationId || searchParams.get('conversationId');
         const targetUserId = searchParams.get('userId');
         const explicitFirstTime = (location.state as any)?.firstTimeConnection;
+        const sorted = sortConversationsList(convs);
+
+        if (isMounted) {
+          setConversations(sorted);
+        }
 
         if (targetConvId) {
           selectConversation(targetConvId);
@@ -440,9 +410,41 @@ export const MessagesPage: React.FC = () => {
             });
             selectConversation(conv.id);
           }
-        } else if ((isFirstTimeConnection || explicitFirstTime) && convs.length > 0) {
-          selectConversation(convs[0].id);
+        } else if (explicitFirstTime && sorted.length > 0) {
+          selectConversation(sorted[0].id);
         }
+
+        // Non-blocking background sync: link any accepted friends into conversation list
+        (async () => {
+          try {
+            const conns = await fetchConnections(user.id);
+            if (!isMounted) return;
+            const acceptedConns = conns.filter(c => c.status === 'accepted');
+            const unlinked = acceptedConns.filter(conn => {
+              const friendId = conn.requesterId === user.id ? conn.recipientId : conn.requesterId;
+              return !sorted.some(c => !c.isGroup && c.participants && c.participants.includes(friendId));
+            });
+
+            if (unlinked.length > 0) {
+              const newConvs = await Promise.all(
+                unlinked.map(conn => {
+                  const friendId = conn.requesterId === user.id ? conn.recipientId : conn.requesterId;
+                  return getOrCreateConversation(user.id, friendId);
+                })
+              );
+              if (isMounted && newConvs.length > 0) {
+                setConversations(prev => {
+                  const existingIds = new Set(prev.map(c => c.id));
+                  const toAdd = newConvs.filter(c => !existingIds.has(c.id));
+                  if (toAdd.length === 0) return prev;
+                  return sortConversationsList([...prev, ...toAdd]);
+                });
+              }
+            }
+          } catch (linkErr) {
+            console.warn('Background auto-link friends error:', linkErr);
+          }
+        })();
       } catch (err) {
         console.warn('Failed to initialize conversations:', err);
       }
@@ -1853,13 +1855,14 @@ export const MessagesPage: React.FC = () => {
                         <>
                           {/* 1. Image Media */}
                           {isImage && msg.mediaUrl && (
-                            <div className="mb-2">
+                            <div className="mb-2 overflow-hidden rounded-xl bg-gray-200/50 dark:bg-[#111d15]/60 min-h-[140px] max-w-[280px] sm:max-w-[320px] flex items-center justify-center relative shadow-xs">
                               <img
                                 src={msg.mediaUrl}
                                 alt={msg.fileName || 'Photo'}
                                 onClick={() => setLightboxImage({ src: msg.mediaUrl!, alt: msg.fileName || 'Photo' })}
-                                className="rounded-xl max-h-72 w-full object-cover cursor-pointer hover:opacity-95 transition shadow-sm"
-                                loading="lazy"
+                                className="rounded-xl max-h-72 w-full object-cover cursor-pointer hover:opacity-95 transition-opacity duration-200"
+                                loading="eager"
+                                decoding="async"
                               />
                             </div>
                           )}
