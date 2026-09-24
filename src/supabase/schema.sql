@@ -86,22 +86,180 @@ create table if not exists public.comments (
   "createdAt" timestamptz default now()
 );
 
--- 5. Communities / Clubs Table
+-- 5. Communities / Clubs & Student Societies Table
 create table if not exists public.communities (
   id text primary key,
   name text not null,
   description text not null,
   category text not null,
+  type text not null default 'public', -- 'public' | 'private'
   logo text,
+  "logoUrl" text,
   cover text,
+  "coverUrl" text,
+  "ownerId" text references public.profiles(id) on delete set null,
+  "isOfficial" boolean default false,
+  "verificationStatus" text default 'student', -- 'verified' | 'student' | 'pending'
   lead text,
   "leadRole" text,
   "memberCount" int default 1,
   members text[] default '{}',
   admins text[] default '{}',
+  moderators text[] default '{}',
+  "pendingRequests" text[] default '{}',
+  "bannedUsers" text[] default '{}',
+  rules text[] default '{}',
   tags text[] default '{}',
   "meetingTime" text,
   room text,
+  "createdAt" timestamptz default now(),
+  "updatedAt" timestamptz default now()
+);
+
+-- 5.1 Community Memberships Table
+create table if not exists public.community_members (
+  id text primary key,
+  "communityId" text not null references public.communities(id) on delete cascade,
+  "userId" text not null references public.profiles(id) on delete cascade,
+  role text not null default 'member', -- 'owner' | 'admin' | 'moderator' | 'member'
+  status text not null default 'approved', -- 'approved' | 'pending' | 'rejected' | 'banned'
+  "requestedAt" timestamptz,
+  "joinedAt" timestamptz default now(),
+  "updatedAt" timestamptz default now(),
+  unique("communityId", "userId")
+);
+
+-- 5.2 Community Posts Table
+create table if not exists public.community_posts (
+  id text primary key,
+  "communityId" text not null references public.communities(id) on delete cascade,
+  "authorId" text not null references public.profiles(id) on delete cascade,
+  "authorName" text not null,
+  "authorAvatar" text,
+  "authorRole" text,
+  "authorDept" text,
+  content text not null,
+  "postType" text not null default 'text', -- 'text' | 'image' | 'announcement' | 'question' | 'poll' | 'project'
+  "mediaUrl" text,
+  "mediaUrls" text[] default '{}',
+  "isPinned" boolean default false,
+  likes text[] default '{}',
+  "likesCount" int default 0,
+  "commentsCount" int default 0,
+  poll jsonb,
+  project jsonb,
+  "createdAt" timestamptz default now(),
+  "updatedAt" timestamptz default now()
+);
+
+-- 5.3 Community Comments Table
+create table if not exists public.community_comments (
+  id text primary key,
+  "postId" text not null references public.community_posts(id) on delete cascade,
+  "communityId" text not null references public.communities(id) on delete cascade,
+  "authorId" text not null references public.profiles(id) on delete cascade,
+  "authorName" text not null,
+  "authorAvatar" text,
+  "authorDept" text,
+  content text not null,
+  "parentCommentId" text,
+  likes text[] default '{}',
+  "createdAt" timestamptz default now()
+);
+
+-- 5.4 Community Discussions Table
+create table if not exists public.community_discussions (
+  id text primary key,
+  "communityId" text not null references public.communities(id) on delete cascade,
+  "authorId" text not null references public.profiles(id) on delete cascade,
+  "authorName" text not null,
+  "authorAvatar" text,
+  "authorRole" text,
+  "authorDept" text,
+  title text not null,
+  content text not null,
+  category text not null default 'General', -- 'General' | 'Questions' | 'Projects' | 'Help' | 'Announcements'
+  likes text[] default '{}',
+  "likesCount" int default 0,
+  "commentsCount" int default 0,
+  "isPinned" boolean default false,
+  "createdAt" timestamptz default now(),
+  "updatedAt" timestamptz default now()
+);
+
+-- 5.5 Community Discussion Comments Table
+create table if not exists public.community_discussion_comments (
+  id text primary key,
+  "discussionId" text not null references public.community_discussions(id) on delete cascade,
+  "communityId" text not null references public.communities(id) on delete cascade,
+  "authorId" text not null references public.profiles(id) on delete cascade,
+  "authorName" text not null,
+  "authorAvatar" text,
+  content text not null,
+  "createdAt" timestamptz default now()
+);
+
+-- 5.6 Community Live Messages (Group Chat)
+create table if not exists public.community_messages (
+  id text primary key,
+  "communityId" text not null references public.communities(id) on delete cascade,
+  "senderId" text not null references public.profiles(id) on delete cascade,
+  "senderName" text not null,
+  "senderAvatar" text,
+  text text not null,
+  "mediaUrl" text,
+  "mediaType" text,
+  "fileName" text,
+  "fileSize" text,
+  "replyTo" jsonb,
+  reactions jsonb default '{}',
+  "createdAt" timestamptz default now()
+);
+
+-- 5.7 Community Resources & Study Docs
+create table if not exists public.community_resources (
+  id text primary key,
+  "communityId" text not null references public.communities(id) on delete cascade,
+  title text not null,
+  description text not null,
+  "fileUrl" text not null,
+  "fileType" text not null,
+  "fileSize" text not null,
+  "uploadedBy" text not null references public.profiles(id) on delete cascade,
+  "uploadedByName" text not null,
+  "uploadedByAvatar" text,
+  "isMemberOnly" boolean default true,
+  downloads int default 0,
+  "createdAt" timestamptz default now()
+);
+
+-- 5.8 Community Reports & Moderation Queue
+create table if not exists public.community_reports (
+  id text primary key,
+  "communityId" text not null references public.communities(id) on delete cascade,
+  "reporterId" text not null references public.profiles(id) on delete cascade,
+  "reporterName" text not null,
+  "targetType" text not null, -- 'post' | 'comment' | 'discussion' | 'message' | 'resource' | 'member'
+  "targetId" text not null,
+  "targetContentPreview" text,
+  reason text not null,
+  description text,
+  status text not null default 'pending', -- 'pending' | 'resolved' | 'dismissed'
+  "reviewedBy" text,
+  "reviewedAt" timestamptz,
+  "actionTaken" text,
+  "createdAt" timestamptz default now()
+);
+
+-- 5.9 Community Moderation Actions & Audit Log
+create table if not exists public.community_moderation_actions (
+  id text primary key,
+  "communityId" text not null references public.communities(id) on delete cascade,
+  "moderatorId" text not null references public.profiles(id) on delete cascade,
+  "moderatorName" text not null,
+  "targetUserId" text,
+  "actionType" text not null, -- 'warn' | 'remove_content' | 'remove_member' | 'ban_member' | 'unban_member' | 'role_change'
+  reason text not null,
   "createdAt" timestamptz default now()
 );
 

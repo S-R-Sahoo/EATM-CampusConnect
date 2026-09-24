@@ -25,6 +25,7 @@ import { DiscoverPeople } from './pages/student/DiscoverPeople';
 import { ConnectionsPage } from './pages/student/ConnectionsPage';
 import { MessagesPage } from './pages/student/MessagesPage';
 import { CommunitiesPage } from './pages/student/CommunitiesPage';
+import { CommunityDetailPage } from './pages/student/CommunityDetailPage';
 import { EventsPage } from './pages/student/EventsPage';
 import { StudyMaterialsPage } from './pages/student/StudyMaterialsPage';
 import { OpportunitiesPage } from './pages/student/OpportunitiesPage';
@@ -41,6 +42,13 @@ const ProfileRedirect: React.FC = () => {
   const { user } = useAuth();
   const role = user?.role === 'faculty' ? 'faculty' : 'student';
   return <Navigate to={`/${role}/profile/${id}`} replace />;
+};
+
+const CommunityRedirect: React.FC = () => {
+  const { id } = useParams<{ id: string }>();
+  const { user } = useAuth();
+  const role = user?.role === 'faculty' ? 'faculty' : 'student';
+  return id ? <Navigate to={`/${role}/communities/${id}`} replace /> : <Navigate to={`/${role}/communities`} replace />;
 };
 
 const AppRoutes: React.FC = () => {
@@ -76,6 +84,10 @@ const AppRoutes: React.FC = () => {
       {/* Direct Profile Route with Auto-Role Redirect */}
       <Route path="/profile/:id" element={<ProfileRedirect />} />
 
+      {/* Direct Communities Routes with Auto-Role Redirect */}
+      <Route path="/communities" element={<CommunityRedirect />} />
+      <Route path="/communities/:id" element={<CommunityRedirect />} />
+
             {/* Student Routes */}
             <Route path="/student" element={<StudentLayout />}>
               <Route index element={<Navigate to="/student/dashboard" replace />} />
@@ -86,6 +98,7 @@ const AppRoutes: React.FC = () => {
               <Route path="connections" element={<ConnectionsPage />} />
               <Route path="messages" element={<MessagesPage />} />
               <Route path="communities" element={<CommunitiesPage />} />
+              <Route path="communities/:id" element={<CommunityDetailPage />} />
               <Route path="events" element={<EventsPage />} />
               <Route path="study-materials" element={<StudyMaterialsPage />} />
               <Route path="opportunities" element={<OpportunitiesPage />} />
@@ -105,6 +118,7 @@ const AppRoutes: React.FC = () => {
               <Route path="study-materials" element={<StudyMaterialsPage />} />
               <Route path="assignments" element={<FacultyAssignments />} />
               <Route path="communities" element={<CommunitiesPage />} />
+              <Route path="communities/:id" element={<CommunityDetailPage />} />
               <Route path="opportunities" element={<OpportunitiesPage />} />
               <Route path="profile" element={<StudentProfile />} />
               <Route path="profile/:id" element={<StudentProfile />} />

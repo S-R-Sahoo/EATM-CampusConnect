@@ -2,13 +2,22 @@ import { supabase, isSupabaseConfigured } from './client';
 import { 
   UserProfile, Post, Comment, Connection, Conversation, Message, 
   Community, CampusEvent, StudyMaterial, Opportunity, Announcement, 
-  NotificationItem, Report, Assignment 
+  NotificationItem, Report, Assignment,
+  CommunityMember, CommunityPost, CommunityComment, 
+  CommunityDiscussion, CommunityDiscussionComment, 
+  CommunityMessage, CommunityResource, CommunityEventItem, 
+  CommunityReport, CommunityModerationAction, CommunityRole, 
+  CommunityMembershipStatus, CommunityProject, CommunityPoll, CommunityType
 } from '../types';
 import { 
   SEED_USERS, SEED_POSTS, SEED_COMMUNITIES, SEED_EVENTS, 
   SEED_STUDY_MATERIALS, SEED_OPPORTUNITIES, SEED_ANNOUNCEMENTS, 
   SEED_NOTIFICATIONS, SEED_CONVERSATIONS, SEED_MESSAGES, 
-  SEED_REPORTS, SEED_ASSIGNMENTS 
+  SEED_REPORTS, SEED_ASSIGNMENTS,
+  SEED_COMMUNITY_POSTS, SEED_COMMUNITY_COMMENTS, 
+  SEED_COMMUNITY_DISCUSSIONS, SEED_COMMUNITY_DISCUSSION_COMMENTS, 
+  SEED_COMMUNITY_MESSAGES, SEED_COMMUNITY_RESOURCES, 
+  SEED_COMMUNITY_EVENTS, SEED_COMMUNITY_REPORTS, SEED_COMMUNITY_ACTIONS 
 } from './seedData';
 import { isCustomPhoto } from '../constants/assets';
 
@@ -1792,40 +1801,732 @@ export function subscribeToNotifications(
 // CLUBS & COMMUNITIES
 // ---------------------------------------------
 export async function fetchCommunities(): Promise<Community[]> {
-  return getLocalData<Community[]>('communities', SEED_COMMUNITIES);
-}
+  let list: Community[] = [];
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('communities')
+        .select('*')
+        .order('name', { ascending: true });
 
-export async function toggleJoinCommunity(communityId: string, userId: string): Promise<{ joined: boolean; count: number }> {
-  const clubs = getLocalData<Community[]>('communities', SEED_COMMUNITIES);
-  const club = clubs.find(c => c.id === communityId);
-  if (!club) return { joined: false, count: 0 };
-
-  const isMember = club.members.includes(userId);
-  if (isMember) {
-    club.members = club.members.filter(id => id !== userId);
-    club.memberCount = Math.max(0, club.memberCount - 1);
-  } else {
-    club.members.push(userId);
-    club.memberCount += 1;
+      if (!error && data && data.length > 0) {
+        const normalized = data.map(c => ({
+          ...c,
+          logoUrl: c.logoUrl || c.logo || 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=300&auto=format&fit=crop&q=80',
+          coverUrl: c.coverUrl || c.cover || 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=1200&auto=format&fit=crop&q=80',
+          type: (c.type as CommunityType) || 'public',
+          memberCount: typeof c.memberCount === 'number' ? c.memberCount : (c.members?.length || 1),
+          members: Array.isArray(c.members) ? c.members : [],
+          admins: Array.isArray(c.admins) ? c.admins : (c.ownerId ? [c.ownerId] : []),
+          moderators: Array.isArray(c.moderators) ? c.moderators : [],
+          pendingRequests: Array.isArray(c.pendingRequests) ? c.pendingRequests : [],
+          bannedUsers: Array.isArray(c.bannedUsers) ? c.bannedUsers : [],
+          rules: Array.isArray(c.rules) ? c.rules : [],
+          tags: Array.isArray(c.tags) ? c.tags : []
+        }));
+        setLocalData('communities', normalized);
+        list = normalized;
+      }
+    } catch (err) {
+      console.warn('Supabase fetchCommunities error, using local fallback:', err);
+    }
   }
 
-  setLocalData('communities', [...clubs]);
-  return { joined: !isMember, count: club.memberCount };
+  if (list.length === 0) {
+    list = getLocalData<Community[]>('communities', SEED_COMMUNITIES);
+  }
+  return list;
 }
 
-export async function createCommunity(data: Omit<Community, 'id' | 'memberCount' | 'members' | 'createdAt'>, creatorId: string): Promise<Community> {
-  const newClub: Community = {
-    ...data,
+export async function fetchCommunityById(id: string): Promise<Community | null> {
+  const all = await fetchCommunities();
+  return all.find(c => c.id === id) || null;
+}
+
+export async function createCommunity(
+  data: Partial<Community> & { name: string; category: string; description: string },
+  creatorId: string
+): Promise<Community> {
+  const newCommunity: Community = {
     id: 'club_' + Date.now(),
+    name: data.name.trim(),
+    category: data.category,
+    description: data.description.trim(),
+    type: data.type || 'public',
+    logoUrl: data.logoUrl || 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=300&auto=format&fit=crop&q=80',
+    coverUrl: data.coverUrl || 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=1200&auto=format&fit=crop&q=80',
+    ownerId: creatorId,
+    isOfficial: data.isOfficial || false,
+    verificationStatus: data.isOfficial ? 'verified' : 'student',
     memberCount: 1,
     members: [creatorId],
     admins: [creatorId],
-    createdAt: new Date().toISOString()
+    moderators: [],
+    pendingRequests: [],
+    bannedUsers: [],
+    rules: data.rules && data.rules.length > 0 ? data.rules : [
+      'Respect all members and campus policies.',
+      'Constructive technical, academic, and cultural discussions only.',
+      'No spam, self-promotion, or offensive media.'
+    ],
+    tags: data.tags || [data.category],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
   };
 
-  const clubs = getLocalData<Community[]>('communities', SEED_COMMUNITIES);
-  setLocalData('communities', [newClub, ...clubs]);
-  return newClub;
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      await supabase.from('communities').insert([{
+        id: newCommunity.id,
+        name: newCommunity.name,
+        description: newCommunity.description,
+        category: newCommunity.category,
+        type: newCommunity.type,
+        logo: newCommunity.logoUrl,
+        "logoUrl": newCommunity.logoUrl,
+        cover: newCommunity.coverUrl,
+        "coverUrl": newCommunity.coverUrl,
+        "ownerId": creatorId,
+        "isOfficial": newCommunity.isOfficial,
+        "verificationStatus": newCommunity.verificationStatus,
+        "memberCount": 1,
+        members: [creatorId],
+        admins: [creatorId],
+        rules: newCommunity.rules
+      }]);
+    } catch (err) {
+      console.warn('Supabase createCommunity error, saved locally:', err);
+    }
+  }
+
+  const list = getLocalData<Community[]>('communities', SEED_COMMUNITIES);
+  setLocalData('communities', [newCommunity, ...list]);
+  return newCommunity;
+}
+
+export async function joinCommunity(
+  communityId: string, 
+  userId: string
+): Promise<{ status: 'joined' | 'requested' | 'already_member' | 'banned'; count: number; community?: Community }> {
+  const list = getLocalData<Community[]>('communities', SEED_COMMUNITIES);
+  const community = list.find(c => c.id === communityId);
+  if (!community) return { status: 'already_member', count: 0 };
+
+  if (community.bannedUsers?.includes(userId)) {
+    return { status: 'banned', count: community.memberCount, community };
+  }
+
+  if (community.members.includes(userId)) {
+    return { status: 'already_member', count: community.memberCount, community };
+  }
+
+  if (community.type === 'private') {
+    // Private community -> create pending join request
+    community.pendingRequests = community.pendingRequests || [];
+    if (!community.pendingRequests.includes(userId)) {
+      community.pendingRequests.push(userId);
+    }
+    setLocalData('communities', [...list]);
+
+    // Send notification to Owner and Admins ONLY
+    const adminTargets = Array.from(new Set([community.ownerId, ...(community.admins || [])])).filter(Boolean) as string[];
+    for (const adminId of adminTargets) {
+      if (adminId !== userId) {
+        await createNotification({
+          recipientId: adminId,
+          type: 'connection_request',
+          title: 'New Community Join Request',
+          message: `A student requested to join "${community.name}".`,
+          link: `/student/communities/${community.id}`
+        });
+      }
+    }
+
+    return { status: 'requested', count: community.memberCount, community };
+  }
+
+  // Public community -> instant approval
+  community.members.push(userId);
+  community.memberCount = (community.memberCount || 0) + 1;
+  setLocalData('communities', [...list]);
+
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      await supabase
+        .from('communities')
+        .update({ 
+          members: community.members, 
+          memberCount: community.memberCount 
+        })
+        .eq('id', communityId);
+    } catch {}
+  }
+
+  return { status: 'joined', count: community.memberCount, community };
+}
+
+export async function leaveCommunity(
+  communityId: string, 
+  userId: string
+): Promise<{ success: boolean; isOwnerMustTransfer?: boolean; count: number }> {
+  const list = getLocalData<Community[]>('communities', SEED_COMMUNITIES);
+  const community = list.find(c => c.id === communityId);
+  if (!community) return { success: false, count: 0 };
+
+  // If user is the owner and there are other members, owner must transfer ownership or delete club
+  if (community.ownerId === userId && community.members.length > 1) {
+    return { success: false, isOwnerMustTransfer: true, count: community.memberCount };
+  }
+
+  community.members = community.members.filter(id => id !== userId);
+  community.admins = (community.admins || []).filter(id => id !== userId);
+  community.moderators = (community.moderators || []).filter(id => id !== userId);
+  community.memberCount = Math.max(0, (community.memberCount || 1) - 1);
+
+  setLocalData('communities', [...list]);
+
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      await supabase
+        .from('communities')
+        .update({ 
+          members: community.members, 
+          admins: community.admins,
+          moderators: community.moderators,
+          memberCount: community.memberCount 
+        })
+        .eq('id', communityId);
+    } catch {}
+  }
+
+  return { success: true, count: community.memberCount };
+}
+
+export async function toggleJoinCommunity(communityId: string, userId: string): Promise<{ joined: boolean; count: number }> {
+  const all = await fetchCommunities();
+  const comm = all.find(c => c.id === communityId);
+  if (!comm) return { joined: false, count: 0 };
+  const isMember = comm.members.includes(userId);
+  if (isMember) {
+    const res = await leaveCommunity(communityId, userId);
+    return { joined: false, count: res.count };
+  } else {
+    const res = await joinCommunity(communityId, userId);
+    return { joined: res.status === 'joined', count: res.count };
+  }
+}
+
+export async function handleCommunityJoinRequest(
+  communityId: string,
+  targetUserId: string,
+  action: 'approve' | 'reject',
+  adminId: string
+): Promise<{ success: boolean; community?: Community }> {
+  const list = getLocalData<Community[]>('communities', SEED_COMMUNITIES);
+  const community = list.find(c => c.id === communityId);
+  if (!community) return { success: false };
+
+  // Remove from pending
+  community.pendingRequests = (community.pendingRequests || []).filter(id => id !== targetUserId);
+
+  if (action === 'approve') {
+    if (!community.members.includes(targetUserId)) {
+      community.members.push(targetUserId);
+      community.memberCount = (community.memberCount || 0) + 1;
+    }
+    await createNotification({
+      recipientId: targetUserId,
+      type: 'connection_accepted',
+      title: 'Community Request Approved',
+      message: `Your request to join "${community.name}" was accepted! Welcome to the society.`,
+      link: `/student/communities/${community.id}`
+    });
+  } else {
+    await createNotification({
+      recipientId: targetUserId,
+      type: 'system',
+      title: 'Community Request Declined',
+      message: `Your request to join "${community.name}" was declined.`,
+      link: `/student/communities`
+    });
+  }
+
+  setLocalData('communities', [...list]);
+
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      await supabase
+        .from('communities')
+        .update({ 
+          members: community.members, 
+          memberCount: community.memberCount,
+          pendingRequests: community.pendingRequests 
+        })
+        .eq('id', communityId);
+    } catch {}
+  }
+
+  return { success: true, community };
+}
+
+export async function updateCommunityMemberRole(
+  communityId: string,
+  targetUserId: string,
+  newRole: CommunityRole,
+  adminId: string
+): Promise<{ success: boolean; community?: Community }> {
+  const list = getLocalData<Community[]>('communities', SEED_COMMUNITIES);
+  const community = list.find(c => c.id === communityId);
+  if (!community) return { success: false };
+
+  community.admins = (community.admins || []).filter(id => id !== targetUserId);
+  community.moderators = (community.moderators || []).filter(id => id !== targetUserId);
+
+  if (newRole === 'owner') {
+    community.ownerId = targetUserId;
+    if (!community.admins.includes(targetUserId)) community.admins.push(targetUserId);
+  } else if (newRole === 'admin') {
+    community.admins.push(targetUserId);
+  } else if (newRole === 'moderator') {
+    community.moderators.push(targetUserId);
+  }
+
+  setLocalData('communities', [...list]);
+  return { success: true, community };
+}
+
+export async function removeCommunityMember(
+  communityId: string,
+  targetUserId: string,
+  adminId: string
+): Promise<{ success: boolean; community?: Community }> {
+  const list = getLocalData<Community[]>('communities', SEED_COMMUNITIES);
+  const community = list.find(c => c.id === communityId);
+  if (!community) return { success: false };
+
+  community.members = community.members.filter(id => id !== targetUserId);
+  community.admins = (community.admins || []).filter(id => id !== targetUserId);
+  community.moderators = (community.moderators || []).filter(id => id !== targetUserId);
+  community.memberCount = Math.max(0, (community.memberCount || 1) - 1);
+
+  setLocalData('communities', [...list]);
+  return { success: true, community };
+}
+
+export async function banCommunityMember(
+  communityId: string,
+  targetUserId: string,
+  reason: string,
+  adminId: string
+): Promise<{ success: boolean; community?: Community }> {
+  const list = getLocalData<Community[]>('communities', SEED_COMMUNITIES);
+  const community = list.find(c => c.id === communityId);
+  if (!community) return { success: false };
+
+  community.members = community.members.filter(id => id !== targetUserId);
+  community.admins = (community.admins || []).filter(id => id !== targetUserId);
+  community.moderators = (community.moderators || []).filter(id => id !== targetUserId);
+  community.memberCount = Math.max(0, (community.memberCount || 1) - 1);
+  community.bannedUsers = community.bannedUsers || [];
+  if (!community.bannedUsers.includes(targetUserId)) {
+    community.bannedUsers.push(targetUserId);
+  }
+
+  setLocalData('communities', [...list]);
+  return { success: true, community };
+}
+
+export async function unbanCommunityMember(
+  communityId: string,
+  targetUserId: string,
+  adminId: string
+): Promise<{ success: boolean; community?: Community }> {
+  const list = getLocalData<Community[]>('communities', SEED_COMMUNITIES);
+  const community = list.find(c => c.id === communityId);
+  if (!community) return { success: false };
+
+  community.bannedUsers = (community.bannedUsers || []).filter(id => id !== targetUserId);
+  setLocalData('communities', [...list]);
+  return { success: true, community };
+}
+
+export async function transferCommunityOwnership(
+  communityId: string,
+  newOwnerId: string,
+  currentOwnerId: string
+): Promise<{ success: boolean; error?: string }> {
+  const list = getLocalData<Community[]>('communities', SEED_COMMUNITIES);
+  const community = list.find(c => c.id === communityId);
+  if (!community) return { success: false, error: 'Community not found' };
+  if (community.ownerId !== currentOwnerId) return { success: false, error: 'Only the current owner can transfer ownership' };
+
+  community.ownerId = newOwnerId;
+  if (!community.admins.includes(newOwnerId)) community.admins.push(newOwnerId);
+  if (!community.members.includes(newOwnerId)) community.members.push(newOwnerId);
+
+  setLocalData('communities', [...list]);
+  return { success: true };
+}
+
+export async function updateCommunity(
+  communityId: string,
+  data: Partial<Community>,
+  adminId: string
+): Promise<{ success: boolean; community?: Community }> {
+  const list = getLocalData<Community[]>('communities', SEED_COMMUNITIES);
+  const index = list.findIndex(c => c.id === communityId);
+  if (index === -1) return { success: false };
+
+  const updated: Community = {
+    ...list[index],
+    ...data,
+    updatedAt: new Date().toISOString()
+  };
+  list[index] = updated;
+  setLocalData('communities', [...list]);
+  return { success: true, community: updated };
+}
+
+export async function deleteCommunity(
+  communityId: string,
+  ownerId: string
+): Promise<{ success: boolean; error?: string }> {
+  const list = getLocalData<Community[]>('communities', SEED_COMMUNITIES);
+  const community = list.find(c => c.id === communityId);
+  if (!community) return { success: false, error: 'Community not found' };
+  if (community.ownerId !== ownerId) return { success: false, error: 'Unauthorized. Only owner can delete.' };
+
+  const updated = list.filter(c => c.id !== communityId);
+  setLocalData('communities', updated);
+  return { success: true };
+}
+
+// ---------------------------------------------
+// COMMUNITY POSTS & COMMENTS
+// ---------------------------------------------
+export async function fetchCommunityPosts(communityId: string): Promise<CommunityPost[]> {
+  const all = getLocalData<CommunityPost[]>('community_posts', SEED_COMMUNITY_POSTS);
+  return all.filter(p => p.communityId === communityId).sort((a, b) => {
+    if (a.isPinned && !b.isPinned) return -1;
+    if (!a.isPinned && b.isPinned) return 1;
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+  });
+}
+
+export async function createCommunityPost(post: Omit<CommunityPost, 'id' | 'likes' | 'likesCount' | 'commentsCount' | 'createdAt'>): Promise<CommunityPost> {
+  const newPost: CommunityPost = {
+    ...post,
+    id: 'cpost_' + Date.now(),
+    likes: [],
+    likesCount: 0,
+    commentsCount: 0,
+    createdAt: new Date().toISOString()
+  };
+  const all = getLocalData<CommunityPost[]>('community_posts', SEED_COMMUNITY_POSTS);
+  setLocalData('community_posts', [newPost, ...all]);
+  return newPost;
+}
+
+export async function toggleCommunityPostLike(postId: string, userId: string): Promise<{ liked: boolean; count: number }> {
+  const all = getLocalData<CommunityPost[]>('community_posts', SEED_COMMUNITY_POSTS);
+  const post = all.find(p => p.id === postId);
+  if (!post) return { liked: false, count: 0 };
+
+  const isLiked = post.likes.includes(userId);
+  if (isLiked) {
+    post.likes = post.likes.filter(id => id !== userId);
+    post.likesCount = Math.max(0, post.likesCount - 1);
+  } else {
+    post.likes.push(userId);
+    post.likesCount += 1;
+  }
+  setLocalData('community_posts', [...all]);
+  return { liked: !isLiked, count: post.likesCount };
+}
+
+export async function deleteCommunityPost(postId: string, userId: string): Promise<boolean> {
+  const all = getLocalData<CommunityPost[]>('community_posts', SEED_COMMUNITY_POSTS);
+  const updated = all.filter(p => p.id !== postId);
+  setLocalData('community_posts', updated);
+  return true;
+}
+
+export async function fetchCommunityComments(postId: string): Promise<CommunityComment[]> {
+  const all = getLocalData<CommunityComment[]>('community_comments', SEED_COMMUNITY_COMMENTS);
+  return all.filter(c => c.postId === postId).sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+}
+
+export async function createCommunityComment(comment: Omit<CommunityComment, 'id' | 'createdAt'>): Promise<CommunityComment> {
+  const newComment: CommunityComment = {
+    ...comment,
+    id: 'ccmt_' + Date.now(),
+    createdAt: new Date().toISOString()
+  };
+  const all = getLocalData<CommunityComment[]>('community_comments', SEED_COMMUNITY_COMMENTS);
+  setLocalData('community_comments', [...all, newComment]);
+
+  // Increment comments count on post
+  const posts = getLocalData<CommunityPost[]>('community_posts', SEED_COMMUNITY_POSTS);
+  const post = posts.find(p => p.id === comment.postId);
+  if (post) {
+    post.commentsCount = (post.commentsCount || 0) + 1;
+    setLocalData('community_posts', [...posts]);
+  }
+
+  return newComment;
+}
+
+// ---------------------------------------------
+// COMMUNITY DISCUSSIONS & THREADS
+// ---------------------------------------------
+export async function fetchCommunityDiscussions(communityId: string): Promise<CommunityDiscussion[]> {
+  const all = getLocalData<CommunityDiscussion[]>('community_discussions', SEED_COMMUNITY_DISCUSSIONS);
+  return all.filter(d => d.communityId === communityId).sort((a, b) => {
+    if (a.isPinned && !b.isPinned) return -1;
+    if (!a.isPinned && b.isPinned) return 1;
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+  });
+}
+
+export async function createCommunityDiscussion(disc: Omit<CommunityDiscussion, 'id' | 'likes' | 'likesCount' | 'commentsCount' | 'createdAt'>): Promise<CommunityDiscussion> {
+  const newDisc: CommunityDiscussion = {
+    ...disc,
+    id: 'cdisc_' + Date.now(),
+    likes: [],
+    likesCount: 0,
+    commentsCount: 0,
+    createdAt: new Date().toISOString()
+  };
+  const all = getLocalData<CommunityDiscussion[]>('community_discussions', SEED_COMMUNITY_DISCUSSIONS);
+  setLocalData('community_discussions', [newDisc, ...all]);
+  return newDisc;
+}
+
+export async function toggleCommunityDiscussionLike(discId: string, userId: string): Promise<{ liked: boolean; count: number }> {
+  const all = getLocalData<CommunityDiscussion[]>('community_discussions', SEED_COMMUNITY_DISCUSSIONS);
+  const disc = all.find(d => d.id === discId);
+  if (!disc) return { liked: false, count: 0 };
+
+  const isLiked = disc.likes.includes(userId);
+  if (isLiked) {
+    disc.likes = disc.likes.filter(id => id !== userId);
+    disc.likesCount = Math.max(0, disc.likesCount - 1);
+  } else {
+    disc.likes.push(userId);
+    disc.likesCount += 1;
+  }
+  setLocalData('community_discussions', [...all]);
+  return { liked: !isLiked, count: disc.likesCount };
+}
+
+export async function fetchCommunityDiscussionComments(discId: string): Promise<CommunityDiscussionComment[]> {
+  const all = getLocalData<CommunityDiscussionComment[]>('community_disc_comments', SEED_COMMUNITY_DISCUSSION_COMMENTS);
+  return all.filter(c => c.discussionId === discId).sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+}
+
+export async function createCommunityDiscussionComment(comment: Omit<CommunityDiscussionComment, 'id' | 'createdAt'>): Promise<CommunityDiscussionComment> {
+  const newCmt: CommunityDiscussionComment = {
+    ...comment,
+    id: 'cdcmt_' + Date.now(),
+    createdAt: new Date().toISOString()
+  };
+  const all = getLocalData<CommunityDiscussionComment[]>('community_disc_comments', SEED_COMMUNITY_DISCUSSION_COMMENTS);
+  setLocalData('community_disc_comments', [...all, newCmt]);
+
+  const discs = getLocalData<CommunityDiscussion[]>('community_discussions', SEED_COMMUNITY_DISCUSSIONS);
+  const disc = discs.find(d => d.id === comment.discussionId);
+  if (disc) {
+    disc.commentsCount = (disc.commentsCount || 0) + 1;
+    setLocalData('community_discussions', [...discs]);
+  }
+
+  return newCmt;
+}
+
+// ---------------------------------------------
+// COMMUNITY REALTIME CHAT
+// ---------------------------------------------
+export async function fetchCommunityMessages(communityId: string): Promise<CommunityMessage[]> {
+  const all = getLocalData<CommunityMessage[]>('community_messages', SEED_COMMUNITY_MESSAGES);
+  return all.filter(m => m.communityId === communityId).sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+}
+
+export async function sendCommunityMessage(msg: Omit<CommunityMessage, 'id' | 'createdAt'>): Promise<CommunityMessage> {
+  const newMsg: CommunityMessage = {
+    ...msg,
+    id: 'cmsg_' + Date.now(),
+    createdAt: new Date().toISOString()
+  };
+  const all = getLocalData<CommunityMessage[]>('community_messages', SEED_COMMUNITY_MESSAGES);
+  setLocalData('community_messages', [...all, newMsg]);
+  window.dispatchEvent(new CustomEvent('eatm_community_chat_message', { detail: newMsg }));
+  return newMsg;
+}
+
+export function subscribeToCommunityMessages(
+  communityId: string, 
+  onMessage: (msg: CommunityMessage) => void
+): () => void {
+  const handler = (e: CustomEvent<CommunityMessage>) => {
+    if (e.detail && e.detail.communityId === communityId) {
+      onMessage(e.detail);
+    }
+  };
+  window.addEventListener('eatm_community_chat_message', handler as EventListener);
+  return () => {
+    window.removeEventListener('eatm_community_chat_message', handler as EventListener);
+  };
+}
+
+// ---------------------------------------------
+// COMMUNITY RESOURCES
+// ---------------------------------------------
+export async function fetchCommunityResources(communityId: string): Promise<CommunityResource[]> {
+  const all = getLocalData<CommunityResource[]>('community_resources', SEED_COMMUNITY_RESOURCES);
+  return all.filter(r => r.communityId === communityId).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+}
+
+export async function uploadCommunityResource(resource: Omit<CommunityResource, 'id' | 'downloads' | 'createdAt'>): Promise<CommunityResource> {
+  const newRes: CommunityResource = {
+    ...resource,
+    id: 'cres_' + Date.now(),
+    downloads: 0,
+    createdAt: new Date().toISOString()
+  };
+  const all = getLocalData<CommunityResource[]>('community_resources', SEED_COMMUNITY_RESOURCES);
+  setLocalData('community_resources', [newRes, ...all]);
+  return newRes;
+}
+
+export async function deleteCommunityResource(resourceId: string, userId: string): Promise<boolean> {
+  const all = getLocalData<CommunityResource[]>('community_resources', SEED_COMMUNITY_RESOURCES);
+  const updated = all.filter(r => r.id !== resourceId);
+  setLocalData('community_resources', updated);
+  return true;
+}
+
+// ---------------------------------------------
+// COMMUNITY EVENTS
+// ---------------------------------------------
+export async function fetchCommunityEvents(communityId: string): Promise<CommunityEventItem[]> {
+  const all = getLocalData<CommunityEventItem[]>('community_events', SEED_COMMUNITY_EVENTS);
+  return all.filter(e => e.communityId === communityId).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+}
+
+export async function createCommunityEvent(event: Omit<CommunityEventItem, 'id' | 'attendees' | 'createdAt'>, creatorId: string): Promise<CommunityEventItem> {
+  const newEvent: CommunityEventItem = {
+    ...event,
+    id: 'cevent_' + Date.now(),
+    attendees: [{ userId: creatorId, status: 'going' }],
+    createdAt: new Date().toISOString()
+  };
+  const all = getLocalData<CommunityEventItem[]>('community_events', SEED_COMMUNITY_EVENTS);
+  setLocalData('community_events', [newEvent, ...all]);
+  return newEvent;
+}
+
+export async function rsvpCommunityEvent(
+  eventId: string, 
+  userId: string, 
+  status: 'going' | 'interested' | 'not_going'
+): Promise<CommunityEventItem | null> {
+  const all = getLocalData<CommunityEventItem[]>('community_events', SEED_COMMUNITY_EVENTS);
+  const event = all.find(e => e.id === eventId);
+  if (!event) return null;
+
+  event.attendees = (event.attendees || []).filter(a => a.userId !== userId);
+  if (status !== 'not_going') {
+    event.attendees.push({ userId, status });
+  }
+  setLocalData('community_events', [...all]);
+  return event;
+}
+
+// ---------------------------------------------
+// COMMUNITY POLLS
+// ---------------------------------------------
+export async function voteCommunityPoll(
+  pollId: string, 
+  optionId: string, 
+  userId: string,
+  communityId: string,
+  postId?: string
+): Promise<CommunityPost | null> {
+  const posts = getLocalData<CommunityPost[]>('community_posts', SEED_COMMUNITY_POSTS);
+  const post = posts.find(p => p.id === postId || p.poll?.id === pollId);
+  if (!post || !post.poll) return null;
+
+  // Remove existing user vote across all options in this poll
+  post.poll.options.forEach(opt => {
+    opt.votes = (opt.votes || []).filter(id => id !== userId);
+  });
+
+  // Add vote to selected option
+  const targetOpt = post.poll.options.find(opt => opt.id === optionId);
+  if (targetOpt) {
+    targetOpt.votes.push(userId);
+  }
+
+  setLocalData('community_posts', [...posts]);
+  return post;
+}
+
+// ---------------------------------------------
+// COMMUNITY REPORTS & MODERATION
+// ---------------------------------------------
+export async function submitCommunityReport(report: Omit<CommunityReport, 'id' | 'status' | 'createdAt'>): Promise<CommunityReport> {
+  const newReport: CommunityReport = {
+    ...report,
+    id: 'crep_' + Date.now(),
+    status: 'pending',
+    createdAt: new Date().toISOString()
+  };
+  const all = getLocalData<CommunityReport[]>('community_reports', SEED_COMMUNITY_REPORTS);
+  setLocalData('community_reports', [newReport, ...all]);
+  return newReport;
+}
+
+export async function fetchCommunityReports(communityId: string): Promise<CommunityReport[]> {
+  const all = getLocalData<CommunityReport[]>('community_reports', SEED_COMMUNITY_REPORTS);
+  return all.filter(r => r.communityId === communityId);
+}
+
+export async function resolveCommunityReport(
+  reportId: string,
+  action: 'dismiss' | 'remove_content' | 'warn_user' | 'ban_user',
+  moderatorId: string,
+  moderatorName: string
+): Promise<boolean> {
+  const all = getLocalData<CommunityReport[]>('community_reports', SEED_COMMUNITY_REPORTS);
+  const report = all.find(r => r.id === reportId);
+  if (!report) return false;
+
+  report.status = action === 'dismiss' ? 'dismissed' : 'resolved';
+  report.reviewedBy = moderatorName;
+  report.reviewedAt = new Date().toISOString();
+  report.actionTaken = action;
+
+  setLocalData('community_reports', [...all]);
+
+  // Record moderation action
+  const actions = getLocalData<CommunityModerationAction[]>('community_actions', SEED_COMMUNITY_ACTIONS);
+  actions.push({
+    id: 'cact_' + Date.now(),
+    communityId: report.communityId,
+    moderatorId,
+    moderatorName,
+    actionType: action === 'dismiss' ? 'warn' : (action as any),
+    reason: `Handled report: ${report.reason} (${report.description || 'No notes'})`,
+    createdAt: new Date().toISOString()
+  });
+  setLocalData('community_actions', actions);
+
+  return true;
+}
+
+export async function fetchCommunityModerationActions(communityId: string): Promise<CommunityModerationAction[]> {
+  const all = getLocalData<CommunityModerationAction[]>('community_actions', SEED_COMMUNITY_ACTIONS);
+  return all.filter(a => a.communityId === communityId).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 }
 
 // ---------------------------------------------

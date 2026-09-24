@@ -1,7 +1,11 @@
 import { 
   UserProfile, Post, CampusEvent, Community, 
   StudyMaterial, Opportunity, Announcement, NotificationItem, 
-  Conversation, Message, Report, Assignment 
+  Conversation, Message, Report, Assignment,
+  CommunityMember, CommunityPost, CommunityComment, 
+  CommunityDiscussion, CommunityDiscussionComment, 
+  CommunityMessage, CommunityResource, CommunityEventItem, 
+  CommunityReport, CommunityModerationAction 
 } from '../types';
 
 export const SEED_USERS: UserProfile[] = [
@@ -316,73 +320,201 @@ export const SEED_COMMUNITIES: Community[] = [
     id: 'club_coding',
     name: 'Coding Club',
     category: 'Technical',
-    description: 'The premier community for competitive programming, full-stack development, and open-source contributions at EATM.',
+    type: 'public',
+    description: 'The premier community for competitive programming, full-stack development, open-source contributions, and hackathons at EATM.',
     logoUrl: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=300&auto=format&fit=crop&q=80',
     coverUrl: 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=1200&auto=format&fit=crop&q=80',
+    ownerId: 'user_priya',
+    isOfficial: true,
+    verificationStatus: 'verified',
     memberCount: 482,
     members: ['user_soumya', 'user_priya', 'user_rakesh', 'user_ananya'],
-    admins: ['user_priya'],
-    createdAt: '2023-07-01T00:00:00Z'
+    admins: ['user_priya', 'user_soumya'],
+    moderators: ['user_rakesh'],
+    rules: [
+      'Be respectful and helpful to fellow coders.',
+      'No plagiarism or cheating in competitive coding contests.',
+      'Use proper syntax highlighting and formatting when sharing code snippets.',
+      'Keep discussions constructive and focused on technology.'
+    ],
+    tags: ['DSA', 'WebDev', 'Python', 'OpenSource', 'Competitions'],
+    meetingTime: 'Wednesdays at 4:30 PM',
+    room: 'Lab 3, CS Block',
+    createdAt: '2023-07-01T00:00:00Z',
+    updatedAt: '2025-02-20T00:00:00Z'
   },
   {
     id: 'club_robotics',
     name: 'Robotics Club',
     category: 'Technical',
-    description: 'Building autonomous robots, quadcopters, and IoT automation projects. Annual participants in TechKriti & Robocon.',
+    type: 'public',
+    description: 'Building autonomous robots, quadcopters, and IoT automation hardware. Annual participants in TechKriti, Robocon, and IIT fests.',
     logoUrl: 'https://images.unsplash.com/photo-1485827404703-89b55fcc595e?w=300&auto=format&fit=crop&q=80',
     coverUrl: 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=1200&auto=format&fit=crop&q=80',
+    ownerId: 'user_rohit',
+    isOfficial: true,
+    verificationStatus: 'verified',
     memberCount: 436,
     members: ['user_soumya', 'user_rohit', 'user_arjun'],
     admins: ['user_rohit'],
-    createdAt: '2023-07-15T00:00:00Z'
+    moderators: ['user_arjun'],
+    rules: [
+      'Handle lab hardware and microcontrollers with utmost care.',
+      'Follow electrical and soldering safety protocols.',
+      'Document and open-source all major robotics prototypes.'
+    ],
+    tags: ['Arduino', 'ROS', 'IoT', 'Drones', 'Hardware'],
+    meetingTime: 'Saturdays at 2:00 PM',
+    room: 'Robotics Workshop, Mech Block',
+    createdAt: '2023-07-15T00:00:00Z',
+    updatedAt: '2025-02-20T00:00:00Z'
   },
   {
     id: 'club_photography',
     name: 'Photography Club',
     category: 'Creative Arts',
-    description: 'Capturing campus life, cultural memories, nature, and cinematic stories through lenses and creative vision.',
+    type: 'public',
+    description: 'Capturing campus life, cultural memories, nature, and cinematic stories through lenses, drones, and visual design vision.',
     logoUrl: 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=300&auto=format&fit=crop&q=80',
     coverUrl: 'https://images.unsplash.com/photo-1452587925148-ce544e77e70d?w=1200&auto=format&fit=crop&q=80',
+    ownerId: 'user_soumya',
+    isOfficial: false,
+    verificationStatus: 'student',
     memberCount: 318,
     members: ['user_soumya', 'user_priya'],
     admins: ['user_soumya'],
-    createdAt: '2023-08-01T00:00:00Z'
+    rules: [
+      'Always obtain consent before sharing candid campus portrait photos.',
+      'Credit original photographers for shared media.',
+      'No offensive or misleading photo edits.'
+    ],
+    tags: ['Photography', 'Lightroom', 'Cinematography', 'Editing'],
+    meetingTime: 'Fridays at 5:00 PM',
+    room: 'Media Studio 2',
+    createdAt: '2023-08-01T00:00:00Z',
+    updatedAt: '2025-02-20T00:00:00Z'
   },
   {
     id: 'club_cultural',
     name: 'Cultural Club',
     category: 'Cultural',
+    type: 'public',
     description: 'Music, dance, drama, and celebration! Driving the university’s biggest festive and cultural extravaganza.',
     logoUrl: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=300&auto=format&fit=crop&q=80',
     coverUrl: 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=1200&auto=format&fit=crop&q=80',
+    ownerId: 'user_ananya',
+    isOfficial: true,
+    verificationStatus: 'verified',
     memberCount: 275,
     members: ['user_soumya', 'user_ananya'],
     admins: ['user_ananya'],
-    createdAt: '2023-08-10T00:00:00Z'
+    rules: [
+      'Foster inclusive expression and artistic collaboration.',
+      'Maintain discipline during auditorium rehearsals.'
+    ],
+    tags: ['Music', 'Drama', 'Dance', 'Festivals'],
+    meetingTime: 'Thursdays at 4:00 PM',
+    room: 'Main Auditorium',
+    createdAt: '2023-08-10T00:00:00Z',
+    updatedAt: '2025-02-20T00:00:00Z'
   },
   {
     id: 'club_sports',
     name: 'Sports Club',
-    category: 'Athletics',
-    description: 'Cricket, Football, Basketball, Badminton, and Athletics tournaments. Promoting peak physical fitness & sportsmanship.',
+    category: 'Sports',
+    type: 'public',
+    description: 'Cricket, Football, Basketball, Badminton, and Athletics tournaments. Promoting peak physical fitness & sportsmanship across branches.',
     logoUrl: 'https://images.unsplash.com/photo-1461896836934-ffe607ba8211?w=300&auto=format&fit=crop&q=80',
     coverUrl: 'https://images.unsplash.com/photo-1574629810360-7efbbe195018?w=1200&auto=format&fit=crop&q=80',
+    ownerId: 'user_arjun',
+    isOfficial: true,
+    verificationStatus: 'verified',
     memberCount: 421,
     members: ['user_soumya', 'user_arjun'],
     admins: ['user_arjun'],
-    createdAt: '2023-07-20T00:00:00Z'
+    rules: [
+      'Uphold fair play, punctuality, and good sportsmanship.',
+      'Wear standard sports gear on the courts and grounds.'
+    ],
+    tags: ['Cricket', 'Football', 'Badminton', 'Athletics'],
+    meetingTime: 'Daily at 5:30 PM',
+    room: 'Sports Complex / Ground',
+    createdAt: '2023-07-20T00:00:00Z',
+    updatedAt: '2025-02-20T00:00:00Z'
   },
   {
     id: 'club_entrepreneurship',
     name: 'Entrepreneurship Club',
     category: 'Innovation',
+    type: 'public',
     description: 'Turning campus ideas into high-impact startups. Pitch competitions, incubation access, and founder speaker sessions.',
     logoUrl: 'https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=300&auto=format&fit=crop&q=80',
     coverUrl: 'https://images.unsplash.com/photo-1559136555-9303baea8ebd?w=1200&auto=format&fit=crop&q=80',
+    ownerId: 'user_rakesh',
+    isOfficial: true,
+    verificationStatus: 'verified',
     memberCount: 198,
     members: ['user_soumya', 'user_priya', 'user_rakesh'],
     admins: ['user_rakesh'],
-    createdAt: '2023-09-01T00:00:00Z'
+    rules: [
+      'Respect confidentiality of early-stage intellectual property and business ideas.',
+      'Provide constructive feedback on venture pitches.'
+    ],
+    tags: ['Startups', 'Pitching', 'Venture', 'Incubation'],
+    meetingTime: 'Tuesdays at 5:00 PM',
+    room: 'Incubation Center, Room 102',
+    createdAt: '2023-09-01T00:00:00Z',
+    updatedAt: '2025-02-20T00:00:00Z'
+  },
+  {
+    id: 'club_aiml_core',
+    name: 'AI & Deep Learning Research Circle',
+    category: 'Academic',
+    type: 'private',
+    description: 'Advanced research forum for developing LLMs, Transformer architectures, Computer Vision, and autonomous agent systems under faculty mentorship.',
+    logoUrl: 'https://images.unsplash.com/photo-1620712943543-bcc4688e7485?w=300&auto=format&fit=crop&q=80',
+    coverUrl: 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=1200&auto=format&fit=crop&q=80',
+    ownerId: 'faculty_mohapatra',
+    isOfficial: true,
+    verificationStatus: 'verified',
+    memberCount: 28,
+    members: ['faculty_mohapatra', 'user_soumya'],
+    admins: ['faculty_mohapatra', 'user_soumya'],
+    moderators: [],
+    pendingRequests: ['user_rakesh', 'user_rohit'],
+    rules: [
+      'Strict research NDA regarding ongoing patent filings and unpublished research.',
+      'Active participation in weekly paper reading sessions required.'
+    ],
+    tags: ['MachineLearning', 'PyTorch', 'Research', 'NLP', 'ComputerVision'],
+    meetingTime: 'Saturdays at 11:00 AM',
+    room: 'AI Research Lab, 4th Floor',
+    createdAt: '2024-01-10T00:00:00Z',
+    updatedAt: '2025-02-20T00:00:00Z'
+  },
+  {
+    id: 'club_gaming_esports',
+    name: 'EATM Esports & Game Dev Guild',
+    category: 'Gaming',
+    type: 'public',
+    description: 'Competitive collegiate esports tournaments, Unity/Unreal game development jams, and 3D environment asset creation.',
+    logoUrl: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?w=300&auto=format&fit=crop&q=80',
+    coverUrl: 'https://images.unsplash.com/photo-1511512578047-dfb367046420?w=1200&auto=format&fit=crop&q=80',
+    ownerId: 'user_rohit',
+    isOfficial: false,
+    verificationStatus: 'student',
+    memberCount: 215,
+    members: ['user_rohit', 'user_soumya', 'user_arjun'],
+    admins: ['user_rohit'],
+    rules: [
+      'Zero toxicity in internal scrims and community channels.',
+      'Encourage peer game asset sharing.'
+    ],
+    tags: ['Esports', 'GameDev', 'Unity', 'UnrealEngine', '3DModeling'],
+    meetingTime: 'Sundays at 6:00 PM',
+    room: 'Multimedia Lab',
+    createdAt: '2024-03-01T00:00:00Z',
+    updatedAt: '2025-02-20T00:00:00Z'
   }
 ];
 
@@ -824,3 +956,268 @@ export const SEED_ASSIGNMENTS: Assignment[] = [
     createdAt: '2025-09-20T11:00:00Z'
   }
 ];
+
+export const SEED_COMMUNITY_POSTS: CommunityPost[] = [
+  {
+    id: 'cpost_1',
+    communityId: 'club_coding',
+    authorId: 'user_priya',
+    authorName: 'Priya Sharma',
+    authorAvatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&auto=format&fit=crop&q=80',
+    authorRole: 'student',
+    authorDept: 'CSE 3rd Year',
+    content: '📢 Important Update: Our weekly LeetCode & Dynamic Programming problem-solving session is scheduled for this Wednesday at 4:30 PM in Lab 3! We will cover Advanced Graph Algorithms & Dijkstra shortest path.',
+    postType: 'announcement',
+    isPinned: true,
+    likes: ['user_soumya', 'user_rakesh', 'user_ananya'],
+    likesCount: 24,
+    commentsCount: 5,
+    createdAt: '2025-02-20T10:00:00Z'
+  },
+  {
+    id: 'cpost_2',
+    communityId: 'club_coding',
+    authorId: 'user_soumya',
+    authorName: 'Soumyaranjan Sahoo',
+    authorAvatar: undefined,
+    authorRole: 'student',
+    authorDept: 'CSE 3rd Year',
+    content: 'Built a real-time collaborative code editor with WebSockets and Monaco Editor for our hackathon project! Check out the demo architecture. Who is interested in contributing to the open-source repo?',
+    postType: 'project',
+    mediaUrls: [
+      'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=1200&auto=format&fit=crop&q=80'
+    ],
+    project: {
+      id: 'cproj_1',
+      communityId: 'club_coding',
+      name: 'CampusCode Live: Real-Time Pair Programming',
+      description: 'Browser-based collaborative IDE with real-time cursor sync, syntax highlighting for 12+ languages, and integrated sandbox execution.',
+      technologies: ['React', 'TypeScript', 'WebSockets', 'TailwindCSS', 'Docker'],
+      teamMembers: [
+        { name: 'Soumyaranjan Sahoo', role: 'Full Stack Lead' },
+        { name: 'Priya Sharma', role: 'Backend & WebSocket Specialist' }
+      ],
+      githubUrl: 'https://github.com/S-R-Sahoo/EATM-CampusConnect',
+      demoUrl: 'https://github.com/S-R-Sahoo/EATM-CampusConnect',
+      createdBy: 'user_soumya',
+      createdAt: '2025-02-18T12:00:00Z'
+    },
+    likes: ['user_priya', 'user_rakesh', 'user_ananya', 'user_rohit'],
+    likesCount: 42,
+    commentsCount: 8,
+    createdAt: '2025-02-19T14:30:00Z'
+  },
+  {
+    id: 'cpost_3',
+    communityId: 'club_coding',
+    authorId: 'user_rakesh',
+    authorName: 'Rakesh Kumar',
+    authorAvatar: 'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?w=400&auto=format&fit=crop&q=80',
+    authorRole: 'student',
+    authorDept: 'CSE 3rd Year',
+    content: 'Quick poll for all club members: Which tech stack would you like to master in our upcoming weekend masterclass?',
+    postType: 'poll',
+    poll: {
+      id: 'cpoll_1',
+      communityId: 'club_coding',
+      question: 'Which tech stack workshop should we host next?',
+      options: [
+        { id: 'opt_1', text: 'Full-Stack Next.js 15 & Supabase', votes: ['user_soumya', 'user_priya', 'user_rakesh'] },
+        { id: 'opt_2', text: 'System Design & Distributed Microservices', votes: ['user_ananya'] },
+        { id: 'opt_3', text: 'Machine Learning & LLM Agent Workflows', votes: ['user_rohit'] },
+        { id: 'opt_4', text: 'Rust & WebAssembly Performance', votes: [] }
+      ],
+      createdBy: 'user_rakesh',
+      createdAt: '2025-02-20T09:00:00Z'
+    },
+    likes: ['user_soumya', 'user_priya'],
+    likesCount: 18,
+    commentsCount: 4,
+    createdAt: '2025-02-20T09:00:00Z'
+  }
+];
+
+export const SEED_COMMUNITY_COMMENTS: CommunityComment[] = [
+  {
+    id: 'ccmt_1',
+    postId: 'cpost_1',
+    communityId: 'club_coding',
+    authorId: 'user_soumya',
+    authorName: 'Soumyaranjan Sahoo',
+    authorAvatar: undefined,
+    authorDept: 'CSE 3rd Year',
+    content: "I'll be there! Bringing the DSA question bank for Dijkstra and Bellman-Ford comparisons.",
+    likes: ['user_priya'],
+    createdAt: '2025-02-20T10:15:00Z'
+  },
+  {
+    id: 'ccmt_2',
+    postId: 'cpost_1',
+    communityId: 'club_coding',
+    authorId: 'user_ananya',
+    authorName: 'Ananya Das',
+    authorAvatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400&auto=format&fit=crop&q=80',
+    authorDept: 'CSE 2nd Year',
+    content: 'Looking forward to it! Will the session notes be uploaded to the Resources tab afterwards?',
+    likes: ['user_priya', 'user_soumya'],
+    createdAt: '2025-02-20T10:30:00Z'
+  }
+];
+
+export const SEED_COMMUNITY_DISCUSSIONS: CommunityDiscussion[] = [
+  {
+    id: 'cdisc_1',
+    communityId: 'club_coding',
+    authorId: 'user_soumya',
+    authorName: 'Soumyaranjan Sahoo',
+    authorAvatar: undefined,
+    authorRole: 'student',
+    authorDept: 'CSE 3rd Year',
+    title: 'Best approach for optimizing graph traversal algorithms in competitive coding?',
+    content: 'When tackling dynamic shortest-path problems with negative edge cycles, what is your preferred data structure pattern in C++: `std::priority_queue` with adjacency lists or custom indexed binary heaps? Let’s share best practices and benchmark runtimes.',
+    category: 'Questions',
+    likes: ['user_priya', 'user_rakesh'],
+    likesCount: 12,
+    commentsCount: 3,
+    isPinned: true,
+    createdAt: '2025-02-18T16:00:00Z'
+  },
+  {
+    id: 'cdisc_2',
+    communityId: 'club_coding',
+    authorId: 'user_priya',
+    authorName: 'Priya Sharma',
+    authorAvatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&auto=format&fit=crop&q=80',
+    authorRole: 'student',
+    authorDept: 'CSE 3rd Year',
+    title: 'Smart India Hackathon 2025: Team Formation & Problem Statements Brainstorming',
+    content: 'SIH 2025 problem statements have officially dropped! We are organizing cross-functional teams combining CSE (backend/algorithms), AI/ML specialists, and UI/UX designers. Drop your strengths and interests below.',
+    category: 'Projects',
+    likes: ['user_soumya', 'user_rakesh', 'user_ananya', 'user_rohit'],
+    likesCount: 38,
+    commentsCount: 9,
+    createdAt: '2025-02-19T11:00:00Z'
+  }
+];
+
+export const SEED_COMMUNITY_DISCUSSION_COMMENTS: CommunityDiscussionComment[] = [
+  {
+    id: 'cdcmt_1',
+    discussionId: 'cdisc_1',
+    communityId: 'club_coding',
+    authorId: 'user_priya',
+    authorName: 'Priya Sharma',
+    authorAvatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&auto=format&fit=crop&q=80',
+    content: 'Using `std::priority_queue<pair<int,int>, vector<pair<int,int>>, greater<pair<int,int>>>` with visited distance state tracking achieves near-optimal O((V + E) log V) and avoids extra overhead.',
+    createdAt: '2025-02-18T16:45:00Z'
+  },
+  {
+    id: 'cdcmt_2',
+    discussionId: 'cdisc_1',
+    communityId: 'club_coding',
+    authorId: 'user_rakesh',
+    authorName: 'Rakesh Kumar',
+    authorAvatar: 'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?w=400&auto=format&fit=crop&q=80',
+    content: 'Also remember to use `ios_base::sync_with_stdio(false); cin.tie(NULL);` at the top of main() to save up to 150ms on I/O!',
+    createdAt: '2025-02-18T17:10:00Z'
+  }
+];
+
+export const SEED_COMMUNITY_MESSAGES: CommunityMessage[] = [
+  {
+    id: 'cmsg_1',
+    communityId: 'club_coding',
+    senderId: 'user_priya',
+    senderName: 'Priya Sharma',
+    senderAvatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&auto=format&fit=crop&q=80',
+    text: 'Welcome everyone to the official EATM Coding Club live channel! 💻🚀',
+    createdAt: '2025-02-20T08:30:00Z'
+  },
+  {
+    id: 'cmsg_2',
+    communityId: 'club_coding',
+    senderId: 'user_soumya',
+    senderName: 'Soumyaranjan Sahoo',
+    senderAvatar: undefined,
+    text: 'Excited to kick off this semester’s hackathon preparations! Don’t forget to check the Resources tab for the new DSA sheets.',
+    createdAt: '2025-02-20T08:35:00Z'
+  },
+  {
+    id: 'cmsg_3',
+    communityId: 'club_coding',
+    senderId: 'user_rakesh',
+    senderName: 'Rakesh Kumar',
+    senderAvatar: 'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?w=400&auto=format&fit=crop&q=80',
+    text: 'Lab 3 has been booked for tomorrow 4:30 PM. High-speed LAN and projectors are set up!',
+    createdAt: '2025-02-20T09:15:00Z'
+  }
+];
+
+export const SEED_COMMUNITY_RESOURCES: CommunityResource[] = [
+  {
+    id: 'cres_1',
+    communityId: 'club_coding',
+    title: 'Complete Data Structures & Algorithms Comprehensive Roadmap.pdf',
+    description: 'Master sheet covering Arrays, Linked Lists, Trees, Graphs, DP, Dynamic Programming patterns, and Top 150 LeetCode problems.',
+    fileUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+    fileType: 'PDF',
+    fileSize: '4.8 MB',
+    uploadedBy: 'user_soumya',
+    uploadedByName: 'Soumyaranjan Sahoo',
+    isMemberOnly: true,
+    downloads: 142,
+    createdAt: '2025-02-15T10:00:00Z'
+  },
+  {
+    id: 'cres_2',
+    communityId: 'club_coding',
+    title: 'Modern React 19 & TypeScript Production Architecture Guide.pdf',
+    description: 'Component architecture, custom hooks, state synchronization, Tailwind design tokens, and best clean code practices.',
+    fileUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+    fileType: 'PDF',
+    fileSize: '3.2 MB',
+    uploadedBy: 'user_priya',
+    uploadedByName: 'Priya Sharma',
+    isMemberOnly: true,
+    downloads: 98,
+    createdAt: '2025-02-17T11:30:00Z'
+  },
+  {
+    id: 'cres_3',
+    communityId: 'club_coding',
+    title: 'Competitive Programming C++ Fast I/O & STL Templates.zip',
+    description: 'Ready-to-use template macros, PBDS (Policy Based Data Structures), segment tree implementations, and fast math algorithms.',
+    fileUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+    fileType: 'ZIP',
+    fileSize: '1.4 MB',
+    uploadedBy: 'user_rakesh',
+    uploadedByName: 'Rakesh Kumar',
+    isMemberOnly: true,
+    downloads: 76,
+    createdAt: '2025-02-19T09:20:00Z'
+  }
+];
+
+export const SEED_COMMUNITY_EVENTS: CommunityEventItem[] = [
+  {
+    id: 'cevent_1',
+    communityId: 'club_coding',
+    title: 'CodeSprint 2025: Speed Programming Duel',
+    description: '90-minute rapid-fire algorithmic coding battle on HackerRank with real-time campus leaderboard and certificates.',
+    date: 'Oct 14, 2025',
+    time: '04:30 PM - 06:30 PM',
+    location: 'Lab 3, CS Block',
+    creatorId: 'user_priya',
+    creatorName: 'Priya Sharma',
+    attendees: [
+      { userId: 'user_soumya', status: 'going' },
+      { userId: 'user_priya', status: 'going' },
+      { userId: 'user_rakesh', status: 'going' },
+      { userId: 'user_ananya', status: 'interested' }
+    ],
+    createdAt: '2025-02-15T00:00:00Z'
+  }
+];
+
+export const SEED_COMMUNITY_REPORTS: CommunityReport[] = [];
+export const SEED_COMMUNITY_ACTIONS: CommunityModerationAction[] = [];
