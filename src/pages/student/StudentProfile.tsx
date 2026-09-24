@@ -24,7 +24,7 @@ import confetti from 'canvas-confetti';
 import { 
   Edit3, Calendar, Award, Code, CheckCircle, 
   ExternalLink, GraduationCap, Building2, IdCard, 
-  Camera, Upload, Image as ImageIcon, Loader2,
+  Camera, Loader2,
   User, Cpu, Compass, Trophy, BookOpen, Radio,
   ArrowLeft, Check, Clock, UserPlus, MessageSquare, X,
   Plus, Trash2, Globe, Pencil, UserCheck, ShieldCheck,
@@ -63,25 +63,6 @@ const SEMESTER_OPTIONS = [
   { label: '6th Semester', value: '6th' },
   { label: '7th Semester', value: '7th' },
   { label: '8th Semester', value: '8th' }
-];
-
-const OFFICIAL_COVER_PRESETS = [
-  {
-    name: 'Academic Campus',
-    url: 'https://images.unsplash.com/photo-1562774053-701939374585?w=1600&auto=format&fit=crop&q=80'
-  },
-  {
-    name: 'Innovation Tech Lab',
-    url: 'https://images.unsplash.com/photo-1581092918056-0c4c3acd3789?w=1600&auto=format&fit=crop&q=80'
-  },
-  {
-    name: 'Central Digital Library',
-    url: 'https://images.unsplash.com/photo-1521587760476-6c12a4b040da?w=1600&auto=format&fit=crop&q=80'
-  },
-  {
-    name: 'Campus Lawns & Greenery',
-    url: 'https://images.unsplash.com/photo-1541339907198-e08756dedf3f?w=1600&auto=format&fit=crop&q=80'
-  }
 ];
 
 export const StudentProfile: React.FC = () => {
@@ -135,8 +116,6 @@ export const StudentProfile: React.FC = () => {
   // File input refs
   const avatarFileRef = useRef<HTMLInputElement>(null);
   const coverFileRef = useRef<HTMLInputElement>(null);
-  const modalAvatarFileRef = useRef<HTMLInputElement>(null);
-  const modalCoverFileRef = useRef<HTMLInputElement>(null);
 
   // User posts state
   const [userPosts, setUserPosts] = useState<Post[]>([]);
@@ -391,13 +370,11 @@ export const StudentProfile: React.FC = () => {
     setBio(user.bio || '');
     setSkillsStr(user.skills?.join(', ') || '');
     setInterestsStr(user.interests?.join(', ') || '');
-    setPhotoURL(isCustomPhoto(user.photoURL) ? (user.photoURL || '') : '');
-    setCoverURL(user.coverURL || '');
     setEditModalOpen(true);
   };
 
   // Avatar Upload Handler
-  const handleAvatarUpload = async (file: File, isModal = false) => {
+  const handleAvatarUpload = async (file: File) => {
     if (!file || !user) return;
     setUploadingPhoto(true);
     setPhotoProgress(0);
@@ -421,7 +398,7 @@ export const StudentProfile: React.FC = () => {
   };
 
   // Cover Upload Handler
-  const handleCoverUpload = async (file: File, isModal = false) => {
+  const handleCoverUpload = async (file: File) => {
     if (!file || !user) return;
     setUploadingCover(true);
     setCoverProgress(0);
@@ -433,12 +410,8 @@ export const StudentProfile: React.FC = () => {
         (p) => setCoverProgress(p)
       );
       setCoverURL(url);
-      if (!isModal) {
-        await updateUser({ coverURL: url });
-        success('Cover banner updated successfully!', 'Cover Updated');
-      } else {
-        success('Cover image uploaded and ready to save!', 'Upload Ready');
-      }
+      await updateUser({ coverURL: url });
+      success('Cover banner updated successfully!', 'Cover Updated');
     } catch (err: any) {
       console.error(err);
       toastError(err?.message || 'Failed to upload cover banner.');
@@ -461,9 +434,7 @@ export const StudentProfile: React.FC = () => {
         semester,
         bio: bio.trim(),
         skills: skillsStr.split(',').map(s => s.trim()).filter(Boolean),
-        interests: interestsStr.split(',').map(i => i.trim()).filter(Boolean),
-        photoURL: isCustomPhoto(photoURL) ? photoURL : (isCustomPhoto(user.photoURL) ? user.photoURL : undefined),
-        coverURL
+        interests: interestsStr.split(',').map(i => i.trim()).filter(Boolean)
       });
       success('Student profile updated securely in Supabase!', 'Changes Saved');
       setEditModalOpen(false);
@@ -816,7 +787,7 @@ export const StudentProfile: React.FC = () => {
                 type="file"
                 ref={coverFileRef}
                 onChange={(e) => {
-                  if (e.target.files?.[0]) handleCoverUpload(e.target.files[0], false);
+                  if (e.target.files?.[0]) handleCoverUpload(e.target.files[0]);
                 }}
                 accept="image/*"
                 className="hidden"
@@ -855,7 +826,7 @@ export const StudentProfile: React.FC = () => {
                   type="file"
                   ref={avatarFileRef}
                   onChange={(e) => {
-                    if (e.target.files?.[0]) handleAvatarUpload(e.target.files[0], false);
+                    if (e.target.files?.[0]) handleAvatarUpload(e.target.files[0]);
                   }}
                   accept="image/*"
                   className="hidden"
@@ -1252,22 +1223,10 @@ export const StudentProfile: React.FC = () => {
                     </div>
                   ))
                 ) : (
-                  <div className="text-center py-6 border border-dashed border-gray-200 dark:border-[#1e3325] rounded-xl text-gray-400">
+                  <div className="text-center py-8 border border-dashed border-gray-200 dark:border-[#1e3325] rounded-xl text-gray-400 dark:text-gray-500">
                     <p className="text-xs font-medium">
                       {isOwnProfile ? 'No featured projects added yet.' : 'No technical projects listed.'}
                     </p>
-                    {isOwnProfile && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={openAddProjectModal}
-                        icon={<Plus className="w-3.5 h-3.5" />}
-                        className="mt-2.5"
-                      >
-                        Add Project
-                      </Button>
-                    )}
                   </div>
                 )}
               </div>
@@ -1354,22 +1313,10 @@ export const StudentProfile: React.FC = () => {
                     </div>
                   ))
                 ) : (
-                  <div className="text-center py-6 border border-dashed border-gray-200 dark:border-[#1e3325] rounded-xl text-gray-400">
+                  <div className="text-center py-8 border border-dashed border-gray-200 dark:border-[#1e3325] rounded-xl text-gray-400 dark:text-gray-500">
                     <p className="text-xs font-medium">
                       {isOwnProfile ? 'No campus honors cataloged yet.' : 'No honors recorded.'}
                     </p>
-                    {isOwnProfile && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={openAddAchievementModal}
-                        icon={<Plus className="w-3.5 h-3.5" />}
-                        className="mt-2.5"
-                      >
-                        Add Honor
-                      </Button>
-                    )}
                   </div>
                 )}
               </div>
@@ -1471,131 +1418,7 @@ export const StudentProfile: React.FC = () => {
               </div>
             </div>
 
-            {/* SECTION 2: Profile Media */}
-            <div className="bg-gray-50/70 dark:bg-[#16251c]/60 p-4 rounded-2xl border border-gray-200/70 dark:border-[#1e3325] space-y-4">
-              <div className="flex items-center gap-2 text-xs font-bold text-[#0b4627] dark:text-emerald-400 uppercase tracking-wider">
-                <Camera className="w-4 h-4" />
-                <span>Profile Photo & Cover Banner</span>
-              </div>
-
-              {/* Photo Upload */}
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-2">
-                  Student Avatar
-                </label>
-                <div className="flex items-center gap-4">
-                  <div className="w-16 h-16 rounded-full ring-2 ring-emerald-600/30 overflow-hidden bg-gray-200 dark:bg-gray-800 shrink-0 relative flex items-center justify-center">
-                    <Avatar
-                      src={photoURL}
-                      name={displayName || user?.displayName || 'User'}
-                      size="lg"
-                    />
-                    {uploadingPhoto && (
-                      <div className="absolute inset-0 bg-black/60 flex items-center justify-center z-10">
-                        <Loader2 className="w-5 h-5 text-emerald-400 animate-spin" />
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="flex-1 space-y-1.5">
-                    <input
-                      type="file"
-                      ref={modalAvatarFileRef}
-                      onChange={(e) => {
-                        if (e.target.files?.[0]) handleAvatarUpload(e.target.files[0], true);
-                      }}
-                      accept="image/*"
-                      className="hidden"
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => modalAvatarFileRef.current?.click()}
-                      disabled={uploadingPhoto}
-                      icon={<Upload className="w-3.5 h-3.5 text-[#0b4627] dark:text-emerald-400" />}
-                    >
-                      {uploadingPhoto ? `Uploading... ${photoProgress}%` : 'Upload New Photo'}
-                    </Button>
-                    <p className="text-[11px] text-gray-400">
-                      Square JPG, PNG, or WebP photo recommended.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Cover Banner Upload */}
-              <div className="pt-2 border-t border-gray-200/60 dark:border-[#1e3325]">
-                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-2">
-                  Campus Cover Banner
-                </label>
-                <div className="space-y-2.5">
-                  <div className="h-24 w-full rounded-xl overflow-hidden relative bg-emerald-950 border border-gray-200 dark:border-[#1e3325]">
-                    <img
-                      src={coverURL || 'https://images.unsplash.com/photo-1562774053-701939374585?w=1600&auto=format&fit=crop&q=80'}
-                      alt="Cover Preview"
-                      className="w-full h-full object-cover"
-                    />
-                    {uploadingCover && (
-                      <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-white text-xs font-bold gap-2">
-                        <Loader2 className="w-4 h-4 text-emerald-400 animate-spin" />
-                        <span>Uploading banner... {coverProgress}%</span>
-                      </div>
-                    )}
-                  </div>
-
-                  <div>
-                    <input
-                      type="file"
-                      ref={modalCoverFileRef}
-                      onChange={(e) => {
-                        if (e.target.files?.[0]) handleCoverUpload(e.target.files[0], true);
-                      }}
-                      accept="image/*"
-                      className="hidden"
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => modalCoverFileRef.current?.click()}
-                      disabled={uploadingCover}
-                      icon={<ImageIcon className="w-3.5 h-3.5 text-[#0b4627] dark:text-emerald-400" />}
-                    >
-                      {uploadingCover ? `Uploading... ${coverProgress}%` : 'Upload Custom Banner'}
-                    </Button>
-                  </div>
-
-                  {/* Preset Campus Covers */}
-                  <div className="space-y-1.5 pt-1">
-                    <span className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider block">
-                      Official EATM Campus Presets:
-                    </span>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                      {OFFICIAL_COVER_PRESETS.map((preset) => (
-                        <button
-                          key={preset.name}
-                          type="button"
-                          onClick={() => setCoverURL(preset.url)}
-                          className={`group text-left rounded-lg overflow-hidden border p-1 transition-all ${
-                            coverURL === preset.url
-                              ? 'border-emerald-600 ring-2 ring-emerald-500/30 bg-emerald-50/50 dark:bg-emerald-950/30'
-                              : 'border-gray-200 dark:border-[#1e3325] hover:border-emerald-400'
-                          }`}
-                        >
-                          <div className="h-10 w-full rounded overflow-hidden mb-1">
-                            <img src={preset.url} alt={preset.name} className="w-full h-full object-cover group-hover:scale-105 transition" />
-                          </div>
-                          <p className="text-[10px] font-bold text-gray-700 dark:text-gray-300 truncate">{preset.name}</p>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* SECTION 3: About & Specializations */}
+            {/* SECTION 2: About & Specializations */}
             <div className="bg-gray-50/70 dark:bg-[#16251c]/60 p-4 rounded-2xl border border-gray-200/70 dark:border-[#1e3325] space-y-3">
               <div className="flex items-center gap-2 text-xs font-bold text-[#0b4627] dark:text-emerald-400 uppercase tracking-wider">
                 <BookOpen className="w-4 h-4" />
