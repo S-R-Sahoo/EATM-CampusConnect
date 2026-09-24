@@ -533,8 +533,39 @@ export async function fetchUsers(forceRefresh = false): Promise<UserProfile[]> {
 }
 
 export async function fetchUserById(userId: string): Promise<UserProfile | null> {
-  const users = await fetchUsers();
-  const found = users.find(u => u.id === userId || u.uid === userId) || null;
+  if (!userId) return null;
+
+  // 1. Direct targeted Supabase query (Never load entire users table for 1 profile)
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .or(`id.eq.${userId},uid.eq.${userId}`)
+        .maybeSingle();
+
+      if (error) {
+        console.error('❌ Supabase fetchUserById error:', error.message);
+        throw new Error(error.message);
+      }
+
+      if (data) {
+        return {
+          ...data,
+          photoURL: isCustomPhoto(data.photoURL) ? data.photoURL : undefined
+        };
+      }
+    } catch (err: any) {
+      if (err?.message && !err.message.includes('Fetch failed') && !err.message.includes('NetworkError') && !err.message.includes('Failed to fetch')) {
+        throw err;
+      }
+      console.warn('Supabase fetchUserById network/offline exception, checking local fallback:', err);
+    }
+  }
+
+  // 2. Offline / local sandbox fallback
+  const localUsers = getLocalData<UserProfile[]>('users', SEED_USERS);
+  const found = localUsers.find(u => u.id === userId || u.uid === userId) || null;
   if (found) {
     return {
       ...found,
@@ -545,92 +576,267 @@ export async function fetchUserById(userId: string): Promise<UserProfile | null>
 }
 
 export async function updateUserProfile(userId: string, data: Partial<UserProfile>): Promise<UserProfile> {
-  // Invalidate cache immediately on profile update
+  if (!userId) {
+    throw new Error('User ID is required to update profile.');
+  }
+
+  // Invalidate memory cache immediately
   usersCache = null;
   usersCacheTimestamp = 0;
-  const users = getLocalData<UserProfile[]>('users', SEED_USERS);
-  const index = users.findIndex(u => u.id === userId || u.uid === userId);
-  let updatedUser: UserProfile;
+
+  // 1. Retrieve current profile
+  const existing = await fetchUserById(userId);
+
+  // 2. Security: Preserve protected official credentials against privilege escalation
+  const safeRole = existing ? existing.role : (data.role || 'student');
+  const safeVerified = existing ? existing.verified : false;
+  const safeStatus = existing ? existing.status : 'active';
+  const safeRollNumber = existing ? (existing.rollNumber || data.rollNumber) : data.rollNumber;
+  const safeEmployeeId = existing ? (existing.employeeId || data.employeeId) : data.employeeId;
 
   // Clean socialLinks to ensure no password hashes are stored
-  const sanitizedSocialLinks = { ...(data.socialLinks || {}) };
+  const sanitizedSocialLinks = { ...(data.socialLinks || existing?.socialLinks || {}) };
   if ('passHash' in sanitizedSocialLinks) {
     delete (sanitizedSocialLinks as any).passHash;
   }
 
-  if (index !== -1) {
-    const existing = users[index];
-    const safeRole = data.role !== undefined ? data.role : existing.role;
-    const safeVerified = data.verified !== undefined ? data.verified : existing.verified;
-    const safeSettings = data.settings !== undefined ? {
-      ...(existing.settings || {}),
-      ...data.settings,
-      account: {
-        ...(existing.settings?.account || {}),
-        ...(data.settings.account || {})
-      },
-      privacy: {
-        ...(existing.settings?.privacy || {}),
-        ...(data.settings.privacy || {})
-      },
-      connections: {
-        ...(existing.settings?.connections || {}),
-        ...(data.settings.connections || {})
-      },
-      messages: {
-        ...(existing.settings?.messages || {}),
-        ...(data.settings.messages || {})
-      },
-      notifications: {
-        ...(existing.settings?.notifications || {}),
-        ...(data.settings.notifications || {})
-      },
-      appearance: {
-        ...(existing.settings?.appearance || {}),
-        ...(data.settings.appearance || {})
-      }
-    } : existing.settings;
+  // Deep recursive settings merge to prevent category overwrites
+  const safeSettings = data.settings !== undefined ? {
+    ...(existing?.settings || {}),
+    ...data.settings,
+    account: {
+      ...(existing?.settings?.account || {}),
+      ...(data.settings.account || {})
+    },
+    privacy: {
+      ...(existing?.settings?.privacy || {}),
+      ...(data.settings.privacy || {})
+    },
+    connections: {
+      ...(existing?.settings?.connections || {}),
+      ...(data.settings.connections || {})
+    },
+    messages: {
+      ...(existing?.settings?.messages || {}),
+      ...(data.settings.messages || {})
+    },
+    notifications: {
+      ...(existing?.settings?.notifications || {}),
+      ...(data.settings.notifications || {})
+    },
+    appearance: {
+      ...(existing?.settings?.appearance || {}),
+      ...(data.settings.appearance || {})
+    }
+  } : (existing?.settings || {});
 
-    updatedUser = {
-      ...existing,
-      ...data,
-      role: safeRole,
-      verified: safeVerified,
-      settings: safeSettings,
-      socialLinks: {
-        ...(existing.socialLinks || {}),
-        ...sanitizedSocialLinks
-      },
-      updatedAt: new Date().toISOString()
-    };
-    users[index] = updatedUser;
-  } else {
-    updatedUser = { 
-      ...(data as UserProfile), 
-      id: userId, 
-      uid: userId, 
-      verified: false,
-      socialLinks: sanitizedSocialLinks,
-      updatedAt: new Date().toISOString() 
-    };
-    users.push(updatedUser);
-  }
+  const payload: UserProfile = {
+    ...(existing || {} as UserProfile),
+    ...data,
+    id: userId,
+    uid: userId,
+    role: safeRole,
+    verified: safeVerified,
+    status: safeStatus,
+    rollNumber: safeRollNumber,
+    employeeId: safeEmployeeId,
+    socialLinks: sanitizedSocialLinks,
+    settings: safeSettings,
+    updatedAt: new Date().toISOString()
+  };
 
-  setLocalData('users', [...users]);
-
+  // 3. Supabase is authoritative: Execute database update FIRST
   if (isSupabaseConfigured() && supabase) {
-    try {
-      // Upsert profile without privilege escalation
-      await supabase.from('users').upsert([{ 
-        ...updatedUser, 
-        id: userId 
-      }]);
-    } catch (err) {
-      console.warn('Supabase updateUserProfile error:', err);
+    const { error: upsertError } = await supabase
+      .from('users')
+      .upsert([payload]);
+
+    if (upsertError) {
+      console.error('❌ Supabase updateUserProfile failed:', upsertError.message);
+      throw new Error(upsertError.message || 'Failed to save profile changes to database.');
     }
   }
 
-  return updatedUser;
+  // 4. Update local cache ONLY after Supabase confirmation
+  const users = getLocalData<UserProfile[]>('users', SEED_USERS);
+  const index = users.findIndex(u => u.id === userId || u.uid === userId);
+  if (index !== -1) {
+    users[index] = payload;
+  } else {
+    users.push(payload);
+  }
+  setLocalData('users', [...users]);
+
+  // Dispatch live update event for open components
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('eatm_profile_updated', { detail: payload }));
+  }
+
+  return payload;
+}
+
+/**
+ * Checks if two users have an accepted connection.
+ */
+export async function areUsersConnected(userAId: string, userBId: string): Promise<boolean> {
+  if (!userAId || !userBId) return false;
+  if (userAId === userBId) return true;
+
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('connections')
+        .select('id, status')
+        .eq('status', 'accepted')
+        .or(`and(requesterId.eq.${userAId},recipientId.eq.${userBId}),and(requesterId.eq.${userBId},recipientId.eq.${userAId})`)
+        .maybeSingle();
+
+      if (!error && data) return true;
+    } catch (e) {
+      console.warn('Supabase areUsersConnected exception:', e);
+    }
+  }
+
+  const conns = getLocalData<Connection[]>('connections', []);
+  return conns.some(c => 
+    c.status === 'accepted' && 
+    ((c.requesterId === userAId && c.recipientId === userBId) || (c.requesterId === userBId && c.recipientId === userAId))
+  );
+}
+
+/**
+ * Targeted query for user profile posts respecting campus vs connection visibility.
+ */
+export async function fetchPostsByUser(authorId: string, viewerId?: string): Promise<Post[]> {
+  if (!authorId) return [];
+
+  let list: Post[] = [];
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('posts')
+        .select('*')
+        .eq('authorId', authorId)
+        .order('createdAt', { ascending: false });
+
+      if (error) {
+        console.error('❌ Supabase fetchPostsByUser error:', error.message);
+      } else if (data) {
+        list = data.map(p => {
+          const { mediaUrl, mediaUrls } = normalizePostMedia(p);
+          return {
+            ...p,
+            mediaUrl,
+            mediaUrls
+          } as Post;
+        });
+      }
+    } catch (err) {
+      console.warn('Supabase fetchPostsByUser exception:', err);
+    }
+  }
+
+  if (list.length === 0) {
+    const allPosts = getLocalData<Post[]>('posts', SEED_POSTS);
+    list = allPosts.filter(p => p.authorId === authorId);
+  }
+
+  // Gated visibility filtering: if viewer is not author, check connection
+  if (viewerId && viewerId !== authorId) {
+    const isConnected = await areUsersConnected(viewerId, authorId);
+    list = list.filter(p => {
+      if (p.visibility === 'campus' || !p.visibility) return true;
+      if (p.visibility === 'connections') return isConnected;
+      return true;
+    });
+  }
+
+  // Enrich with live author photo
+  const authorProfile = await fetchUserById(authorId);
+  const authorPhoto = authorProfile?.photoURL;
+  const resolvedAvatar = isCustomPhoto(authorPhoto) ? authorPhoto : undefined;
+
+  return list.map(p => ({
+    ...p,
+    authorAvatar: resolvedAvatar || p.authorAvatar
+  }));
+}
+
+/**
+ * Calculates authoritative dynamic statistics for a user profile.
+ */
+export async function fetchUserStats(userId: string): Promise<{
+  connections: number;
+  posts: number;
+  clubs: number;
+  achievements: number;
+}> {
+  if (!userId) {
+    return { connections: 0, posts: 0, clubs: 0, achievements: 0 };
+  }
+
+  let connectionsCount = 0;
+  let postsCount = 0;
+  let clubsCount = 0;
+  let achievementsCount = 0;
+
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      // 1. Accepted Connections
+      const { count: connCount } = await supabase
+        .from('connections')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'accepted')
+        .or(`requesterId.eq.${userId},recipientId.eq.${userId}`);
+      if (connCount !== null && connCount !== undefined) connectionsCount = connCount;
+
+      // 2. Posts by Author
+      const { count: pCount } = await supabase
+        .from('posts')
+        .select('*', { count: 'exact', head: true })
+        .eq('authorId', userId);
+      if (pCount !== null && pCount !== undefined) postsCount = pCount;
+
+      // 3. Clubs / Approved Community Memberships
+      const { count: cCount } = await supabase
+        .from('community_members')
+        .select('*', { count: 'exact', head: true })
+        .eq('userId', userId)
+        .eq('status', 'approved');
+      if (cCount !== null && cCount !== undefined) clubsCount = cCount;
+
+      // 4. User profile achievements
+      const profile = await fetchUserById(userId);
+      if (profile?.achievements && Array.isArray(profile.achievements)) {
+        achievementsCount = profile.achievements.length;
+      }
+
+      return {
+        connections: connectionsCount,
+        posts: postsCount,
+        clubs: clubsCount,
+        achievements: achievementsCount
+      };
+    } catch (err) {
+      console.warn('Supabase fetchUserStats exception, using fallback:', err);
+    }
+  }
+
+  // Fallback from local data
+  const conns = getLocalData<Connection[]>('connections', []);
+  connectionsCount = conns.filter(c => (c.requesterId === userId || c.recipientId === userId) && c.status === 'accepted').length;
+  const posts = getLocalData<Post[]>('posts', SEED_POSTS);
+  postsCount = posts.filter(p => p.authorId === userId).length;
+  const profile = (getLocalData<UserProfile[]>('users', SEED_USERS)).find(u => u.id === userId || u.uid === userId);
+  achievementsCount = profile?.achievements?.length || 0;
+  clubsCount = profile?.stats?.clubs || 0;
+
+  return {
+    connections: connectionsCount,
+    posts: postsCount,
+    clubs: clubsCount,
+    achievements: achievementsCount
+  };
 }
 
 // ---------------------------------------------

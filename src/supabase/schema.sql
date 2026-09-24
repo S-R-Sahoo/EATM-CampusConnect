@@ -27,6 +27,10 @@ on storage.objects for insert
 with check (
   bucket_id = 'campus-uploads' 
   and auth.role() = 'authenticated'
+  and (
+    (storage.foldername(name))[1] != 'profiles'
+    or (storage.foldername(name))[2] = auth.uid()::text
+  )
 );
 
 create policy "Allow Authenticated Updates on campus-uploads"
@@ -34,10 +38,18 @@ on storage.objects for update
 using (
   bucket_id = 'campus-uploads' 
   and auth.role() = 'authenticated'
+  and (
+    (storage.foldername(name))[1] != 'profiles'
+    or (storage.foldername(name))[2] = auth.uid()::text
+  )
 )
 with check (
   bucket_id = 'campus-uploads' 
   and auth.role() = 'authenticated'
+  and (
+    (storage.foldername(name))[1] != 'profiles'
+    or (storage.foldername(name))[2] = auth.uid()::text
+  )
 );
 
 create policy "Allow Authenticated Deletions on campus-uploads"
@@ -45,6 +57,10 @@ on storage.objects for delete
 using (
   bucket_id = 'campus-uploads' 
   and auth.role() = 'authenticated'
+  and (
+    (storage.foldername(name))[1] != 'profiles'
+    or (storage.foldername(name))[2] = auth.uid()::text
+  )
 );
 
 -- ==========================================================
@@ -1079,11 +1095,13 @@ $$;
 create or replace function public.protect_user_fields()
 returns trigger language plpgsql security definer as $$
 begin
-  -- If not campus admin, prevent changing role, verified, id, uid, email
+  -- If not campus admin, prevent changing role, verified, status, rollNumber, employeeId, id, uid, email
   if not public.is_campus_admin(auth.uid()::text) then
     NEW.role := OLD.role;
     NEW.verified := OLD.verified;
     NEW.status := OLD.status;
+    NEW."rollNumber" := OLD."rollNumber";
+    NEW."employeeId" := OLD."employeeId";
     NEW.id := OLD.id;
     NEW.uid := OLD.uid;
     NEW.email := OLD.email;
@@ -1373,32 +1391,27 @@ using (true);
 
 create policy "Users Insert Policy" on public.users for insert
 with check (
-  auth.uid() is null
-  or auth.uid()::text = id 
-  or auth.uid()::text = uid 
+  (auth.uid() is not null and (auth.uid()::text = id or auth.uid()::text = uid))
   or public.is_campus_admin(auth.uid()::text)
-  or true
 );
 
 create policy "Users Update Policy" on public.users for update
 using (
-  auth.uid() is null
-  or auth.uid()::text = id 
-  or auth.uid()::text = uid 
+  (auth.uid() is not null and (auth.uid()::text = id or auth.uid()::text = uid))
   or public.is_campus_admin(auth.uid()::text)
-  or true
 )
 with check (
-  auth.uid() is null
-  or auth.uid()::text = id 
-  or auth.uid()::text = uid 
+  (auth.uid() is not null and (auth.uid()::text = id or auth.uid()::text = uid))
   or public.is_campus_admin(auth.uid()::text)
-  or true
 );
 
 create policy "Users Delete Policy" on public.users for delete
 using (
-  auth.uid() is not null and public.is_campus_admin(auth.uid()::text)
+  auth.uid() is not null and (
+    auth.uid()::text = id 
+    or auth.uid()::text = uid 
+    or public.is_campus_admin(auth.uid()::text)
+  )
 );
 
 -- 9.2 POSTS

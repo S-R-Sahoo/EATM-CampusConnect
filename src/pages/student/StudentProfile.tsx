@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
@@ -8,9 +8,16 @@ import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
 import { uploadFile } from '../../supabase/storage';
 import { 
-  fetchPosts, fetchConnections, fetchUserById, 
-  sendConnectionRequest, updateConnectionStatus, cancelConnectionRequest, getOrCreateConversation 
+  fetchConnections, 
+  fetchUserById, 
+  fetchPostsByUser,
+  fetchUserStats,
+  sendConnectionRequest, 
+  updateConnectionStatus, 
+  cancelConnectionRequest, 
+  getOrCreateConversation 
 } from '../../supabase/db';
+import { supabase, isSupabaseConfigured } from '../../supabase/client';
 import { Post, UserProfile } from '../../types';
 import { PostCard } from '../../components/posts/PostCard';
 import confetti from 'canvas-confetti';
@@ -20,7 +27,8 @@ import {
   Camera, Upload, Image as ImageIcon, Loader2,
   User, Cpu, Compass, Trophy, BookOpen, Radio,
   ArrowLeft, Check, Clock, UserPlus, MessageSquare, X,
-  Plus, Trash2, Globe, Pencil, UserCheck
+  Plus, Trash2, Globe, Pencil, UserCheck, ShieldCheck,
+  AlertCircle, RefreshCw, Sparkles, Share2
 } from 'lucide-react';
 import { isCustomPhoto } from '../../constants/assets';
 import { Avatar } from '../../components/ui/Avatar';
@@ -86,12 +94,23 @@ export const StudentProfile: React.FC = () => {
 
   const [viewedUser, setViewedUser] = useState<UserProfile | null>(null);
   const [loadingProfile, setLoadingProfile] = useState<boolean>(!isOwnProfile);
+  const [profileFetchError, setProfileFetchError] = useState<string | null>(null);
+
   const [connectionInfo, setConnectionInfo] = useState<{
     status: 'connected' | 'pending_sent' | 'pending_received' | 'none';
     connectionId?: string;
   }>({ status: 'none' });
   const [connecting, setConnecting] = useState(false);
 
+  // Dynamic profile statistics
+  const [stats, setStats] = useState<{
+    connections: number;
+    posts: number;
+    clubs: number;
+    achievements: number;
+  }>({ connections: 0, posts: 0, clubs: 0, achievements: 0 });
+
+  // Modals
   const [editModalOpen, setEditModalOpen] = useState(false);
 
   // Edit form state
@@ -122,7 +141,6 @@ export const StudentProfile: React.FC = () => {
   // User posts state
   const [userPosts, setUserPosts] = useState<Post[]>([]);
   const [loadingPosts, setLoadingPosts] = useState(true);
-  const [liveConnectionsCount, setLiveConnectionsCount] = useState<number | null>(null);
 
   // Projects management state
   const [projectModalOpen, setProjectModalOpen] = useState(false);
@@ -154,21 +172,35 @@ export const StudentProfile: React.FC = () => {
 
   const activeUser = isOwnProfile ? user : viewedUser;
 
-  const loadUserPosts = async (targetUserId?: string) => {
-    const idToFetch = targetUserId || (isOwnProfile ? user?.id : id);
-    if (!idToFetch) return;
+  // Load user posts targeted by author ID respecting visibility
+  const loadUserPosts = useCallback(async (targetUserId: string) => {
+    if (!targetUserId) return;
+    setLoadingPosts(true);
     try {
-      const allPosts = await fetchPosts();
-      const myPosts = allPosts.filter(p => p.authorId === idToFetch || (isOwnProfile && user?.uid && p.authorId === user.uid));
-      setUserPosts(myPosts);
+      const posts = await fetchPostsByUser(targetUserId, user?.id);
+      setUserPosts(posts);
     } catch (e) {
       console.error('Failed to load user posts:', e);
     } finally {
       setLoadingPosts(false);
     }
-  };
+  }, [user?.id]);
 
-  useEffect(() => {
+  // Load dynamic profile stats
+  const loadUserStats = useCallback(async (targetUserId: string) => {
+    if (!targetUserId) return;
+    try {
+      const liveStats = await fetchUserStats(targetUserId);
+      setStats(liveStats);
+    } catch (e) {
+      console.warn('Failed to load live stats:', e);
+    }
+  }, []);
+
+  // Fetch profile and connection state
+  const loadProfile = useCallback(async () => {
+    setProfileFetchError(null);
+
     if (isOwnProfile) {
       setViewedUser(null);
       setLoadingProfile(false);
@@ -184,51 +216,92 @@ export const StudentProfile: React.FC = () => {
         setPhotoURL(user.photoURL || '');
         setCoverURL(user.coverURL || '');
         loadUserPosts(user.id);
-        fetchConnections(user.id).then(conns => {
-          const accepted = conns.filter(c => c.status === 'accepted').length;
-          setLiveConnectionsCount(accepted);
-        }).catch(() => {});
+        loadUserStats(user.id);
       }
     } else if (id) {
       setLoadingProfile(true);
-      fetchUserById(id).then(async (target) => {
+      try {
+        const target = await fetchUserById(id);
+        if (!target) {
+          setViewedUser(null);
+          setLoadingProfile(false);
+          return;
+        }
+
         setViewedUser(target);
         setLoadingProfile(false);
-        if (target) {
-          loadUserPosts(target.id);
-          if (user) {
-            try {
-              const conns = await fetchConnections(user.id);
-              const conn = conns.find(c => 
-                (c.requesterId === user.id && c.recipientId === target.id) ||
-                (c.requesterId === target.id && c.recipientId === user.id)
-              );
-              if (conn) {
-                if (conn.status === 'accepted') {
-                  setConnectionInfo({ status: 'connected', connectionId: conn.id });
-                } else if (conn.requesterId === user.id) {
-                  setConnectionInfo({ status: 'pending_sent', connectionId: conn.id });
-                } else {
-                  setConnectionInfo({ status: 'pending_received', connectionId: conn.id });
-                }
-              } else {
-                setConnectionInfo({ status: 'none' });
-              }
 
-              const targetConns = await fetchConnections(target.id);
-              setLiveConnectionsCount(targetConns.filter(c => c.status === 'accepted').length);
-            } catch (err) {
-              console.warn('Failed to fetch connections for target user:', err);
+        loadUserPosts(target.id);
+        loadUserStats(target.id);
+
+        if (user) {
+          try {
+            const conns = await fetchConnections(user.id);
+            const conn = conns.find(c => 
+              (c.requesterId === user.id && c.recipientId === target.id) ||
+              (c.requesterId === target.id && c.recipientId === user.id)
+            );
+            if (conn) {
+              if (conn.status === 'accepted') {
+                setConnectionInfo({ status: 'connected', connectionId: conn.id });
+              } else if (conn.requesterId === user.id) {
+                setConnectionInfo({ status: 'pending_sent', connectionId: conn.id });
+              } else {
+                setConnectionInfo({ status: 'pending_received', connectionId: conn.id });
+              }
+            } else {
+              setConnectionInfo({ status: 'none' });
+            }
+          } catch (connErr) {
+            console.warn('Failed to fetch connection status:', connErr);
+          }
+        }
+      } catch (err: any) {
+        console.error('Error fetching target profile:', err);
+        setProfileFetchError(err.message || 'Could not load student profile.');
+        setLoadingProfile(false);
+      }
+    }
+  }, [id, user, isOwnProfile, loadUserPosts, loadUserStats]);
+
+  useEffect(() => {
+    loadProfile();
+  }, [loadProfile]);
+
+  // Realtime subscription for live profile updates across browsers
+  useEffect(() => {
+    const targetId = isOwnProfile ? user?.id : id;
+    if (!targetId || !isSupabaseConfigured() || !supabase) return;
+
+    const channel = supabase
+      .channel(`profile-sync-${targetId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'users',
+          filter: `id=eq.${targetId}`
+        },
+        (payload) => {
+          if (payload.new) {
+            const updated = payload.new as UserProfile;
+            if (!isOwnProfile) {
+              setViewedUser(prev => prev ? ({ ...prev, ...updated }) : updated);
             }
           }
         }
-      }).catch(err => {
-        console.error('Error fetching user profile:', err);
-        setLoadingProfile(false);
-      });
-    }
+      )
+      .subscribe();
+
+    return () => {
+      if (supabase) {
+        supabase.removeChannel(channel);
+      }
+    };
   }, [id, user?.id, isOwnProfile]);
 
+  // Presence subscription
   const [, setPresenceTick] = useState(0);
   useEffect(() => {
     const unsub = subscribeToPresence(() => {
@@ -237,6 +310,7 @@ export const StudentProfile: React.FC = () => {
     return () => unsub();
   }, []);
 
+  // Connection Handlers
   const handleConnect = async () => {
     if (!user || !activeUser) return;
     setConnecting(true);
@@ -257,8 +331,8 @@ export const StudentProfile: React.FC = () => {
     try {
       await updateConnectionStatus(connectionInfo.connectionId, 'accepted', user.id);
       setConnectionInfo(prev => ({ ...prev, status: 'connected' }));
-      success(`You and ${activeUser?.displayName} are now campus friends!`, 'Friend Connected');
-      setLiveConnectionsCount(prev => (prev ?? 0) + 1);
+      success(`You and ${activeUser?.displayName} are now campus connections!`, 'Connected');
+      setStats(prev => ({ ...prev, connections: prev.connections + 1 }));
     } catch (err: any) {
       toastError(err?.message || 'Could not accept connection request.');
     } finally {
@@ -272,7 +346,7 @@ export const StudentProfile: React.FC = () => {
     try {
       await updateConnectionStatus(connectionInfo.connectionId, 'rejected', user.id);
       setConnectionInfo({ status: 'none' });
-      success('Connection request declined.', 'Request Ignored');
+      success('Connection request declined.', 'Declined');
     } catch (err: any) {
       toastError(err?.message || 'Could not decline connection request.');
     } finally {
@@ -286,7 +360,7 @@ export const StudentProfile: React.FC = () => {
     try {
       await cancelConnectionRequest(connectionInfo.connectionId, user.id);
       setConnectionInfo({ status: 'none' });
-      success('Connection request withdrawn.', 'Request Cancelled');
+      success('Connection request withdrawn.', 'Cancelled');
     } catch (err: any) {
       toastError(err?.message || 'Could not cancel connection request.');
     } finally {
@@ -299,7 +373,8 @@ export const StudentProfile: React.FC = () => {
     try {
       const conv = await getOrCreateConversation(user.id, activeUser.id);
       navigate('/student/messages', { state: { conversationId: conv.id } });
-    } catch (err) {
+    } catch (err: any) {
+      toastError(err.message || 'Could not initiate conversation.');
       navigate('/student/messages');
     }
   };
@@ -321,6 +396,7 @@ export const StudentProfile: React.FC = () => {
     setEditModalOpen(true);
   };
 
+  // Avatar Upload Handler
   const handleAvatarUpload = async (file: File, isModal = false) => {
     if (!file || !user) return;
     setUploadingPhoto(true);
@@ -334,23 +410,25 @@ export const StudentProfile: React.FC = () => {
       );
       setPhotoURL(url);
       await updateUser({ photoURL: url });
-      success('Profile photo updated successfully! It is now visible everywhere.', 'Photo Updated');
-    } catch (err) {
+      success('Profile photo updated successfully in Supabase Storage!', 'Photo Updated');
+    } catch (err: any) {
       console.error(err);
-      toastError('Failed to upload profile photo');
+      toastError(err?.message || 'Failed to upload profile photo to storage.');
     } finally {
       setUploadingPhoto(false);
       setPhotoProgress(0);
     }
   };
 
+  // Cover Upload Handler
   const handleCoverUpload = async (file: File, isModal = false) => {
     if (!file || !user) return;
     setUploadingCover(true);
     setCoverProgress(0);
     try {
+      const sanitizedName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
       const url = await uploadFile(
-        `profiles/${user.id}/cover_${Date.now()}_${file.name}`,
+        `profiles/${user.id}/cover_${Date.now()}_${sanitizedName}`,
         file,
         (p) => setCoverProgress(p)
       );
@@ -359,42 +437,44 @@ export const StudentProfile: React.FC = () => {
         await updateUser({ coverURL: url });
         success('Cover banner updated successfully!', 'Cover Updated');
       } else {
-        success('Cover image uploaded and ready to save!', 'Upload Complete');
+        success('Cover image uploaded and ready to save!', 'Upload Ready');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      toastError('Failed to upload cover banner');
+      toastError(err?.message || 'Failed to upload cover banner.');
     } finally {
       setUploadingCover(false);
       setCoverProgress(0);
     }
   };
 
+  // Profile Save Handler (Authoritative Supabase)
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
     setSaving(true);
     try {
       await updateUser({
-        displayName,
+        displayName: displayName.trim(),
         department,
         year,
         semester,
-        rollNumber,
-        bio,
+        bio: bio.trim(),
         skills: skillsStr.split(',').map(s => s.trim()).filter(Boolean),
         interests: interestsStr.split(',').map(i => i.trim()).filter(Boolean),
         photoURL: isCustomPhoto(photoURL) ? photoURL : (isCustomPhoto(user.photoURL) ? user.photoURL : undefined),
         coverURL
       });
-      success('Official student credentials and profile saved!', 'Changes Saved');
+      success('Student profile updated securely in Supabase!', 'Changes Saved');
       setEditModalOpen(false);
+    } catch (err: any) {
+      toastError(err?.message || 'Failed to save changes.');
     } finally {
       setSaving(false);
     }
   };
 
-  // --- Project Actions ---
+  // --- Project Management Actions ---
   const openAddProjectModal = () => {
     setEditingProjectIdx(null);
     setProjectForm({
@@ -448,7 +528,7 @@ export const StudentProfile: React.FC = () => {
         title: projectForm.title.trim(),
         description: projectForm.description.trim(),
         link: cleanLink || undefined,
-        technologies: techList.length > 0 ? techList : ['Technical Project']
+        technologies: techList.length > 0 ? techList : ['Engineering Project']
       };
 
       let updatedProjects: typeof currentProjects;
@@ -460,17 +540,16 @@ export const StudentProfile: React.FC = () => {
       }
 
       await updateUser({ projects: updatedProjects });
-      confetti({ particleCount: 40, spread: 60, origin: { y: 0.7 } });
+      confetti({ particleCount: 35, spread: 55, origin: { y: 0.7 } });
       success(
         editingProjectIdx !== null
-          ? 'Project updated in your portfolio!'
-          : 'Project added to your portfolio!',
+          ? 'Project updated in portfolio!'
+          : 'Project added to portfolio!',
         'Project Saved'
       );
       setProjectModalOpen(false);
-    } catch (err) {
-      console.error('Error saving project:', err);
-      toastError('Failed to save project. Please try again.');
+    } catch (err: any) {
+      toastError(err?.message || 'Failed to save project.');
     } finally {
       setSavingProject(false);
     }
@@ -482,11 +561,10 @@ export const StudentProfile: React.FC = () => {
       const currentProjects = activeUser.projects ? [...activeUser.projects] : [];
       const updatedProjects = currentProjects.filter((_, i) => i !== idx);
       await updateUser({ projects: updatedProjects });
-      success('Project removed from portfolio.', 'Project Removed');
+      success('Project removed from portfolio.', 'Project Deleted');
       setDeleteConfirm({ type: null, idx: null, title: '' });
-    } catch (err) {
-      console.error('Error deleting project:', err);
-      toastError('Failed to remove project.');
+    } catch (err: any) {
+      toastError(err?.message || 'Failed to remove project.');
     }
   };
 
@@ -521,7 +599,7 @@ export const StudentProfile: React.FC = () => {
       return;
     }
     if (!achievementForm.description.trim()) {
-      toastError('Achievement description is required.');
+      toastError('Achievement citation is required.');
       return;
     }
 
@@ -542,26 +620,20 @@ export const StudentProfile: React.FC = () => {
         updatedAch = [itemData, ...currentAch];
       }
 
-      const updatedStats = {
-        ...(activeUser.stats || { connections: 0, posts: 0, clubs: 0, achievements: 0 }),
-        achievements: updatedAch.length
-      };
-
       await updateUser({
-        achievements: updatedAch,
-        stats: updatedStats
+        achievements: updatedAch
       });
-      confetti({ particleCount: 50, spread: 70, origin: { y: 0.7 } });
+      confetti({ particleCount: 40, spread: 60, origin: { y: 0.7 } });
       success(
         editingAchievementIdx !== null
           ? 'Honor & Distinction record updated!'
-          : 'Honor & Achievement cataloged in your campus record!',
-        'Achievement Saved'
+          : 'Achievement cataloged in your campus record!',
+        'Honor Saved'
       );
       setAchievementModalOpen(false);
-    } catch (err) {
-      console.error('Error saving achievement:', err);
-      toastError('Failed to save honor record. Please try again.');
+      setStats(prev => ({ ...prev, achievements: updatedAch.length }));
+    } catch (err: any) {
+      toastError(err?.message || 'Failed to save achievement.');
     } finally {
       setSavingAchievement(false);
     }
@@ -572,41 +644,56 @@ export const StudentProfile: React.FC = () => {
     try {
       const currentAch = activeUser.achievements ? [...activeUser.achievements] : [];
       const updatedAch = currentAch.filter((_, i) => i !== idx);
-      const updatedStats = {
-        ...(activeUser.stats || { connections: 0, posts: 0, clubs: 0, achievements: 0 }),
-        achievements: updatedAch.length
-      };
       await updateUser({
-        achievements: updatedAch,
-        stats: updatedStats
+        achievements: updatedAch
       });
       success('Honor removed from records.', 'Achievement Removed');
       setDeleteConfirm({ type: null, idx: null, title: '' });
-    } catch (err) {
-      console.error('Error deleting achievement:', err);
-      toastError('Failed to remove achievement.');
+      setStats(prev => ({ ...prev, achievements: updatedAch.length }));
+    } catch (err: any) {
+      toastError(err?.message || 'Failed to remove achievement.');
     }
   };
 
+  // Loading View
   if (loadingProfile) {
     return (
-      <div className="max-w-5xl mx-auto p-12 text-center bg-white dark:bg-[#111d15] rounded-3xl border border-gray-200/80 dark:border-[#1e3325] shadow-card space-y-3">
-        <Loader2 className="w-8 h-8 animate-spin mx-auto text-emerald-600 dark:text-emerald-400" />
+      <div className="max-w-5xl mx-auto p-12 text-center bg-white dark:bg-[#111d15] rounded-3xl border border-gray-200/80 dark:border-[#1e3325] shadow-xs space-y-3">
+        <Loader2 className="w-8 h-8 animate-spin mx-auto text-[#0b4627] dark:text-emerald-400" />
         <p className="text-sm font-bold text-gray-900 dark:text-gray-100">Loading Student Profile...</p>
-        <p className="text-xs text-gray-500 dark:text-gray-400">Fetching verified academic credentials and campus records</p>
+        <p className="text-xs text-gray-500 dark:text-gray-400">Fetching verified academic credentials and portfolio records</p>
       </div>
     );
   }
 
+  // Error State
+  if (profileFetchError) {
+    return (
+      <div className="max-w-xl mx-auto p-10 text-center bg-white dark:bg-[#111d15] rounded-3xl border border-red-200/80 dark:border-red-900/40 shadow-xs space-y-4">
+        <div className="w-12 h-12 rounded-2xl bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 flex items-center justify-center mx-auto">
+          <AlertCircle className="w-6 h-6" />
+        </div>
+        <div>
+          <h2 className="text-base font-black text-gray-900 dark:text-gray-100">Database Connection Issue</h2>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 max-w-sm mx-auto">{profileFetchError}</p>
+        </div>
+        <Button variant="outline" size="sm" onClick={loadProfile} icon={<RefreshCw className="w-3.5 h-3.5" />}>
+          Retry Connection
+        </Button>
+      </div>
+    );
+  }
+
+  // Not Found View
   if (!activeUser) {
     return (
-      <div className="max-w-xl mx-auto p-12 text-center bg-white dark:bg-[#111d15] rounded-3xl border border-gray-200/80 dark:border-[#1e3325] shadow-card space-y-4">
+      <div className="max-w-xl mx-auto p-12 text-center bg-white dark:bg-[#111d15] rounded-3xl border border-gray-200/80 dark:border-[#1e3325] shadow-xs space-y-4">
         <div className="w-14 h-14 rounded-2xl bg-gray-100 dark:bg-[#16251c] text-gray-500 dark:text-gray-400 flex items-center justify-center mx-auto">
           <User className="w-7 h-7" />
         </div>
         <h2 className="text-lg font-black text-gray-900 dark:text-gray-100">Student Profile Not Found</h2>
         <p className="text-xs text-gray-500 dark:text-gray-400 max-w-sm mx-auto">
-          The requested profile does not exist or may have been updated.
+          The requested campus scholar does not exist or may have been updated.
         </p>
         <Button variant="primary" size="sm" onClick={() => navigate('/student/discover')}>
           Explore Campus Directory
@@ -615,7 +702,7 @@ export const StudentProfile: React.FC = () => {
     );
   }
 
-  // Privacy enforcement for Profile Visibility
+  // Privacy Gating Enforcement
   const isProfilePrivate = !isOwnProfile && activeUser.settings?.privacy?.profileVisibility === 'private';
   const isConnectionsOnlyRestricted = !isOwnProfile && 
     activeUser.settings?.privacy?.profileVisibility === 'connections' && 
@@ -633,7 +720,7 @@ export const StudentProfile: React.FC = () => {
           <span>Back</span>
         </button>
 
-        <div className="p-8 sm:p-12 text-center bg-white dark:bg-[#111d15] rounded-3xl border border-gray-200/80 dark:border-[#1e3325] shadow-card space-y-4">
+        <div className="p-8 sm:p-12 text-center bg-white dark:bg-[#111d15] rounded-3xl border border-gray-200/80 dark:border-[#1e3325] shadow-xs space-y-4">
           <div className="w-16 h-16 rounded-2xl bg-emerald-50 dark:bg-[#16251c] text-[#0b4627] dark:text-emerald-400 flex items-center justify-center mx-auto">
             <User className="w-8 h-8" />
           </div>
@@ -642,7 +729,7 @@ export const StudentProfile: React.FC = () => {
             {activeUser.department} • EATM CampusConnect
           </p>
           <div className="max-w-sm mx-auto p-3.5 rounded-2xl bg-gray-50 dark:bg-[#16251c] border border-gray-200/60 dark:border-[#1e3325] text-xs text-gray-600 dark:text-gray-300">
-            🔒 This user has set their profile to <strong>Private</strong>. Only basic campus directory info is visible.
+            🔒 This user has set their profile to <strong>Private</strong>. Only basic directory info is visible.
           </div>
         </div>
       </div>
@@ -661,7 +748,7 @@ export const StudentProfile: React.FC = () => {
           <span>Back</span>
         </button>
 
-        <div className="p-8 sm:p-12 text-center bg-white dark:bg-[#111d15] rounded-3xl border border-gray-200/80 dark:border-[#1e3325] shadow-card space-y-4">
+        <div className="p-8 sm:p-12 text-center bg-white dark:bg-[#111d15] rounded-3xl border border-gray-200/80 dark:border-[#1e3325] shadow-xs space-y-4">
           <div className="w-20 h-20 rounded-full mx-auto overflow-hidden ring-4 ring-emerald-100 dark:ring-emerald-950">
             <Avatar src={effectivePhoto} name={activeUser.displayName} size="xl" className="w-full h-full" />
           </div>
@@ -690,8 +777,8 @@ export const StudentProfile: React.FC = () => {
   }
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6">
-      {/* Top back navigation button when viewing someone else */}
+    <div className="max-w-5xl mx-auto space-y-6 pb-16 px-3 sm:px-6">
+      {/* Top Back Navigation (When viewing someone else) */}
       {!isOwnProfile && (
         <div className="flex items-center justify-between pb-1">
           <button
@@ -705,8 +792,8 @@ export const StudentProfile: React.FC = () => {
         </div>
       )}
 
-      {/* Profile Cover & Main Identity Card */}
-      <div className="bg-white dark:bg-[#111d15] rounded-3xl border border-gray-200/80 dark:border-[#1e3325] shadow-card overflow-hidden transition-colors duration-150">
+      {/* Main Profile Header Card */}
+      <div className="bg-white dark:bg-[#111d15] rounded-3xl border border-gray-200/80 dark:border-[#1e3325] shadow-xs overflow-hidden transition-colors">
         {/* Cover Photo Banner */}
         <div className="h-44 sm:h-56 md:h-64 relative bg-emerald-950 overflow-hidden group">
           <img
@@ -716,14 +803,13 @@ export const StudentProfile: React.FC = () => {
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
           
-          {/* Top Right Campus Identity Tag on Cover */}
+          {/* Institutional Emblem Badge Top-Right */}
           <div className="absolute top-3 sm:top-4 right-3 sm:right-4 z-10 flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/50 backdrop-blur-md border border-white/20 text-white text-[11px] font-semibold">
             <Building2 className="w-3.5 h-3.5 text-emerald-400" />
-            <span className="hidden sm:inline">EATM Digital Campus</span>
-            <span className="sm:hidden">EATM</span>
+            <span>EATM Digital Campus</span>
           </div>
 
-          {/* Quick Change Cover Action Button (Only for own profile) */}
+          {/* Quick Cover Change Action (Own profile only) */}
           {isOwnProfile && (
             <div className="absolute bottom-3 sm:bottom-4 right-3 sm:right-4 z-10">
               <input
@@ -739,7 +825,7 @@ export const StudentProfile: React.FC = () => {
                 type="button"
                 onClick={() => coverFileRef.current?.click()}
                 disabled={uploadingCover}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-black/60 hover:bg-black/80 backdrop-blur-md border border-white/20 text-white text-xs font-semibold transition-all shadow-md active:scale-95 disabled:opacity-50"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-black/60 hover:bg-black/80 backdrop-blur-md border border-white/20 text-white text-xs font-semibold transition shadow-sm active:scale-95 disabled:opacity-50"
               >
                 {uploadingCover ? (
                   <>
@@ -758,11 +844,11 @@ export const StudentProfile: React.FC = () => {
           )}
         </div>
 
-        {/* Profile Content Section (Completely Below Banner - Zero Overlap) */}
-        <div className="px-4 sm:px-8 pb-6 sm:pb-8 pt-0">
-          {/* Row 1: Floating Avatar & Edit Profile / Connect Button */}
-          <div className="flex items-end justify-between -mt-12 sm:-mt-20 mb-4 sm:mb-5 gap-2 sm:gap-4">
-            {/* Avatar with Thick Border & Quick Upload Button */}
+        {/* Profile Content Section */}
+        <div className="px-5 sm:px-8 pb-6 sm:pb-8 pt-0">
+          {/* Avatar & Primary Action Bar */}
+          <div className="flex items-end justify-between -mt-14 sm:-mt-20 mb-4 gap-3 sm:gap-4 flex-wrap">
+            {/* Avatar with Thick Ring & Upload Button */}
             <div className="relative group shrink-0">
               {isOwnProfile && (
                 <input
@@ -775,7 +861,7 @@ export const StudentProfile: React.FC = () => {
                   className="hidden"
                 />
               )}
-              <div className="w-24 h-24 sm:w-36 sm:h-36 rounded-full ring-4 ring-white dark:ring-[#111d15] shadow-xl overflow-hidden bg-white dark:bg-[#16251c] flex items-center justify-center relative">
+              <div className="w-24 h-24 sm:w-36 sm:h-36 rounded-full ring-4 ring-white dark:ring-[#111d15] shadow-lg overflow-hidden bg-white dark:bg-[#16251c] flex items-center justify-center relative">
                 <Avatar
                   src={effectivePhoto}
                   name={activeUser.displayName}
@@ -791,61 +877,45 @@ export const StudentProfile: React.FC = () => {
                 )}
               </div>
 
-              {/* Direct Camera Action on Avatar (Only for own profile) */}
+              {/* Direct Camera Button on Avatar (Own profile only) */}
               {isOwnProfile && (
                 <button
                   type="button"
                   onClick={() => avatarFileRef.current?.click()}
                   disabled={uploadingPhoto}
                   title="Upload Profile Photo"
-                  className="absolute top-1 right-1 p-2 rounded-full bg-emerald-700 hover:bg-emerald-800 text-white shadow-lg border-2 border-white dark:border-[#111d15] transition-all hover:scale-105 active:scale-95 disabled:opacity-50"
+                  className="absolute bottom-1 right-1 p-2 rounded-full bg-[#0b4627] hover:bg-emerald-800 text-white shadow-md border-2 border-white dark:border-[#111d15] transition hover:scale-105 active:scale-95 disabled:opacity-50"
                 >
                   <Camera className="w-3.5 h-3.5" />
                 </button>
               )}
-
-              {activeUser.verified && (
-                <div 
-                  className="absolute bottom-1 right-1 p-0.5 rounded-full bg-white dark:bg-[#111d15] shadow-sm border border-gray-100 dark:border-[#1e3325] flex items-center justify-center"
-                  title="Official Verified Student"
-                >
-                  <svg 
-                    className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-600 dark:text-emerald-400" 
-                    viewBox="0 0 24 24" 
-                    fill="currentColor"
-                  >
-                    <path d="M22.5 12.5c0-1.58-.875-2.95-2.148-3.6.154-.435.238-.905.238-1.4 0-2.21-1.79-4-4-4-.495 0-.965.084-1.4.238C14.45 2.475 13.08 1.6 11.5 1.6s-2.95.875-3.6 2.148c-.435-.154-.905-.238-1.4-.238-2.21 0-4 1.79-4 4 0 .495.084.965.238 1.4C1.475 9.55.6 10.92.6 12.5s.875 2.95 2.148 3.6c-.154.435-.238.905-.238 1.4 0 2.21 1.79 4 4 4 .495 0 .965-.084 1.4-.238 1.15 1.273 2.52 2.148 4.1 2.148s2.95-.875 3.6-2.148c.435.154.905.238 1.4.238 2.21 0 4-1.79 4-4 0-.495-.084-.965-.238-1.4 1.273-1.15 2.148-2.52 2.148-4.1z" />
-                    <path d="M10.2 16.2l-3.5-3.5 1.4-1.4 2.1 2.1 5.3-5.3 1.4 1.4-6.7 6.7z" fill="#ffffff" />
-                  </svg>
-                </div>
-              )}
             </div>
 
-            {/* Action Buttons (Official Fancy Style) */}
-            <div className="pb-1 sm:pb-2 shrink-0">
+            {/* Header Action Buttons */}
+            <div className="pb-1 sm:pb-2 shrink-0 flex items-center gap-2">
               {isOwnProfile ? (
                 <button
                   type="button"
                   onClick={handleOpenEdit}
-                  className="inline-flex items-center gap-1.5 sm:gap-2 px-3.5 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-semibold text-gray-800 dark:text-gray-100 bg-white dark:bg-[#16251c] border border-gray-300/90 dark:border-emerald-700/40 hover:bg-gray-50 dark:hover:bg-[#1e3426] hover:border-emerald-600/60 shadow-2xs active:scale-95 transition-all duration-150 cursor-pointer"
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold text-gray-800 dark:text-gray-100 bg-white dark:bg-[#16251c] border border-gray-300 dark:border-emerald-700/40 hover:bg-gray-50 dark:hover:bg-[#1e3426] hover:border-emerald-600/60 shadow-xs active:scale-95 transition"
                 >
-                  <Edit3 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#0b4627] dark:text-emerald-400" />
+                  <Edit3 className="w-4 h-4 text-[#0b4627] dark:text-emerald-400" />
                   <span>Edit Profile</span>
                 </button>
               ) : (
-                <div className="flex items-center gap-1.5 sm:gap-2.5">
+                <div className="flex items-center gap-2">
                   {connectionInfo.status === 'connected' ? (
                     <>
-                      <div className="inline-flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-semibold text-emerald-800 dark:text-emerald-300 bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-500/40 dark:border-emerald-500/30 shadow-2xs select-none">
-                        <UserCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600 dark:text-emerald-400 stroke-[2.2]" />
+                      <div className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300/60 dark:border-emerald-800/60 select-none">
+                        <UserCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                         <span>Connected</span>
                       </div>
                       <button
                         type="button"
                         onClick={handleStartDirectChat}
-                        className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-semibold bg-gradient-to-r from-[#0b4627] via-[#0d4f2c] to-[#0b4627] hover:from-[#08351d] hover:to-[#093d22] text-white shadow-xs hover:shadow-sm active:scale-95 transition-all duration-150 cursor-pointer border border-emerald-600/30"
+                        className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-[#0b4627] hover:bg-[#08351d] text-white shadow-xs active:scale-95 transition"
                       >
-                        <MessageSquare className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-200 fill-emerald-200/20" />
+                        <MessageSquare className="w-4 h-4 text-emerald-200" />
                         <span>Message</span>
                       </button>
                     </>
@@ -855,51 +925,51 @@ export const StudentProfile: React.FC = () => {
                         type="button"
                         disabled={connecting}
                         onClick={handleAcceptConnection}
-                        className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-semibold bg-[#0b4627] hover:bg-[#08351d] text-white shadow-xs active:scale-95 transition-all duration-150 cursor-pointer disabled:opacity-50 border border-emerald-600/30"
+                        className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-[#0b4627] hover:bg-[#08351d] text-white shadow-xs active:scale-95 transition disabled:opacity-50"
                       >
-                        <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4 stroke-[2.5]" />
+                        <Check className="w-4 h-4 stroke-[2.5]" />
                         <span>Accept</span>
                       </button>
                       <button
                         type="button"
                         disabled={connecting}
                         onClick={handleRejectConnection}
-                        className="inline-flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-300 bg-white dark:bg-[#16251c] border border-gray-300 dark:border-[#2a4533] hover:bg-gray-50 dark:hover:bg-[#1f3527] shadow-2xs active:scale-95 transition-all duration-150 cursor-pointer disabled:opacity-50"
+                        className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold text-gray-700 dark:text-gray-300 bg-white dark:bg-[#16251c] border border-gray-300 dark:border-[#2a4533] hover:bg-gray-50 shadow-xs active:scale-95 transition disabled:opacity-50"
                       >
-                        <X className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                        <X className="w-4 h-4" />
                         <span>Ignore</span>
                       </button>
                       <button
                         type="button"
                         onClick={handleStartDirectChat}
-                        className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-semibold text-gray-800 dark:text-gray-200 bg-white dark:bg-[#16251c] border border-gray-300 dark:border-[#2a4533] hover:bg-gray-50 dark:hover:bg-[#1f3527] shadow-2xs active:scale-95 transition-all duration-150 cursor-pointer"
+                        className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold text-gray-800 dark:text-gray-200 bg-white dark:bg-[#16251c] border border-gray-300 dark:border-[#2a4533] hover:bg-gray-50 shadow-xs active:scale-95 transition"
                       >
-                        <MessageSquare className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600 dark:text-emerald-400" />
+                        <MessageSquare className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                         <span>Message</span>
                       </button>
                     </>
                   ) : connectionInfo.status === 'pending_sent' ? (
                     <>
-                      <div className="inline-flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-semibold text-amber-800 dark:text-amber-300 bg-amber-500/10 dark:bg-amber-500/15 border border-amber-500/40 dark:border-amber-500/30 shadow-2xs select-none">
-                        <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4 stroke-[2.2]" />
+                      <div className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/60 border border-amber-300/60 dark:border-amber-800/60 select-none">
+                        <Clock className="w-4 h-4" />
                         <span>Pending</span>
                       </div>
                       <button
                         type="button"
                         disabled={connecting}
                         onClick={handleCancelConnection}
-                        className="inline-flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-300 bg-white dark:bg-[#16251c] border border-gray-300 dark:border-[#2a4533] hover:bg-gray-50 dark:hover:bg-[#1f3527] hover:text-red-600 dark:hover:text-red-400 hover:border-red-300 shadow-2xs active:scale-95 transition-all duration-150 cursor-pointer disabled:opacity-50"
+                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-bold text-gray-700 dark:text-gray-300 bg-white dark:bg-[#16251c] border border-gray-300 dark:border-[#2a4533] hover:bg-gray-50 hover:text-red-600 shadow-xs active:scale-95 transition disabled:opacity-50"
                         title="Cancel Request"
                       >
-                        <X className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                        <X className="w-4 h-4" />
                         <span>Cancel</span>
                       </button>
                       <button
                         type="button"
                         onClick={handleStartDirectChat}
-                        className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-semibold text-gray-800 dark:text-gray-200 bg-white dark:bg-[#16251c] border border-gray-300 dark:border-[#2a4533] hover:bg-gray-50 dark:hover:bg-[#1f3527] shadow-2xs active:scale-95 transition-all duration-150 cursor-pointer"
+                        className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold text-gray-800 dark:text-gray-200 bg-white dark:bg-[#16251c] border border-gray-300 dark:border-[#2a4533] hover:bg-gray-50 shadow-xs active:scale-95 transition"
                       >
-                        <MessageSquare className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600 dark:text-emerald-400" />
+                        <MessageSquare className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                         <span>Message</span>
                       </button>
                     </>
@@ -909,17 +979,17 @@ export const StudentProfile: React.FC = () => {
                         type="button"
                         disabled={connecting}
                         onClick={handleConnect}
-                        className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-semibold bg-gradient-to-r from-[#0b4627] via-[#0d4f2c] to-[#0b4627] hover:from-[#08351d] hover:to-[#093d22] text-white shadow-xs hover:shadow-sm active:scale-95 transition-all duration-150 cursor-pointer disabled:opacity-50 border border-emerald-600/30"
+                        className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-[#0b4627] hover:bg-[#08351d] text-white shadow-xs active:scale-95 transition disabled:opacity-50"
                       >
-                        <UserPlus className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-200" />
+                        <UserPlus className="w-4 h-4 text-emerald-200" />
                         <span>Connect</span>
                       </button>
                       <button
                         type="button"
                         onClick={handleStartDirectChat}
-                        className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-semibold text-gray-800 dark:text-gray-200 bg-white dark:bg-[#16251c] border border-gray-300 dark:border-[#2a4533] hover:bg-gray-50 dark:hover:bg-[#1f3527] shadow-2xs active:scale-95 transition-all duration-150 cursor-pointer"
+                        className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold text-gray-800 dark:text-gray-200 bg-white dark:bg-[#16251c] border border-gray-300 dark:border-[#2a4533] hover:bg-gray-50 shadow-xs active:scale-95 transition"
                       >
-                        <MessageSquare className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600 dark:text-emerald-400" />
+                        <MessageSquare className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                         <span>Message</span>
                       </button>
                     </>
@@ -929,115 +999,115 @@ export const StudentProfile: React.FC = () => {
             </div>
           </div>
 
-          {/* Row 2: Student Identity & Academic Details */}
-          <div className="space-y-3.5">
-            {/* Name and Verified Tick */}
-            <div className="flex items-center gap-1.5 sm:gap-2">
-              <h1 className="text-2xl sm:text-3xl font-black text-gray-900 dark:text-gray-100 tracking-tight leading-tight">
+          {/* Student Identity & Academic Details */}
+          <div className="space-y-3">
+            {/* Full Name & Verified Badge */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-2xl sm:text-3xl font-black text-gray-900 dark:text-gray-100 tracking-tight">
                 {activeUser.displayName}
               </h1>
               {activeUser.verified && (
-                <span 
-                  title="Official Verified Student" 
-                  className="inline-flex items-center cursor-default shrink-0"
-                >
-                  <svg 
-                    className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-600 dark:text-emerald-400 drop-shadow-2xs" 
-                    viewBox="0 0 24 24" 
-                    fill="currentColor"
-                  >
-                    <path d="M22.5 12.5c0-1.58-.875-2.95-2.148-3.6.154-.435.238-.905.238-1.4 0-2.21-1.79-4-4-4-.495 0-.965.084-1.4.238C14.45 2.475 13.08 1.6 11.5 1.6s-2.95.875-3.6 2.148c-.435-.154-.905-.238-1.4-.238-2.21 0-4 1.79-4 4 0 .495.084.965.238 1.4C1.475 9.55.6 10.92.6 12.5s.875 2.95 2.148 3.6c-.154.435-.238.905-.238 1.4 0 2.21 1.79 4 4 4 .495 0 .965-.084 1.4-.238 1.15 1.273 2.52 2.148 4.1 2.148s2.95-.875 3.6-2.148c.435.154.905.238 1.4.238 2.21 0 4-1.79 4-4 0-.495-.084-.965-.238-1.4 1.273-1.15 2.148-2.52 2.148-4.1z" />
-                    <path d="M10.2 16.2l-3.5-3.5 1.4-1.4 2.1 2.1 5.3-5.3 1.4 1.4-6.7 6.7z" fill="#ffffff" />
-                  </svg>
+                <span title="Verified EATM Campus Member" className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/80 px-2.5 py-0.5 rounded-full border border-emerald-300/50 dark:border-emerald-800/60">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                  <span>Verified</span>
                 </span>
               )}
             </div>
 
-            {/* Academic Credentials Badges: Branch, Year, Roll No, College */}
-            <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 pt-0.5">
-              {/* Branch / Department Badge */}
-              <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gray-50 dark:bg-[#16251c] border border-gray-200/80 dark:border-[#1e3325] text-xs font-semibold text-gray-700 dark:text-gray-300 shadow-xs">
-                <GraduationCap className="w-4 h-4 text-[#0b4627] dark:text-emerald-400 shrink-0" />
-                <span>Branch: <strong className="font-extrabold text-[#0b4627] dark:text-emerald-400">{activeUser.department}</strong></span>
+            {/* Unified Academic Metadata Group (Clean EATM styling without excessive badges) */}
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs text-gray-600 dark:text-gray-300 pt-0.5">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gray-50 dark:bg-[#16251c] border border-gray-200/80 dark:border-[#1e3325] font-semibold">
+                <GraduationCap className="w-3.5 h-3.5 text-[#0b4627] dark:text-emerald-400 shrink-0" />
+                <span>{activeUser.department}</span>
               </div>
 
-              {/* Year & Semester Badge */}
-              <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gray-50 dark:bg-[#16251c] border border-gray-200/80 dark:border-[#1e3325] text-xs font-semibold text-gray-700 dark:text-gray-300 shadow-xs">
-                <Calendar className="w-4 h-4 text-[#0b4627] dark:text-emerald-400 shrink-0" />
-                <span>Year: <strong className="font-extrabold text-gray-900 dark:text-gray-100">{activeUser.year || '3rd Year'}</strong> {(isOwnProfile || activeUser.settings?.privacy?.showSemester !== false) && activeUser.semester ? `(${activeUser.semester} Sem)` : ''}</span>
+              <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gray-50 dark:bg-[#16251c] border border-gray-200/80 dark:border-[#1e3325] font-semibold">
+                <Calendar className="w-3.5 h-3.5 text-[#0b4627] dark:text-emerald-400 shrink-0" />
+                <span>{activeUser.year || '3rd Year'} {(isOwnProfile || activeUser.settings?.privacy?.showSemester !== false) && activeUser.semester ? `• Sem ${activeUser.semester}` : ''}</span>
               </div>
 
-              {/* Official Roll Number Badge */}
-              <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-50/90 dark:bg-red-950/40 border border-red-200/90 dark:border-red-900/60 text-xs font-bold text-[#dc2626] dark:text-red-300 shadow-xs">
-                <IdCard className="w-4 h-4 text-[#dc2626] dark:text-red-400 shrink-0" />
-                <span>Roll No: <strong className="font-black tracking-wide text-[#b91c1c] dark:text-red-300">{activeUser.rollNumber || 'EATM23CSE001'}</strong></span>
+              {activeUser.rollNumber && (
+                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50/60 dark:bg-emerald-950/40 border border-emerald-200/60 dark:border-emerald-800/60 font-mono font-bold text-emerald-800 dark:text-emerald-300">
+                  <IdCard className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                  <span>{activeUser.rollNumber}</span>
+                </div>
+              )}
+
+              <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gray-50 dark:bg-[#16251c] border border-gray-200/80 dark:border-[#1e3325] font-medium text-gray-500 dark:text-gray-400">
+                <Building2 className="w-3.5 h-3.5 text-[#0b4627] dark:text-emerald-400 shrink-0" />
+                <span>Einstein Academy of Technology & Management</span>
               </div>
 
-              {/* College Badge */}
-              <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200/90 dark:border-emerald-800/60 text-xs font-bold text-[#0b4627] dark:text-emerald-300 shadow-xs">
-                <Building2 className="w-4 h-4 text-[#0b4627] dark:text-emerald-400 shrink-0" />
-                <span>College: <strong className="font-extrabold">Einstein Academy of Technology & Management (EATM)</strong></span>
-              </div>
-
-              {/* Live Presence Status Badge (Only for friends / peers) */}
               {!isOwnProfile && (
                 isUserOnline(activeUser.id) ? (
-                  <div className="inline-flex items-center px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300/80 dark:border-emerald-800/80 text-xs font-bold text-emerald-600 dark:text-emerald-400 shadow-xs">
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300/80 dark:border-emerald-800/80 text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                     <span>Online</span>
                   </div>
                 ) : (
-                  <div className="inline-flex items-center px-3 py-1.5 rounded-xl bg-gray-50 dark:bg-[#16251c] border border-gray-200/80 dark:border-[#1e3325] text-xs font-medium text-gray-600 dark:text-gray-400 shadow-xs">
+                  <div className="inline-flex items-center px-2.5 py-1 rounded-xl bg-gray-50 dark:bg-[#16251c] border border-gray-200/80 dark:border-[#1e3325] text-[11px] font-medium text-gray-500 dark:text-gray-400">
                     <span>{formatLastSeen(activeUser.lastSeen || getUserLastSeen(activeUser.id))}</span>
                   </div>
                 )
               )}
             </div>
+
+            {/* Short Bio */}
+            {activeUser.bio && (
+              <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-300 pt-1 leading-relaxed max-w-3xl">
+                {activeUser.bio}
+              </p>
+            )}
           </div>
 
           {/* Stats Bar */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 py-4 mt-6 border-y border-gray-100 dark:border-[#1e3325] text-center bg-gray-50/50 dark:bg-[#16251c]/50 rounded-2xl">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 py-3.5 mt-5 border-y border-gray-100 dark:border-[#1e3325] text-center bg-gray-50/50 dark:bg-[#16251c]/40 rounded-2xl">
             <div>
-              <div className="text-xl font-black text-gray-900 dark:text-gray-100">
-                {liveConnectionsCount !== null ? liveConnectionsCount : (activeUser.stats?.connections ?? 0)}
+              <div className="text-lg sm:text-xl font-black text-gray-900 dark:text-gray-100">
+                {stats.connections}
               </div>
-              <div className="text-xs font-semibold text-gray-500 dark:text-gray-400">Connections</div>
+              <div className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Connections</div>
             </div>
             <div>
-              <div className="text-xl font-black text-gray-900 dark:text-gray-100">{userPosts.length > 0 ? userPosts.length : (activeUser.stats?.posts ?? 0)}</div>
-              <div className="text-xs font-semibold text-gray-500 dark:text-gray-400">Posts</div>
-            </div>
-            <div>
-              <div className="text-xl font-black text-gray-900 dark:text-gray-100">{activeUser.stats?.clubs ?? 0}</div>
-              <div className="text-xs font-semibold text-gray-500 dark:text-gray-400">Clubs</div>
-            </div>
-            <div>
-              <div className="text-xl font-black text-gray-900 dark:text-gray-100">
-                {activeUser.achievements ? activeUser.achievements.length : (activeUser.stats?.achievements ?? 0)}
+              <div className="text-lg sm:text-xl font-black text-gray-900 dark:text-gray-100">
+                {userPosts.length > 0 ? userPosts.length : stats.posts}
               </div>
-              <div className="text-xs font-semibold text-gray-500 dark:text-gray-400">Achievements</div>
+              <div className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Posts</div>
+            </div>
+            <div>
+              <div className="text-lg sm:text-xl font-black text-gray-900 dark:text-gray-100">
+                {stats.clubs}
+              </div>
+              <div className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Clubs</div>
+            </div>
+            <div>
+              <div className="text-lg sm:text-xl font-black text-gray-900 dark:text-gray-100">
+                {activeUser.achievements ? activeUser.achievements.length : stats.achievements}
+              </div>
+              <div className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Achievements</div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Main Profile Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Col: About, Skills, Interests */}
+      {/* Main Content Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+        {/* Left Column: About, Skills, Interests */}
         <div className="space-y-6">
           {/* About Me */}
-          <div className="bg-white dark:bg-[#111d15] rounded-2xl border border-gray-200/80 dark:border-[#1e3325] p-6 shadow-card transition-colors duration-150">
-            <h3 className="font-bold text-sm text-gray-900 dark:text-gray-100 uppercase tracking-wider mb-3 flex items-center gap-2">
+          <div className="bg-white dark:bg-[#111d15] rounded-2xl border border-gray-200/80 dark:border-[#1e3325] p-5 shadow-xs space-y-3">
+            <h3 className="font-bold text-xs text-gray-900 dark:text-gray-100 uppercase tracking-wider flex items-center gap-2">
               <User className="w-4 h-4 text-[#0b4627] dark:text-emerald-400" />
-              <span>About Me</span>
+              <span>About Scholar</span>
             </h3>
-            <p className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed">
-              {activeUser.bio || 'Passionate about building innovative engineering solutions and exploring new technologies.'}
+            <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
+              {activeUser.bio || 'Passionate engineer learning and building technical systems at Einstein Academy of Technology & Management.'}
             </p>
           </div>
 
-          {/* Skills */}
-          <div className="bg-white dark:bg-[#111d15] rounded-2xl border border-gray-200/80 dark:border-[#1e3325] p-6 shadow-card transition-colors duration-150">
-            <h3 className="font-bold text-sm text-gray-900 dark:text-gray-100 uppercase tracking-wider mb-3 flex items-center gap-2">
+          {/* Skills & Technologies */}
+          <div className="bg-white dark:bg-[#111d15] rounded-2xl border border-gray-200/80 dark:border-[#1e3325] p-5 shadow-xs space-y-3">
+            <h3 className="font-bold text-xs text-gray-900 dark:text-gray-100 uppercase tracking-wider flex items-center gap-2">
               <Cpu className="w-4 h-4 text-[#0b4627] dark:text-emerald-400" />
               <span>Skills & Technologies</span>
             </h3>
@@ -1046,54 +1116,54 @@ export const StudentProfile: React.FC = () => {
                 activeUser.skills.map(skill => (
                   <span
                     key={skill}
-                    className="px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/60 text-[#0b4627] dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-800/60"
+                    className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/60 text-[#0b4627] dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-800/60 shadow-2xs"
                   >
                     {skill}
                   </span>
                 ))
               ) : (
-                <p className="text-xs text-gray-400">No skills listed yet.</p>
+                <p className="text-xs text-gray-400">No skills added yet.</p>
               )}
             </div>
           </div>
 
-          {/* Interests */}
+          {/* Interests & Societies */}
           {(isOwnProfile || activeUser.settings?.privacy?.showInterests !== false) && (
-            <div className="bg-white dark:bg-[#111d15] rounded-2xl border border-gray-200/80 dark:border-[#1e3325] p-6 shadow-card transition-colors duration-150">
-              <h3 className="font-bold text-sm text-gray-900 dark:text-gray-100 uppercase tracking-wider mb-3 flex items-center gap-2">
+            <div className="bg-white dark:bg-[#111d15] rounded-2xl border border-gray-200/80 dark:border-[#1e3325] p-5 shadow-xs space-y-3">
+              <h3 className="font-bold text-xs text-gray-900 dark:text-gray-100 uppercase tracking-wider flex items-center gap-2">
                 <Compass className="w-4 h-4 text-[#0b4627] dark:text-emerald-400" />
-                <span>Interests & Hobbies</span>
+                <span>Interests & Clubs</span>
               </h3>
               <div className="flex flex-wrap gap-1.5">
                 {activeUser.interests && activeUser.interests.length > 0 ? (
                   activeUser.interests.map(int => (
                     <span
                       key={int}
-                      className="px-3 py-1 rounded-full text-xs font-semibold bg-gray-100 dark:bg-[#16251c] text-gray-700 dark:text-gray-300 border border-gray-200/60 dark:border-[#1e3325]"
+                      className="px-2.5 py-1 rounded-lg text-xs font-medium bg-gray-100 dark:bg-[#16251c] text-gray-700 dark:text-gray-300 border border-gray-200/60 dark:border-[#1e3325]"
                     >
                       {int}
                     </span>
                   ))
                 ) : (
-                  <p className="text-xs text-gray-400">No interests added yet.</p>
+                  <p className="text-xs text-gray-400">No interests listed.</p>
                 )}
               </div>
             </div>
           )}
         </div>
 
-        {/* Right 2-Cols: Projects & Achievements */}
+        {/* Right Column (2-Cols): Projects, Achievements, Posts */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Projects */}
+          {/* Featured Projects & Portfolio */}
           {(isOwnProfile || activeUser.settings?.privacy?.showProjects !== false) && (
-            <div className="bg-white dark:bg-[#111d15] rounded-2xl border border-gray-200/80 dark:border-[#1e3325] p-6 shadow-card transition-colors duration-150">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2.5">
+            <div className="bg-white dark:bg-[#111d15] rounded-2xl border border-gray-200/80 dark:border-[#1e3325] p-5 shadow-xs space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
                   <div className="p-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 text-[#0b4627] dark:text-emerald-400">
                     <Code className="w-4 h-4" />
                   </div>
-                  <h3 className="font-bold text-base text-gray-900 dark:text-gray-100 flex items-center gap-2">
-                    <span>Featured Projects & Portfolio</span>
+                  <h3 className="font-bold text-sm sm:text-base text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                    <span>Technical Portfolio & Projects</span>
                     <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-100/70 dark:bg-emerald-950/70 text-[#0b4627] dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-800/60">
                       {activeUser.projects?.length || 0}
                     </span>
@@ -1112,12 +1182,12 @@ export const StudentProfile: React.FC = () => {
                 )}
               </div>
 
-              <div className="space-y-3.5">
+              <div className="space-y-3">
                 {activeUser.projects && activeUser.projects.length > 0 ? (
                   activeUser.projects.map((proj, idx) => (
                     <div
                       key={idx}
-                      className="group relative p-4 rounded-xl border border-gray-100 dark:border-[#1e3325] bg-gray-50/60 dark:bg-[#16251c]/60 hover:border-emerald-300 dark:hover:border-emerald-700/60 transition duration-200"
+                      className="group relative p-4 rounded-xl border border-gray-100 dark:border-[#1e3325] bg-gray-50/60 dark:bg-[#16251c]/60 hover:border-emerald-300 dark:hover:border-emerald-700/60 transition"
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex-1 min-w-0">
@@ -1131,23 +1201,23 @@ export const StudentProfile: React.FC = () => {
                                 target="_blank"
                                 rel="noreferrer"
                                 className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 dark:text-emerald-400 hover:text-emerald-800 dark:hover:text-emerald-300 hover:underline bg-emerald-50/80 dark:bg-emerald-950/60 px-2 py-0.5 rounded-md border border-emerald-200/60 dark:border-emerald-800/60"
-                                title="Open Project / Repository Link"
+                                title="Open Project Link"
                               >
                                 <Globe className="w-3 h-3" />
-                                <span>View Code / Demo</span>
+                                <span>View Code</span>
                                 <ExternalLink className="w-2.5 h-2.5" />
                               </a>
                             )}
                           </div>
                         </div>
 
-                        {/* Action buttons for owner */}
+                        {/* Owner Edit Actions */}
                         {isOwnProfile && (
                           <div className="flex items-center gap-1 shrink-0 opacity-80 group-hover:opacity-100 transition">
                             <button
                               type="button"
                               onClick={() => openEditProjectModal(idx)}
-                              className="p-1.5 rounded-lg text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-white dark:hover:bg-[#111d15] border border-transparent hover:border-gray-200 dark:hover:border-[#1e3325] transition"
+                              className="p-1.5 rounded-lg text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-white dark:hover:bg-[#111d15] transition"
                               title="Edit Project"
                             >
                               <Pencil className="w-3.5 h-3.5" />
@@ -1155,7 +1225,7 @@ export const StudentProfile: React.FC = () => {
                             <button
                               type="button"
                               onClick={() => setDeleteConfirm({ type: 'project', idx, title: proj.title })}
-                              className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-white dark:hover:bg-[#111d15] border border-transparent hover:border-red-200 dark:hover:border-red-900/40 transition"
+                              className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-white dark:hover:bg-[#111d15] transition"
                               title="Delete Project"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
@@ -1172,9 +1242,9 @@ export const StudentProfile: React.FC = () => {
                         {proj.technologies && proj.technologies.map((t, tIdx) => (
                           <span
                             key={tIdx}
-                            className="inline-flex items-center gap-1.5 text-[10px] font-semibold px-2.5 py-0.5 bg-white dark:bg-[#111d15] rounded-md border border-gray-200/80 dark:border-[#1e3325] text-gray-700 dark:text-gray-300 shadow-2xs"
+                            className="inline-flex items-center gap-1.5 text-[10px] font-semibold px-2.5 py-0.5 bg-white dark:bg-[#111d15] rounded-md border border-gray-200/80 dark:border-[#1e3325] text-gray-700 dark:text-gray-300"
                           >
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                             {t}
                           </span>
                         ))}
@@ -1182,15 +1252,9 @@ export const StudentProfile: React.FC = () => {
                     </div>
                   ))
                 ) : (
-                  <div className="text-center py-8 px-4 border border-dashed border-gray-200 dark:border-[#1e3325] rounded-2xl bg-gray-50/40 dark:bg-[#16251c]/30">
-                    <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-[#0b4627] dark:text-emerald-400 flex items-center justify-center mx-auto mb-2.5">
-                      <Code className="w-5 h-5" />
-                    </div>
-                    <h4 className="text-xs font-bold text-gray-800 dark:text-gray-200">No Featured Projects Yet</h4>
-                    <p className="text-[11px] text-gray-500 dark:text-gray-400 max-w-sm mx-auto mt-1">
-                      {isOwnProfile
-                        ? 'Showcase your engineering projects, open-source code, academic coursework, and hackathon prototypes.'
-                        : 'This student has not cataloged any technical projects yet.'}
+                  <div className="text-center py-6 border border-dashed border-gray-200 dark:border-[#1e3325] rounded-xl text-gray-400">
+                    <p className="text-xs font-medium">
+                      {isOwnProfile ? 'No featured projects added yet.' : 'No technical projects listed.'}
                     </p>
                     {isOwnProfile && (
                       <Button
@@ -1199,9 +1263,9 @@ export const StudentProfile: React.FC = () => {
                         size="sm"
                         onClick={openAddProjectModal}
                         icon={<Plus className="w-3.5 h-3.5" />}
-                        className="mt-3 text-xs font-bold text-[#0b4627] dark:text-emerald-400 border-emerald-300 dark:border-emerald-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/40"
+                        className="mt-2.5"
                       >
-                        Add First Project
+                        Add Project
                       </Button>
                     )}
                   </div>
@@ -1210,16 +1274,16 @@ export const StudentProfile: React.FC = () => {
             </div>
           )}
 
-          {/* Achievements */}
+          {/* Campus Honors & Achievements */}
           {(isOwnProfile || activeUser.settings?.privacy?.showAchievements !== false) && (
-            <div className="bg-white dark:bg-[#111d15] rounded-2xl border border-gray-200/80 dark:border-[#1e3325] p-6 shadow-card transition-colors duration-150">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2.5">
+            <div className="bg-white dark:bg-[#111d15] rounded-2xl border border-gray-200/80 dark:border-[#1e3325] p-5 shadow-xs space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
                   <div className="p-1.5 rounded-lg bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400">
                     <Award className="w-4 h-4" />
                   </div>
-                  <h3 className="font-bold text-base text-gray-900 dark:text-gray-100 flex items-center gap-2">
-                    <span>Campus Honors & Achievements</span>
+                  <h3 className="font-bold text-sm sm:text-base text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                    <span>Honors & Achievements</span>
                     <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-100/70 dark:bg-amber-950/70 text-amber-800 dark:text-amber-300 border border-amber-200/60 dark:border-amber-800/60">
                       {activeUser.achievements?.length || 0}
                     </span>
@@ -1243,9 +1307,9 @@ export const StudentProfile: React.FC = () => {
                   activeUser.achievements.map((ach, idx) => (
                     <div
                       key={idx}
-                      className="group relative flex items-start gap-3.5 p-4 rounded-xl border border-amber-100/90 dark:border-[#1e3325] bg-gradient-to-r from-amber-50/40 via-white to-amber-50/20 dark:from-amber-950/20 dark:via-[#16251c]/40 dark:to-transparent hover:border-amber-300 dark:hover:border-amber-800/60 transition duration-200"
+                      className="group relative flex items-start gap-3.5 p-4 rounded-xl border border-amber-100/90 dark:border-[#1e3325] bg-gradient-to-r from-amber-50/30 via-white to-transparent dark:from-amber-950/20 dark:via-[#16251c]/40 dark:to-transparent hover:border-amber-300 dark:hover:border-amber-800/60 transition"
                     >
-                      <div className="p-2.5 rounded-xl bg-gradient-to-br from-amber-400/20 to-amber-600/20 text-amber-800 dark:text-amber-300 border border-amber-300/40 shrink-0 shadow-2xs">
+                      <div className="p-2.5 rounded-xl bg-amber-100/80 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-300/40 shrink-0">
                         <Trophy className="w-4 h-4" />
                       </div>
                       <div className="flex-1 min-w-0">
@@ -1261,13 +1325,13 @@ export const StudentProfile: React.FC = () => {
                             )}
                           </div>
 
-                          {/* Action buttons for owner */}
+                          {/* Owner Actions */}
                           {isOwnProfile && (
                             <div className="flex items-center gap-1 shrink-0 opacity-80 group-hover:opacity-100 transition">
                               <button
                                 type="button"
                                 onClick={() => openEditAchievementModal(idx)}
-                                className="p-1.5 rounded-lg text-gray-400 hover:text-amber-700 dark:hover:text-amber-400 hover:bg-white dark:hover:bg-[#111d15] border border-transparent hover:border-gray-200 dark:hover:border-[#1e3325] transition"
+                                className="p-1.5 rounded-lg text-gray-400 hover:text-amber-700 dark:hover:text-amber-400 hover:bg-white dark:hover:bg-[#111d15] transition"
                                 title="Edit Honor"
                               >
                                 <Pencil className="w-3.5 h-3.5" />
@@ -1275,7 +1339,7 @@ export const StudentProfile: React.FC = () => {
                               <button
                                 type="button"
                                 onClick={() => setDeleteConfirm({ type: 'achievement', idx, title: ach.title })}
-                                className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-white dark:hover:bg-[#111d15] border border-transparent hover:border-red-200 dark:hover:border-red-900/40 transition"
+                                className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-white dark:hover:bg-[#111d15] transition"
                                 title="Delete Honor"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
@@ -1290,15 +1354,9 @@ export const StudentProfile: React.FC = () => {
                     </div>
                   ))
                 ) : (
-                  <div className="text-center py-8 px-4 border border-dashed border-gray-200 dark:border-[#1e3325] rounded-2xl bg-gray-50/40 dark:bg-[#16251c]/30">
-                    <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto mb-2.5">
-                      <Trophy className="w-5 h-5" />
-                    </div>
-                    <h4 className="text-xs font-bold text-gray-800 dark:text-gray-200">No Honors or Distinctions Recorded</h4>
-                    <p className="text-[11px] text-gray-500 dark:text-gray-400 max-w-sm mx-auto mt-1">
-                      {isOwnProfile
-                        ? 'Record your academic rankings, hackathon awards, sports medals, scholarships, or club recognitions.'
-                        : 'This student has not added any campus honors yet.'}
+                  <div className="text-center py-6 border border-dashed border-gray-200 dark:border-[#1e3325] rounded-xl text-gray-400">
+                    <p className="text-xs font-medium">
+                      {isOwnProfile ? 'No campus honors cataloged yet.' : 'No honors recorded.'}
                     </p>
                     {isOwnProfile && (
                       <Button
@@ -1307,9 +1365,9 @@ export const StudentProfile: React.FC = () => {
                         size="sm"
                         onClick={openAddAchievementModal}
                         icon={<Plus className="w-3.5 h-3.5" />}
-                        className="mt-3 text-xs font-bold text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-800 hover:bg-amber-50 dark:hover:bg-amber-950/40"
+                        className="mt-2.5"
                       >
-                        Add First Honor
+                        Add Honor
                       </Button>
                     )}
                   </div>
@@ -1318,30 +1376,31 @@ export const StudentProfile: React.FC = () => {
             </div>
           )}
 
-          {/* Campus Posts */}
-          <div className="bg-white dark:bg-[#111d15] rounded-2xl border border-gray-200/80 dark:border-[#1e3325] p-6 shadow-card transition-colors duration-150">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-bold text-base text-gray-900 dark:text-gray-100 flex items-center gap-2">
+          {/* Published Posts */}
+          <div className="bg-white dark:bg-[#111d15] rounded-2xl border border-gray-200/80 dark:border-[#1e3325] p-5 shadow-xs space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-sm sm:text-base text-gray-900 dark:text-gray-100 flex items-center gap-2">
                 <Radio className="w-4 h-4 text-[#0b4627] dark:text-emerald-400" />
                 <span>{isOwnProfile ? 'My Published Posts' : `${activeUser.displayName}'s Posts`} ({userPosts.length})</span>
               </h3>
             </div>
 
             {loadingPosts ? (
-              <p className="text-xs text-gray-400">Loading posts...</p>
+              <p className="text-xs text-gray-400 py-4 text-center">Loading campus posts...</p>
             ) : userPosts.length === 0 ? (
-              <div className="text-center py-6 border border-dashed border-gray-200 dark:border-[#1e3325] rounded-xl text-gray-400 dark:text-gray-500">
+              <div className="text-center py-6 border border-dashed border-gray-200 dark:border-[#1e3325] rounded-xl text-gray-400">
                 <p className="text-xs font-medium">
                   {isOwnProfile ? "You haven't published any posts yet." : "No posts published yet."}
                 </p>
-                {isOwnProfile && (
-                  <p className="text-[11px] mt-1 text-gray-400">Share updates, questions, or achievements with peers from the Campus Feed!</p>
-                )}
               </div>
             ) : (
               <div className="space-y-4">
                 {userPosts.map(p => (
-                  <PostCard key={p.id} post={p} onPostDeleted={() => loadUserPosts(activeUser.id)} />
+                  <PostCard 
+                    key={p.id} 
+                    post={p} 
+                    onPostDeleted={() => activeUser && loadUserPosts(activeUser.id)} 
+                  />
                 ))}
               </div>
             )}
@@ -1349,233 +1408,239 @@ export const StudentProfile: React.FC = () => {
         </div>
       </div>
 
-      {/* Edit Profile Modal (Only for own profile) */}
+      {/* ========================================================================= */}
+      {/* MODALS */}
+      {/* ========================================================================= */}
+
+      {/* Edit Profile Modal */}
       {isOwnProfile && (
-        <Modal isOpen={editModalOpen} onClose={() => setEditModalOpen(false)} title="Edit Student Profile">
-        <form onSubmit={handleSaveProfile} className="space-y-5 max-h-[78vh] overflow-y-auto pr-1">
-          {/* Section 1: Academic Identity */}
-          <div className="bg-gray-50/70 dark:bg-[#16251c]/60 p-4 rounded-2xl border border-gray-200/70 dark:border-[#1e3325] space-y-3.5">
-            <div className="flex items-center gap-2 text-xs font-bold text-[#0b4627] dark:text-emerald-400 uppercase tracking-wider">
-              <GraduationCap className="w-4 h-4" />
-              <span>Official Academic Credentials</span>
-            </div>
+        <Modal 
+          isOpen={editModalOpen} 
+          onClose={() => setEditModalOpen(false)} 
+          title="Edit Student Profile"
+          maxWidth="lg"
+        >
+          <form onSubmit={handleSaveProfile} className="space-y-5 max-h-[78vh] overflow-y-auto pr-1">
+            {/* SECTION 1: Academic Information */}
+            <div className="bg-gray-50/70 dark:bg-[#16251c]/60 p-4 rounded-2xl border border-gray-200/70 dark:border-[#1e3325] space-y-3.5">
+              <div className="flex items-center gap-2 text-xs font-bold text-[#0b4627] dark:text-emerald-400 uppercase tracking-wider">
+                <GraduationCap className="w-4 h-4" />
+                <span>Academic Information</span>
+              </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <Input
-                label="Full Name"
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                placeholder="Student Full Name"
-                required
-              />
-              <Input
-                label="Official Roll Number"
-                value={rollNumber}
-                onChange={(e) => setRollNumber(e.target.value)}
-                placeholder="e.g. EATM23CSE001"
-                required
-              />
-            </div>
-
-            <Select
-              label="Branch / Department"
-              options={DEPARTMENT_OPTIONS}
-              value={department}
-              onChange={(e) => setDepartment(e.target.value)}
-              required
-            />
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <Select
-                label="Year of Study"
-                options={YEAR_OPTIONS}
-                value={year}
-                onChange={(e) => setYear(e.target.value)}
-                required
-              />
-              <Select
-                label="Semester"
-                options={SEMESTER_OPTIONS}
-                value={semester}
-                onChange={(e) => setSemester(e.target.value)}
-              />
-            </div>
-          </div>
-
-          {/* Section 2: Profile Photo & Cover Media */}
-          <div className="bg-gray-50/70 dark:bg-[#16251c]/60 p-4 rounded-2xl border border-gray-200/70 dark:border-[#1e3325] space-y-4">
-            <div className="flex items-center justify-between text-xs font-bold text-[#0b4627] dark:text-emerald-400 uppercase tracking-wider">
-              <span className="flex items-center gap-2">
-                <Camera className="w-4 h-4" />
-                <span>Profile Photo & Cover Banner</span>
-              </span>
-            </div>
-
-            {/* Profile Photo Uploader */}
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-2">
-                Student Profile Photo
-              </label>
-              <div className="flex items-center gap-4">
-                <div className="w-16 h-16 rounded-full ring-2 ring-emerald-600/30 overflow-hidden bg-gray-200 dark:bg-gray-800 shrink-0 relative flex items-center justify-center">
-                  <Avatar
-                    src={photoURL}
-                    name={displayName || user?.displayName || 'User'}
-                    size="lg"
-                  />
-                  {uploadingPhoto && (
-                    <div className="absolute inset-0 bg-black/60 flex items-center justify-center z-10">
-                      <Loader2 className="w-5 h-5 text-emerald-400 animate-spin" />
-                    </div>
-                  )}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <Input
+                  label="Full Name"
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                  placeholder="Student Full Name"
+                  required
+                />
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-1.5">
+                    Official Roll Number
+                  </label>
+                  <div className="p-2.5 rounded-xl bg-gray-100 dark:bg-gray-800/80 border border-gray-200 dark:border-[#1e3325] font-mono text-xs font-bold text-gray-700 dark:text-gray-300 select-none">
+                    {rollNumber || 'EATM23CSE001'} (Protected)
+                  </div>
                 </div>
+              </div>
 
-                <div className="flex-1 space-y-1.5">
-                  <input
-                    type="file"
-                    ref={modalAvatarFileRef}
-                    onChange={(e) => {
-                      if (e.target.files?.[0]) handleAvatarUpload(e.target.files[0], true);
-                    }}
-                    accept="image/*"
-                    className="hidden"
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => modalAvatarFileRef.current?.click()}
-                    disabled={uploadingPhoto}
-                    icon={<Upload className="w-3.5 h-3.5 text-[#0b4627] dark:text-emerald-400" />}
-                    className="text-xs font-semibold"
-                  >
-                    {uploadingPhoto ? `Uploading... ${photoProgress}%` : 'Upload New Photo'}
-                  </Button>
-                  <p className="text-[11px] text-gray-400 dark:text-gray-400">
-                    PNG, JPG, or WebP (square photo recommended).
-                  </p>
-                </div>
+              <Select
+                label="Branch / Department"
+                options={DEPARTMENT_OPTIONS}
+                value={department}
+                onChange={(e) => setDepartment(e.target.value)}
+                required
+              />
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <Select
+                  label="Year of Study"
+                  options={YEAR_OPTIONS}
+                  value={year}
+                  onChange={(e) => setYear(e.target.value)}
+                  required
+                />
+                <Select
+                  label="Semester"
+                  options={SEMESTER_OPTIONS}
+                  value={semester}
+                  onChange={(e) => setSemester(e.target.value)}
+                />
               </div>
             </div>
 
-            {/* Cover Banner Uploader */}
-            <div className="pt-2 border-t border-gray-200/60 dark:border-[#1e3325]">
-              <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-2">
-                Campus Cover Banner
-              </label>
-              <div className="space-y-2.5">
-                <div className="h-24 w-full rounded-xl overflow-hidden relative bg-emerald-950 border border-gray-200 dark:border-[#1e3325]">
-                  <img
-                    src={coverURL || 'https://images.unsplash.com/photo-1562774053-701939374585?w=1600&auto=format&fit=crop&q=80'}
-                    alt="Cover Preview"
-                    className="w-full h-full object-cover"
-                  />
-                  {uploadingCover && (
-                    <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-white text-xs font-bold gap-2">
-                      <Loader2 className="w-4 h-4 text-emerald-400 animate-spin" />
-                      <span>Uploading banner... {coverProgress}%</span>
+            {/* SECTION 2: Profile Media */}
+            <div className="bg-gray-50/70 dark:bg-[#16251c]/60 p-4 rounded-2xl border border-gray-200/70 dark:border-[#1e3325] space-y-4">
+              <div className="flex items-center gap-2 text-xs font-bold text-[#0b4627] dark:text-emerald-400 uppercase tracking-wider">
+                <Camera className="w-4 h-4" />
+                <span>Profile Photo & Cover Banner</span>
+              </div>
+
+              {/* Photo Upload */}
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-2">
+                  Student Avatar
+                </label>
+                <div className="flex items-center gap-4">
+                  <div className="w-16 h-16 rounded-full ring-2 ring-emerald-600/30 overflow-hidden bg-gray-200 dark:bg-gray-800 shrink-0 relative flex items-center justify-center">
+                    <Avatar
+                      src={photoURL}
+                      name={displayName || user?.displayName || 'User'}
+                      size="lg"
+                    />
+                    {uploadingPhoto && (
+                      <div className="absolute inset-0 bg-black/60 flex items-center justify-center z-10">
+                        <Loader2 className="w-5 h-5 text-emerald-400 animate-spin" />
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex-1 space-y-1.5">
+                    <input
+                      type="file"
+                      ref={modalAvatarFileRef}
+                      onChange={(e) => {
+                        if (e.target.files?.[0]) handleAvatarUpload(e.target.files[0], true);
+                      }}
+                      accept="image/*"
+                      className="hidden"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => modalAvatarFileRef.current?.click()}
+                      disabled={uploadingPhoto}
+                      icon={<Upload className="w-3.5 h-3.5 text-[#0b4627] dark:text-emerald-400" />}
+                    >
+                      {uploadingPhoto ? `Uploading... ${photoProgress}%` : 'Upload New Photo'}
+                    </Button>
+                    <p className="text-[11px] text-gray-400">
+                      Square JPG, PNG, or WebP photo recommended.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Cover Banner Upload */}
+              <div className="pt-2 border-t border-gray-200/60 dark:border-[#1e3325]">
+                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-2">
+                  Campus Cover Banner
+                </label>
+                <div className="space-y-2.5">
+                  <div className="h-24 w-full rounded-xl overflow-hidden relative bg-emerald-950 border border-gray-200 dark:border-[#1e3325]">
+                    <img
+                      src={coverURL || 'https://images.unsplash.com/photo-1562774053-701939374585?w=1600&auto=format&fit=crop&q=80'}
+                      alt="Cover Preview"
+                      className="w-full h-full object-cover"
+                    />
+                    {uploadingCover && (
+                      <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-white text-xs font-bold gap-2">
+                        <Loader2 className="w-4 h-4 text-emerald-400 animate-spin" />
+                        <span>Uploading banner... {coverProgress}%</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <input
+                      type="file"
+                      ref={modalCoverFileRef}
+                      onChange={(e) => {
+                        if (e.target.files?.[0]) handleCoverUpload(e.target.files[0], true);
+                      }}
+                      accept="image/*"
+                      className="hidden"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => modalCoverFileRef.current?.click()}
+                      disabled={uploadingCover}
+                      icon={<ImageIcon className="w-3.5 h-3.5 text-[#0b4627] dark:text-emerald-400" />}
+                    >
+                      {uploadingCover ? `Uploading... ${coverProgress}%` : 'Upload Custom Banner'}
+                    </Button>
+                  </div>
+
+                  {/* Preset Campus Covers */}
+                  <div className="space-y-1.5 pt-1">
+                    <span className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider block">
+                      Official EATM Campus Presets:
+                    </span>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      {OFFICIAL_COVER_PRESETS.map((preset) => (
+                        <button
+                          key={preset.name}
+                          type="button"
+                          onClick={() => setCoverURL(preset.url)}
+                          className={`group text-left rounded-lg overflow-hidden border p-1 transition-all ${
+                            coverURL === preset.url
+                              ? 'border-emerald-600 ring-2 ring-emerald-500/30 bg-emerald-50/50 dark:bg-emerald-950/30'
+                              : 'border-gray-200 dark:border-[#1e3325] hover:border-emerald-400'
+                          }`}
+                        >
+                          <div className="h-10 w-full rounded overflow-hidden mb-1">
+                            <img src={preset.url} alt={preset.name} className="w-full h-full object-cover group-hover:scale-105 transition" />
+                          </div>
+                          <p className="text-[10px] font-bold text-gray-700 dark:text-gray-300 truncate">{preset.name}</p>
+                        </button>
+                      ))}
                     </div>
-                  )}
-                </div>
-
-                <div>
-                  <input
-                    type="file"
-                    ref={modalCoverFileRef}
-                    onChange={(e) => {
-                      if (e.target.files?.[0]) handleCoverUpload(e.target.files[0], true);
-                    }}
-                    accept="image/*"
-                    className="hidden"
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => modalCoverFileRef.current?.click()}
-                    disabled={uploadingCover}
-                    icon={<ImageIcon className="w-3.5 h-3.5 text-[#0b4627] dark:text-emerald-400" />}
-                    className="text-xs font-semibold"
-                  >
-                    {uploadingCover ? `Uploading... ${coverProgress}%` : 'Upload Banner Image'}
-                  </Button>
-                </div>
-
-                {/* Preset Campus Covers */}
-                <div className="space-y-1.5 pt-1">
-                  <span className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider block">
-                    Official EATM Campus Presets:
-                  </span>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                    {OFFICIAL_COVER_PRESETS.map((preset) => (
-                      <button
-                        key={preset.name}
-                        type="button"
-                        onClick={() => setCoverURL(preset.url)}
-                        className={`group text-left rounded-lg overflow-hidden border p-1 transition-all ${
-                          coverURL === preset.url
-                            ? 'border-emerald-600 ring-2 ring-emerald-500/30 bg-emerald-50/50 dark:bg-emerald-950/30'
-                            : 'border-gray-200 dark:border-[#1e3325] hover:border-emerald-400'
-                        }`}
-                      >
-                        <div className="h-10 w-full rounded overflow-hidden mb-1">
-                          <img src={preset.url} alt={preset.name} className="w-full h-full object-cover group-hover:scale-105 transition" />
-                        </div>
-                        <p className="text-[10px] font-bold text-gray-700 dark:text-gray-300 truncate">{preset.name}</p>
-                      </button>
-                    ))}
                   </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          {/* Section 3: Bio, Skills & Interests */}
-          <div className="bg-gray-50/70 dark:bg-[#16251c]/60 p-4 rounded-2xl border border-gray-200/70 dark:border-[#1e3325] space-y-3">
-            <div className="flex items-center gap-2 text-xs font-bold text-[#0b4627] dark:text-emerald-400 uppercase tracking-wider">
-              <BookOpen className="w-4 h-4" />
-              <span>Bio & Specializations</span>
-            </div>
+            {/* SECTION 3: About & Specializations */}
+            <div className="bg-gray-50/70 dark:bg-[#16251c]/60 p-4 rounded-2xl border border-gray-200/70 dark:border-[#1e3325] space-y-3">
+              <div className="flex items-center gap-2 text-xs font-bold text-[#0b4627] dark:text-emerald-400 uppercase tracking-wider">
+                <BookOpen className="w-4 h-4" />
+                <span>About & Specializations</span>
+              </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-1">
-                About Me / Bio
-              </label>
-              <textarea
-                value={bio}
-                onChange={(e) => setBio(e.target.value)}
-                rows={3}
-                className="w-full p-3 text-xs border border-gray-200 dark:border-[#1e3325] bg-white dark:bg-[#16251c] text-gray-900 dark:text-gray-100 rounded-xl focus:ring-2 focus:ring-[#0b4627] dark:focus:ring-emerald-500 outline-none resize-none transition"
-                placeholder="Tell peers about your academic interests, projects, and goals..."
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-1">
+                  About Me / Short Bio
+                </label>
+                <textarea
+                  value={bio}
+                  onChange={(e) => setBio(e.target.value)}
+                  rows={3}
+                  className="w-full p-3 text-xs border border-gray-200 dark:border-[#1e3325] bg-white dark:bg-[#16251c] text-gray-900 dark:text-gray-100 rounded-xl focus:ring-2 focus:ring-[#0b4627] dark:focus:ring-emerald-500 outline-none resize-none transition"
+                  placeholder="Tell campus peers about your engineering focus, project goals, and interests..."
+                />
+              </div>
+
+              <Input
+                label="Skills & Technologies (comma separated)"
+                value={skillsStr}
+                onChange={(e) => setSkillsStr(e.target.value)}
+                placeholder="e.g. React, Python, Java, C++, TypeScript, Machine Learning"
+              />
+
+              <Input
+                label="Interests & Societies (comma separated)"
+                value={interestsStr}
+                onChange={(e) => setInterestsStr(e.target.value)}
+                placeholder="e.g. Coding Club, Robotics, Hackathons, Cricket, Music"
               />
             </div>
 
-            <Input
-              label="Skills & Technologies (comma separated)"
-              value={skillsStr}
-              onChange={(e) => setSkillsStr(e.target.value)}
-              placeholder="e.g. C++, Java, Python, React, Data Structures"
-            />
-
-            <Input
-              label="Interests & Societies (comma separated)"
-              value={interestsStr}
-              onChange={(e) => setInterestsStr(e.target.value)}
-              placeholder="e.g. Coding Club, Robotics, Photography, Cricket"
-            />
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex justify-end gap-2 pt-3 border-t border-gray-100 dark:border-[#1e3325]">
-            <Button type="button" variant="outline" size="sm" onClick={() => setEditModalOpen(false)}>
-              Cancel
-            </Button>
-            <Button type="submit" variant="primary" size="sm" isLoading={saving}>
-              Save Changes
-            </Button>
-          </div>
-        </form>
-      </Modal>
+            {/* Modal Actions */}
+            <div className="flex justify-end gap-2 pt-3 border-t border-gray-100 dark:border-[#1e3325]">
+              <Button type="button" variant="outline" size="sm" onClick={() => setEditModalOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" variant="primary" size="sm" isLoading={saving}>
+                Save Changes
+              </Button>
+            </div>
+          </form>
+        </Modal>
       )}
 
       {/* Add / Edit Project Modal */}
@@ -1587,14 +1652,13 @@ export const StudentProfile: React.FC = () => {
           maxWidth="lg"
         >
           <form onSubmit={handleSaveProject} className="space-y-4 max-h-[78vh] overflow-y-auto pr-1">
-            {/* Institutional EATM Badge Banner */}
             <div className="p-3 bg-emerald-50/80 dark:bg-[#16251c] rounded-xl border border-emerald-100 dark:border-[#1e3325] flex items-center gap-3">
               <div className="p-2 rounded-lg bg-[#0b4627] text-white shrink-0">
                 <Code className="w-4 h-4" />
               </div>
               <div>
                 <p className="text-xs font-bold text-gray-900 dark:text-gray-100">
-                  Student Technical Portfolio
+                  Engineering Portfolio Record
                 </p>
                 <p className="text-[11px] text-gray-500 dark:text-gray-400">
                   Document capstone systems, hackathon builds, web applications, or research implementations.
@@ -1611,11 +1675,10 @@ export const StudentProfile: React.FC = () => {
             />
 
             <Input
-              label="Technologies & Tech Stack (comma separated)"
+              label="Technologies & Tools (comma separated)"
               value={projectForm.technologies}
               onChange={(e) => setProjectForm(prev => ({ ...prev, technologies: e.target.value }))}
               placeholder="e.g. React, TypeScript, Python, TensorFlow, PostgreSQL"
-              helperText="Separate multiple tools with commas"
               required
             />
 
@@ -1625,12 +1688,11 @@ export const StudentProfile: React.FC = () => {
               onChange={(e) => setProjectForm(prev => ({ ...prev, link: e.target.value }))}
               placeholder="https://github.com/username/project"
               leftIcon={<Globe className="w-4 h-4 text-gray-400" />}
-              helperText="GitHub repository, GitLab, published paper, or live web deployment"
             />
 
             <div>
               <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-1.5">
-                Project Description & Scope
+                Project Description & Impact
               </label>
               <textarea
                 value={projectForm.description}
@@ -1638,11 +1700,10 @@ export const StudentProfile: React.FC = () => {
                 rows={4}
                 required
                 className="w-full p-3 text-xs border border-gray-200 dark:border-[#1e3325] bg-white dark:bg-[#16251c] text-gray-900 dark:text-gray-100 rounded-xl focus:ring-2 focus:ring-[#0b4627] dark:focus:ring-emerald-500 outline-none resize-none transition"
-                placeholder="Highlight the system's objective, architectural design, your contribution, and impact..."
+                placeholder="Highlight your system's architecture, problem statement, and key technical contributions..."
               />
             </div>
 
-            {/* Action Buttons */}
             <div className="flex justify-end gap-2 pt-3 border-t border-gray-100 dark:border-[#1e3325]">
               <Button
                 type="button"
@@ -1675,14 +1736,13 @@ export const StudentProfile: React.FC = () => {
           maxWidth="lg"
         >
           <form onSubmit={handleSaveAchievement} className="space-y-4 max-h-[78vh] overflow-y-auto pr-1">
-            {/* Institutional EATM Badge Banner */}
             <div className="p-3 bg-amber-50/80 dark:bg-amber-950/30 rounded-xl border border-amber-200/60 dark:border-amber-900/40 flex items-center gap-3">
               <div className="p-2 rounded-lg bg-amber-600 text-white shrink-0">
                 <Trophy className="w-4 h-4" />
               </div>
               <div>
                 <p className="text-xs font-bold text-gray-900 dark:text-gray-100">
-                  Official Campus Distinction & Honors
+                  Campus Distinction & Honors
                 </p>
                 <p className="text-[11px] text-gray-500 dark:text-gray-400">
                   Catalog competitive hackathons, academic merit, sports recognitions, paper publications, and awards.
@@ -1699,18 +1759,17 @@ export const StudentProfile: React.FC = () => {
             />
 
             <Input
-              label="Date / Year / Issuing Authority"
+              label="Date / Issuing Authority"
               value={achievementForm.date}
               onChange={(e) => setAchievementForm(prev => ({ ...prev, date: e.target.value }))}
               placeholder="e.g. March 2024 • BPUT Odisha Innovation Conclave"
               leftIcon={<Calendar className="w-4 h-4 text-gray-400" />}
-              helperText="Month, year, or organizing committee/event"
               required
             />
 
             <div>
               <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-1.5">
-                Honor Description & Citation
+                Citation & Description
               </label>
               <textarea
                 value={achievementForm.description}
@@ -1718,11 +1777,10 @@ export const StudentProfile: React.FC = () => {
                 rows={4}
                 required
                 className="w-full p-3 text-xs border border-gray-200 dark:border-[#1e3325] bg-white dark:bg-[#16251c] text-gray-900 dark:text-gray-100 rounded-xl focus:ring-2 focus:ring-[#0b4627] dark:focus:ring-emerald-500 outline-none resize-none transition"
-                placeholder="Describe your achievement, rank, scope of competition, presenting dignitary, or impact..."
+                placeholder="Describe the recognition, competing teams, presenting dignitaries, and significance..."
               />
             </div>
 
-            {/* Action Buttons */}
             <div className="flex justify-end gap-2 pt-3 border-t border-gray-100 dark:border-[#1e3325]">
               <Button
                 type="button"
@@ -1767,7 +1825,7 @@ export const StudentProfile: React.FC = () => {
                   "{deleteConfirm.title}"
                 </p>
                 <p className="text-[11px] text-red-600 dark:text-red-400 mt-2">
-                  This item will be permanently removed from your student portfolio records.
+                  This item will be permanently removed from your student portfolio records in Supabase.
                 </p>
               </div>
             </div>
