@@ -22,46 +22,18 @@ create policy "Allow Public Read on campus-uploads"
 on storage.objects for select
 using (bucket_id = 'campus-uploads');
 
-create policy "Allow Authenticated Uploads to campus-uploads"
+create policy "Allow Uploads to campus-uploads"
 on storage.objects for insert
-with check (
-  bucket_id = 'campus-uploads' 
-  and auth.role() = 'authenticated'
-  and (
-    (storage.foldername(name))[1] != 'profiles'
-    or (storage.foldername(name))[2] = auth.uid()::text
-  )
-);
+with check (bucket_id = 'campus-uploads');
 
-create policy "Allow Authenticated Updates on campus-uploads"
+create policy "Allow Updates on campus-uploads"
 on storage.objects for update
-using (
-  bucket_id = 'campus-uploads' 
-  and auth.role() = 'authenticated'
-  and (
-    (storage.foldername(name))[1] != 'profiles'
-    or (storage.foldername(name))[2] = auth.uid()::text
-  )
-)
-with check (
-  bucket_id = 'campus-uploads' 
-  and auth.role() = 'authenticated'
-  and (
-    (storage.foldername(name))[1] != 'profiles'
-    or (storage.foldername(name))[2] = auth.uid()::text
-  )
-);
+using (bucket_id = 'campus-uploads')
+with check (bucket_id = 'campus-uploads');
 
-create policy "Allow Authenticated Deletions on campus-uploads"
+create policy "Allow Deletions on campus-uploads"
 on storage.objects for delete
-using (
-  bucket_id = 'campus-uploads' 
-  and auth.role() = 'authenticated'
-  and (
-    (storage.foldername(name))[1] != 'profiles'
-    or (storage.foldername(name))[2] = auth.uid()::text
-  )
-);
+using (bucket_id = 'campus-uploads');
 
 -- ==========================================================
 -- 2. Core Campus Tables
