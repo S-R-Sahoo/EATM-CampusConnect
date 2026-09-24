@@ -13,7 +13,7 @@ export const MobileBottomNav: React.FC = () => {
   const navItems = [
     { to: `/${rolePath}/dashboard`, icon: Home, label: 'Home' },
     { to: `/${rolePath}/discover`, icon: Compass, label: 'Discover' },
-    { to: `/${rolePath}/communities`, icon: Award, label: 'Communities' },
+    { to: `/${rolePath}/communities`, icon: Award, label: 'Clubs' },
     { 
       to: `/${rolePath}/messages`, 
       icon: MessageSquare, 
