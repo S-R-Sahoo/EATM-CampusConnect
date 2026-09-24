@@ -615,6 +615,80 @@ export const StudentProfile: React.FC = () => {
     );
   }
 
+  // Privacy enforcement for Profile Visibility
+  const isProfilePrivate = !isOwnProfile && activeUser.settings?.privacy?.profileVisibility === 'private';
+  const isConnectionsOnlyRestricted = !isOwnProfile && 
+    activeUser.settings?.privacy?.profileVisibility === 'connections' && 
+    connectionInfo.status !== 'connected';
+
+  if (isProfilePrivate) {
+    return (
+      <div className="max-w-2xl mx-auto space-y-6">
+        <button
+          type="button"
+          onClick={() => navigate(-1)}
+          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white dark:bg-[#111d15] border border-gray-200/80 dark:border-[#1e3325] text-xs font-bold text-gray-700 dark:text-gray-200 shadow-xs hover:bg-gray-50 dark:hover:bg-[#16251c] transition active:scale-95"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          <span>Back</span>
+        </button>
+
+        <div className="p-8 sm:p-12 text-center bg-white dark:bg-[#111d15] rounded-3xl border border-gray-200/80 dark:border-[#1e3325] shadow-card space-y-4">
+          <div className="w-16 h-16 rounded-2xl bg-emerald-50 dark:bg-[#16251c] text-[#0b4627] dark:text-emerald-400 flex items-center justify-center mx-auto">
+            <User className="w-8 h-8" />
+          </div>
+          <h2 className="text-lg font-black text-gray-900 dark:text-gray-100">{activeUser.displayName}</h2>
+          <p className="text-xs font-semibold text-gray-500 dark:text-gray-400">
+            {activeUser.department} • EATM CampusConnect
+          </p>
+          <div className="max-w-sm mx-auto p-3.5 rounded-2xl bg-gray-50 dark:bg-[#16251c] border border-gray-200/60 dark:border-[#1e3325] text-xs text-gray-600 dark:text-gray-300">
+            🔒 This user has set their profile to <strong>Private</strong>. Only basic campus directory info is visible.
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (isConnectionsOnlyRestricted) {
+    return (
+      <div className="max-w-2xl mx-auto space-y-6">
+        <button
+          type="button"
+          onClick={() => navigate(-1)}
+          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white dark:bg-[#111d15] border border-gray-200/80 dark:border-[#1e3325] text-xs font-bold text-gray-700 dark:text-gray-200 shadow-xs hover:bg-gray-50 dark:hover:bg-[#16251c] transition active:scale-95"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          <span>Back</span>
+        </button>
+
+        <div className="p-8 sm:p-12 text-center bg-white dark:bg-[#111d15] rounded-3xl border border-gray-200/80 dark:border-[#1e3325] shadow-card space-y-4">
+          <div className="w-20 h-20 rounded-full mx-auto overflow-hidden ring-4 ring-emerald-100 dark:ring-emerald-950">
+            <Avatar src={effectivePhoto} name={activeUser.displayName} size="xl" className="w-full h-full" />
+          </div>
+          <h2 className="text-lg font-black text-gray-900 dark:text-gray-100">{activeUser.displayName}</h2>
+          <p className="text-xs font-semibold text-gray-500 dark:text-gray-400">
+            {activeUser.department} • EATM Student Scholar
+          </p>
+          <div className="max-w-sm mx-auto p-3.5 rounded-2xl bg-emerald-50/60 dark:bg-emerald-950/40 border border-emerald-200/60 dark:border-emerald-800/60 text-xs text-emerald-800 dark:text-emerald-300">
+            🤝 This profile is visible to <strong>Connections only</strong>. Connect with {activeUser.displayName} to view their full portfolio, academic credentials, and projects.
+          </div>
+          <div className="pt-2 flex justify-center">
+            <Button
+              type="button"
+              variant="primary"
+              size="sm"
+              onClick={handleConnect}
+              isLoading={connecting}
+              disabled={connectionInfo.status === 'pending_sent'}
+            >
+              {connectionInfo.status === 'pending_sent' ? 'Connection Request Sent' : 'Connect with Student'}
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       {/* Top back navigation button when viewing someone else */}
@@ -890,7 +964,7 @@ export const StudentProfile: React.FC = () => {
               {/* Year & Semester Badge */}
               <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gray-50 dark:bg-[#16251c] border border-gray-200/80 dark:border-[#1e3325] text-xs font-semibold text-gray-700 dark:text-gray-300 shadow-xs">
                 <Calendar className="w-4 h-4 text-[#0b4627] dark:text-emerald-400 shrink-0" />
-                <span>Year: <strong className="font-extrabold text-gray-900 dark:text-gray-100">{activeUser.year || '3rd Year'}</strong> {activeUser.semester ? `(${activeUser.semester} Sem)` : ''}</span>
+                <span>Year: <strong className="font-extrabold text-gray-900 dark:text-gray-100">{activeUser.year || '3rd Year'}</strong> {(isOwnProfile || activeUser.settings?.privacy?.showSemester !== false) && activeUser.semester ? `(${activeUser.semester} Sem)` : ''}</span>
               </div>
 
               {/* Official Roll Number Badge */}
@@ -984,202 +1058,87 @@ export const StudentProfile: React.FC = () => {
           </div>
 
           {/* Interests */}
-          <div className="bg-white dark:bg-[#111d15] rounded-2xl border border-gray-200/80 dark:border-[#1e3325] p-6 shadow-card transition-colors duration-150">
-            <h3 className="font-bold text-sm text-gray-900 dark:text-gray-100 uppercase tracking-wider mb-3 flex items-center gap-2">
-              <Compass className="w-4 h-4 text-[#0b4627] dark:text-emerald-400" />
-              <span>Interests & Hobbies</span>
-            </h3>
-            <div className="flex flex-wrap gap-1.5">
-              {activeUser.interests && activeUser.interests.length > 0 ? (
-                activeUser.interests.map(int => (
-                  <span
-                    key={int}
-                    className="px-3 py-1 rounded-full text-xs font-semibold bg-gray-100 dark:bg-[#16251c] text-gray-700 dark:text-gray-300 border border-gray-200/60 dark:border-[#1e3325]"
-                  >
-                    {int}
-                  </span>
-                ))
-              ) : (
-                <p className="text-xs text-gray-400">No interests added yet.</p>
-              )}
+          {(isOwnProfile || activeUser.settings?.privacy?.showInterests !== false) && (
+            <div className="bg-white dark:bg-[#111d15] rounded-2xl border border-gray-200/80 dark:border-[#1e3325] p-6 shadow-card transition-colors duration-150">
+              <h3 className="font-bold text-sm text-gray-900 dark:text-gray-100 uppercase tracking-wider mb-3 flex items-center gap-2">
+                <Compass className="w-4 h-4 text-[#0b4627] dark:text-emerald-400" />
+                <span>Interests & Hobbies</span>
+              </h3>
+              <div className="flex flex-wrap gap-1.5">
+                {activeUser.interests && activeUser.interests.length > 0 ? (
+                  activeUser.interests.map(int => (
+                    <span
+                      key={int}
+                      className="px-3 py-1 rounded-full text-xs font-semibold bg-gray-100 dark:bg-[#16251c] text-gray-700 dark:text-gray-300 border border-gray-200/60 dark:border-[#1e3325]"
+                    >
+                      {int}
+                    </span>
+                  ))
+                ) : (
+                  <p className="text-xs text-gray-400">No interests added yet.</p>
+                )}
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* Right 2-Cols: Projects & Achievements */}
         <div className="lg:col-span-2 space-y-6">
           {/* Projects */}
-          <div className="bg-white dark:bg-[#111d15] rounded-2xl border border-gray-200/80 dark:border-[#1e3325] p-6 shadow-card transition-colors duration-150">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2.5">
-                <div className="p-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 text-[#0b4627] dark:text-emerald-400">
-                  <Code className="w-4 h-4" />
+          {(isOwnProfile || activeUser.settings?.privacy?.showProjects !== false) && (
+            <div className="bg-white dark:bg-[#111d15] rounded-2xl border border-gray-200/80 dark:border-[#1e3325] p-6 shadow-card transition-colors duration-150">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 text-[#0b4627] dark:text-emerald-400">
+                    <Code className="w-4 h-4" />
+                  </div>
+                  <h3 className="font-bold text-base text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                    <span>Featured Projects & Portfolio</span>
+                    <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-100/70 dark:bg-emerald-950/70 text-[#0b4627] dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-800/60">
+                      {activeUser.projects?.length || 0}
+                    </span>
+                  </h3>
                 </div>
-                <h3 className="font-bold text-base text-gray-900 dark:text-gray-100 flex items-center gap-2">
-                  <span>Featured Projects & Portfolio</span>
-                  <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-100/70 dark:bg-emerald-950/70 text-[#0b4627] dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-800/60">
-                    {activeUser.projects?.length || 0}
-                  </span>
-                </h3>
+
+                {isOwnProfile && (
+                  <button
+                    type="button"
+                    onClick={openAddProjectModal}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl text-[#0b4627] dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 border border-emerald-200/80 dark:border-emerald-800/80 transition shadow-xs"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Add Project</span>
+                  </button>
+                )}
               </div>
 
-              {isOwnProfile && (
-                <button
-                  type="button"
-                  onClick={openAddProjectModal}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl text-[#0b4627] dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 border border-emerald-200/80 dark:border-emerald-800/80 transition shadow-xs"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Add Project</span>
-                </button>
-              )}
-            </div>
-
-            <div className="space-y-3.5">
-              {activeUser.projects && activeUser.projects.length > 0 ? (
-                activeUser.projects.map((proj, idx) => (
-                  <div
-                    key={idx}
-                    className="group relative p-4 rounded-xl border border-gray-100 dark:border-[#1e3325] bg-gray-50/60 dark:bg-[#16251c]/60 hover:border-emerald-300 dark:hover:border-emerald-700/60 transition duration-200"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <h4 className="font-bold text-sm text-gray-900 dark:text-gray-100 group-hover:text-[#0b4627] dark:group-hover:text-emerald-400 transition">
-                            {proj.title}
-                          </h4>
-                          {proj.link && (
-                            <a
-                              href={proj.link}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 dark:text-emerald-400 hover:text-emerald-800 dark:hover:text-emerald-300 hover:underline bg-emerald-50/80 dark:bg-emerald-950/60 px-2 py-0.5 rounded-md border border-emerald-200/60 dark:border-emerald-800/60"
-                              title="Open Project / Repository Link"
-                            >
-                              <Globe className="w-3 h-3" />
-                              <span>View Code / Demo</span>
-                              <ExternalLink className="w-2.5 h-2.5" />
-                            </a>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Action buttons for owner */}
-                      {isOwnProfile && (
-                        <div className="flex items-center gap-1 shrink-0 opacity-80 group-hover:opacity-100 transition">
-                          <button
-                            type="button"
-                            onClick={() => openEditProjectModal(idx)}
-                            className="p-1.5 rounded-lg text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-white dark:hover:bg-[#111d15] border border-transparent hover:border-gray-200 dark:hover:border-[#1e3325] transition"
-                            title="Edit Project"
-                          >
-                            <Pencil className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setDeleteConfirm({ type: 'project', idx, title: proj.title })}
-                            className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-white dark:hover:bg-[#111d15] border border-transparent hover:border-red-200 dark:hover:border-red-900/40 transition"
-                            title="Delete Project"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      )}
-                    </div>
-
-                    <p className="text-xs text-gray-600 dark:text-gray-300 mt-2 leading-relaxed whitespace-pre-line">
-                      {proj.description}
-                    </p>
-
-                    <div className="flex flex-wrap gap-1.5 mt-3 pt-2.5 border-t border-gray-100 dark:border-[#1e3325]">
-                      {proj.technologies && proj.technologies.map((t, tIdx) => (
-                        <span
-                          key={tIdx}
-                          className="inline-flex items-center gap-1.5 text-[10px] font-semibold px-2.5 py-0.5 bg-white dark:bg-[#111d15] rounded-md border border-gray-200/80 dark:border-[#1e3325] text-gray-700 dark:text-gray-300 shadow-2xs"
-                        >
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                          {t}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className="text-center py-8 px-4 border border-dashed border-gray-200 dark:border-[#1e3325] rounded-2xl bg-gray-50/40 dark:bg-[#16251c]/30">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-[#0b4627] dark:text-emerald-400 flex items-center justify-center mx-auto mb-2.5">
-                    <Code className="w-5 h-5" />
-                  </div>
-                  <h4 className="text-xs font-bold text-gray-800 dark:text-gray-200">No Featured Projects Yet</h4>
-                  <p className="text-[11px] text-gray-500 dark:text-gray-400 max-w-sm mx-auto mt-1">
-                    {isOwnProfile
-                      ? 'Showcase your engineering projects, open-source code, academic coursework, and hackathon prototypes.'
-                      : 'This student has not cataloged any technical projects yet.'}
-                  </p>
-                  {isOwnProfile && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={openAddProjectModal}
-                      icon={<Plus className="w-3.5 h-3.5" />}
-                      className="mt-3 text-xs font-bold text-[#0b4627] dark:text-emerald-400 border-emerald-300 dark:border-emerald-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/40"
+              <div className="space-y-3.5">
+                {activeUser.projects && activeUser.projects.length > 0 ? (
+                  activeUser.projects.map((proj, idx) => (
+                    <div
+                      key={idx}
+                      className="group relative p-4 rounded-xl border border-gray-100 dark:border-[#1e3325] bg-gray-50/60 dark:bg-[#16251c]/60 hover:border-emerald-300 dark:hover:border-emerald-700/60 transition duration-200"
                     >
-                      Add First Project
-                    </Button>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Achievements */}
-          <div className="bg-white dark:bg-[#111d15] rounded-2xl border border-gray-200/80 dark:border-[#1e3325] p-6 shadow-card transition-colors duration-150">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2.5">
-                <div className="p-1.5 rounded-lg bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400">
-                  <Award className="w-4 h-4" />
-                </div>
-                <h3 className="font-bold text-base text-gray-900 dark:text-gray-100 flex items-center gap-2">
-                  <span>Campus Honors & Achievements</span>
-                  <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-100/70 dark:bg-amber-950/70 text-amber-800 dark:text-amber-300 border border-amber-200/60 dark:border-amber-800/60">
-                    {activeUser.achievements?.length || 0}
-                  </span>
-                </h3>
-              </div>
-
-              {isOwnProfile && (
-                <button
-                  type="button"
-                  onClick={openAddAchievementModal}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/50 hover:bg-amber-100 dark:hover:bg-amber-900/60 border border-amber-200/80 dark:border-amber-800/80 transition shadow-xs"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Add Honor</span>
-                </button>
-              )}
-            </div>
-
-            <div className="space-y-3">
-              {activeUser.achievements && activeUser.achievements.length > 0 ? (
-                activeUser.achievements.map((ach, idx) => (
-                  <div
-                    key={idx}
-                    className="group relative flex items-start gap-3.5 p-4 rounded-xl border border-amber-100/90 dark:border-[#1e3325] bg-gradient-to-r from-amber-50/40 via-white to-amber-50/20 dark:from-amber-950/20 dark:via-[#16251c]/40 dark:to-transparent hover:border-amber-300 dark:hover:border-amber-800/60 transition duration-200"
-                  >
-                    <div className="p-2.5 rounded-xl bg-gradient-to-br from-amber-400/20 to-amber-600/20 text-amber-800 dark:text-amber-300 border border-amber-300/40 shrink-0 shadow-2xs">
-                      <Trophy className="w-4 h-4" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <h4 className="font-bold text-xs sm:text-sm text-gray-900 dark:text-gray-100">
-                            {ach.title}
-                          </h4>
-                          {ach.date && (
-                            <span className="inline-block text-[11px] font-semibold text-amber-700 dark:text-amber-400 mt-0.5">
-                              • {ach.date}
-                            </span>
-                          )}
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h4 className="font-bold text-sm text-gray-900 dark:text-gray-100 group-hover:text-[#0b4627] dark:group-hover:text-emerald-400 transition">
+                              {proj.title}
+                            </h4>
+                            {proj.link && (
+                              <a
+                                href={proj.link}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 dark:text-emerald-400 hover:text-emerald-800 dark:hover:text-emerald-300 hover:underline bg-emerald-50/80 dark:bg-emerald-950/60 px-2 py-0.5 rounded-md border border-emerald-200/60 dark:border-emerald-800/60"
+                                title="Open Project / Repository Link"
+                              >
+                                <Globe className="w-3 h-3" />
+                                <span>View Code / Demo</span>
+                                <ExternalLink className="w-2.5 h-2.5" />
+                              </a>
+                            )}
+                          </div>
                         </div>
 
                         {/* Action buttons for owner */}
@@ -1187,56 +1146,177 @@ export const StudentProfile: React.FC = () => {
                           <div className="flex items-center gap-1 shrink-0 opacity-80 group-hover:opacity-100 transition">
                             <button
                               type="button"
-                              onClick={() => openEditAchievementModal(idx)}
-                              className="p-1.5 rounded-lg text-gray-400 hover:text-amber-700 dark:hover:text-amber-400 hover:bg-white dark:hover:bg-[#111d15] border border-transparent hover:border-gray-200 dark:hover:border-[#1e3325] transition"
-                              title="Edit Honor"
+                              onClick={() => openEditProjectModal(idx)}
+                              className="p-1.5 rounded-lg text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-white dark:hover:bg-[#111d15] border border-transparent hover:border-gray-200 dark:hover:border-[#1e3325] transition"
+                              title="Edit Project"
                             >
                               <Pencil className="w-3.5 h-3.5" />
                             </button>
                             <button
                               type="button"
-                              onClick={() => setDeleteConfirm({ type: 'achievement', idx, title: ach.title })}
+                              onClick={() => setDeleteConfirm({ type: 'project', idx, title: proj.title })}
                               className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-white dark:hover:bg-[#111d15] border border-transparent hover:border-red-200 dark:hover:border-red-900/40 transition"
-                              title="Delete Honor"
+                              title="Delete Project"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
                           </div>
                         )}
                       </div>
-                      <p className="text-xs text-gray-600 dark:text-gray-300 mt-1 leading-relaxed whitespace-pre-line">
-                        {ach.description}
+
+                      <p className="text-xs text-gray-600 dark:text-gray-300 mt-2 leading-relaxed whitespace-pre-line">
+                        {proj.description}
                       </p>
+
+                      <div className="flex flex-wrap gap-1.5 mt-3 pt-2.5 border-t border-gray-100 dark:border-[#1e3325]">
+                        {proj.technologies && proj.technologies.map((t, tIdx) => (
+                          <span
+                            key={tIdx}
+                            className="inline-flex items-center gap-1.5 text-[10px] font-semibold px-2.5 py-0.5 bg-white dark:bg-[#111d15] rounded-md border border-gray-200/80 dark:border-[#1e3325] text-gray-700 dark:text-gray-300 shadow-2xs"
+                          >
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                            {t}
+                          </span>
+                        ))}
+                      </div>
                     </div>
+                  ))
+                ) : (
+                  <div className="text-center py-8 px-4 border border-dashed border-gray-200 dark:border-[#1e3325] rounded-2xl bg-gray-50/40 dark:bg-[#16251c]/30">
+                    <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-[#0b4627] dark:text-emerald-400 flex items-center justify-center mx-auto mb-2.5">
+                      <Code className="w-5 h-5" />
+                    </div>
+                    <h4 className="text-xs font-bold text-gray-800 dark:text-gray-200">No Featured Projects Yet</h4>
+                    <p className="text-[11px] text-gray-500 dark:text-gray-400 max-w-sm mx-auto mt-1">
+                      {isOwnProfile
+                        ? 'Showcase your engineering projects, open-source code, academic coursework, and hackathon prototypes.'
+                        : 'This student has not cataloged any technical projects yet.'}
+                    </p>
+                    {isOwnProfile && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={openAddProjectModal}
+                        icon={<Plus className="w-3.5 h-3.5" />}
+                        className="mt-3 text-xs font-bold text-[#0b4627] dark:text-emerald-400 border-emerald-300 dark:border-emerald-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/40"
+                      >
+                        Add First Project
+                      </Button>
+                    )}
                   </div>
-                ))
-              ) : (
-                <div className="text-center py-8 px-4 border border-dashed border-gray-200 dark:border-[#1e3325] rounded-2xl bg-gray-50/40 dark:bg-[#16251c]/30">
-                  <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto mb-2.5">
-                    <Trophy className="w-5 h-5" />
-                  </div>
-                  <h4 className="text-xs font-bold text-gray-800 dark:text-gray-200">No Honors or Distinctions Recorded</h4>
-                  <p className="text-[11px] text-gray-500 dark:text-gray-400 max-w-sm mx-auto mt-1">
-                    {isOwnProfile
-                      ? 'Record your academic rankings, hackathon awards, sports medals, scholarships, or club recognitions.'
-                      : 'This student has not added any campus honors yet.'}
-                  </p>
-                  {isOwnProfile && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={openAddAchievementModal}
-                      icon={<Plus className="w-3.5 h-3.5" />}
-                      className="mt-3 text-xs font-bold text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-800 hover:bg-amber-50 dark:hover:bg-amber-950/40"
-                    >
-                      Add First Honor
-                    </Button>
-                  )}
-                </div>
-              )}
+                )}
+              </div>
             </div>
-          </div>
+          )}
+
+          {/* Achievements */}
+          {(isOwnProfile || activeUser.settings?.privacy?.showAchievements !== false) && (
+            <div className="bg-white dark:bg-[#111d15] rounded-2xl border border-gray-200/80 dark:border-[#1e3325] p-6 shadow-card transition-colors duration-150">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-1.5 rounded-lg bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400">
+                    <Award className="w-4 h-4" />
+                  </div>
+                  <h3 className="font-bold text-base text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                    <span>Campus Honors & Achievements</span>
+                    <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-100/70 dark:bg-amber-950/70 text-amber-800 dark:text-amber-300 border border-amber-200/60 dark:border-amber-800/60">
+                      {activeUser.achievements?.length || 0}
+                    </span>
+                  </h3>
+                </div>
+
+                {isOwnProfile && (
+                  <button
+                    type="button"
+                    onClick={openAddAchievementModal}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/50 hover:bg-amber-100 dark:hover:bg-amber-900/60 border border-amber-200/80 dark:border-amber-800/80 transition shadow-xs"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Add Honor</span>
+                  </button>
+                )}
+              </div>
+
+              <div className="space-y-3">
+                {activeUser.achievements && activeUser.achievements.length > 0 ? (
+                  activeUser.achievements.map((ach, idx) => (
+                    <div
+                      key={idx}
+                      className="group relative flex items-start gap-3.5 p-4 rounded-xl border border-amber-100/90 dark:border-[#1e3325] bg-gradient-to-r from-amber-50/40 via-white to-amber-50/20 dark:from-amber-950/20 dark:via-[#16251c]/40 dark:to-transparent hover:border-amber-300 dark:hover:border-amber-800/60 transition duration-200"
+                    >
+                      <div className="p-2.5 rounded-xl bg-gradient-to-br from-amber-400/20 to-amber-600/20 text-amber-800 dark:text-amber-300 border border-amber-300/40 shrink-0 shadow-2xs">
+                        <Trophy className="w-4 h-4" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <h4 className="font-bold text-xs sm:text-sm text-gray-900 dark:text-gray-100">
+                              {ach.title}
+                            </h4>
+                            {ach.date && (
+                              <span className="inline-block text-[11px] font-semibold text-amber-700 dark:text-amber-400 mt-0.5">
+                                • {ach.date}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Action buttons for owner */}
+                          {isOwnProfile && (
+                            <div className="flex items-center gap-1 shrink-0 opacity-80 group-hover:opacity-100 transition">
+                              <button
+                                type="button"
+                                onClick={() => openEditAchievementModal(idx)}
+                                className="p-1.5 rounded-lg text-gray-400 hover:text-amber-700 dark:hover:text-amber-400 hover:bg-white dark:hover:bg-[#111d15] border border-transparent hover:border-gray-200 dark:hover:border-[#1e3325] transition"
+                                title="Edit Honor"
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setDeleteConfirm({ type: 'achievement', idx, title: ach.title })}
+                                className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-white dark:hover:bg-[#111d15] border border-transparent hover:border-red-200 dark:hover:border-red-900/40 transition"
+                                title="Delete Honor"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-600 dark:text-gray-300 mt-1 leading-relaxed whitespace-pre-line">
+                          {ach.description}
+                        </p>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-8 px-4 border border-dashed border-gray-200 dark:border-[#1e3325] rounded-2xl bg-gray-50/40 dark:bg-[#16251c]/30">
+                    <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto mb-2.5">
+                      <Trophy className="w-5 h-5" />
+                    </div>
+                    <h4 className="text-xs font-bold text-gray-800 dark:text-gray-200">No Honors or Distinctions Recorded</h4>
+                    <p className="text-[11px] text-gray-500 dark:text-gray-400 max-w-sm mx-auto mt-1">
+                      {isOwnProfile
+                        ? 'Record your academic rankings, hackathon awards, sports medals, scholarships, or club recognitions.'
+                        : 'This student has not added any campus honors yet.'}
+                    </p>
+                    {isOwnProfile && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={openAddAchievementModal}
+                        icon={<Plus className="w-3.5 h-3.5" />}
+                        className="mt-3 text-xs font-bold text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-800 hover:bg-amber-50 dark:hover:bg-amber-950/40"
+                      >
+                        Add First Honor
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Campus Posts */}
           <div className="bg-white dark:bg-[#111d15] rounded-2xl border border-gray-200/80 dark:border-[#1e3325] p-6 shadow-card transition-colors duration-150">

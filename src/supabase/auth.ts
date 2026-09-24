@@ -166,6 +166,92 @@ export async function registerWithEmail(
   return newProfile;
 }
 
+export async function updateUserEmail(newEmail: string): Promise<{ needsEmailConfirmation?: boolean }> {
+  const normalized = (newEmail || '').trim().toLowerCase();
+  if (!normalized || !normalized.includes('@')) {
+    throw new Error('Please enter a valid email address.');
+  }
+
+  if (isSupabaseConfigured() && supabase) {
+    const { data, error } = await supabase.auth.updateUser({
+      email: normalized
+    });
+    if (error) {
+      throw new Error(error.message);
+    }
+    return { needsEmailConfirmation: !data.user?.email_confirmed_at };
+  }
+  return { needsEmailConfirmation: false };
+}
+
+export async function getConnectedProviders(): Promise<{ google: boolean; github: boolean; email: boolean }> {
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const appMeta = user.app_metadata || {};
+        const identities = (user.identities || []) as Array<{ provider: string }>;
+        const providersList = appMeta.providers || (appMeta.provider ? [appMeta.provider] : []);
+        const identityProviders = identities.map(i => i.provider);
+        const allProviders = new Set([...providersList, ...identityProviders]);
+        
+        return {
+          google: allProviders.has('google'),
+          github: allProviders.has('github'),
+          email: allProviders.has('email') || !!user.email
+        };
+      }
+    } catch (e) {
+      console.warn('Error fetching auth providers:', e);
+    }
+  }
+  return { google: false, github: false, email: true };
+}
+
+export async function deleteUserAccount(userId: string): Promise<void> {
+  if (!userId) throw new Error('Invalid user ID.');
+
+  if (isSupabaseConfigured() && supabase) {
+    // 1. Verify that current session belongs to this userId
+    const { data: { user: authUser } } = await supabase.auth.getUser();
+    if (!authUser || (authUser.id !== userId && (authUser as any).uid !== userId)) {
+      throw new Error('Unauthorized: You can only delete your own account.');
+    }
+
+    // 2. Clean user-owned application data
+    try {
+      await supabase.from('users').delete().eq('id', userId);
+      await supabase.from('posts').delete().eq('authorId', userId);
+      await supabase.from('comments').delete().eq('authorId', userId);
+      await supabase.from('connections').delete().or(`requesterId.eq.${userId},recipientId.eq.${userId}`);
+      await supabase.from('notifications').delete().or(`recipientId.eq.${userId},senderId.eq.${userId}`);
+    } catch (cleanErr) {
+      console.warn('Supabase data cleanup warning:', cleanErr);
+    }
+
+    // 3. Attempt RPC if configured, then sign out
+    try {
+      await supabase.rpc('delete_user_account');
+    } catch (_) {}
+
+    await supabase.auth.signOut();
+  }
+
+  // 4. Local storage cleanup
+  try {
+    const rawUsers = localStorage.getItem('eatm_campus_users');
+    if (rawUsers) {
+      const users: UserProfile[] = JSON.parse(rawUsers);
+      const filtered = users.filter((u: UserProfile) => u.id !== userId && u.uid !== userId);
+      localStorage.setItem('eatm_campus_users', JSON.stringify(filtered));
+      window.dispatchEvent(new CustomEvent('eatm_users_changed', { detail: filtered }));
+    }
+  } catch (e) {
+    console.warn('Local cleanup warning:', e);
+  }
+  localStorage.removeItem('eatm_current_user');
+}
+
 export async function updateUserPassword(newPassword: string): Promise<void> {
   const normalized = (newPassword || '').trim();
   if (normalized.length < 6) {

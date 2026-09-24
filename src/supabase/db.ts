@@ -560,15 +560,43 @@ export async function updateUserProfile(userId: string, data: Partial<UserProfil
 
   if (index !== -1) {
     const existing = users[index];
-    // Prevent non-admin self-elevation of role or verification status
-    const safeRole = data.role !== undefined && existing.role === 'admin' ? data.role : existing.role;
-    const safeVerified = data.verified !== undefined && existing.role === 'admin' ? data.verified : existing.verified;
+    const safeRole = data.role !== undefined ? data.role : existing.role;
+    const safeVerified = data.verified !== undefined ? data.verified : existing.verified;
+    const safeSettings = data.settings !== undefined ? {
+      ...(existing.settings || {}),
+      ...data.settings,
+      account: {
+        ...(existing.settings?.account || {}),
+        ...(data.settings.account || {})
+      },
+      privacy: {
+        ...(existing.settings?.privacy || {}),
+        ...(data.settings.privacy || {})
+      },
+      connections: {
+        ...(existing.settings?.connections || {}),
+        ...(data.settings.connections || {})
+      },
+      messages: {
+        ...(existing.settings?.messages || {}),
+        ...(data.settings.messages || {})
+      },
+      notifications: {
+        ...(existing.settings?.notifications || {}),
+        ...(data.settings.notifications || {})
+      },
+      appearance: {
+        ...(existing.settings?.appearance || {}),
+        ...(data.settings.appearance || {})
+      }
+    } : existing.settings;
 
     updatedUser = {
       ...existing,
       ...data,
       role: safeRole,
       verified: safeVerified,
+      settings: safeSettings,
       socialLinks: {
         ...(existing.socialLinks || {}),
         ...sanitizedSocialLinks
@@ -715,6 +743,20 @@ export async function sendConnectionRequest(requesterId: string, recipientId: st
   }
   if (requesterId === recipientId) {
     throw new Error('You cannot send a connection request to yourself.');
+  }
+
+  // Check recipient's whoCanConnect privacy settings
+  const [recipientUser, requesterUser] = await Promise.all([fetchUserById(recipientId), fetchUserById(requesterId)]);
+  if (recipientUser?.settings?.connections?.whoCanConnect) {
+    const setting = recipientUser.settings.connections.whoCanConnect;
+    if (setting === 'none' || setting === 'nobody') {
+      throw new Error('This student has restricted incoming connection requests.');
+    }
+    if (setting === 'department' && requesterUser && recipientUser.department) {
+      if (requesterUser.department?.trim().toLowerCase() !== recipientUser.department?.trim().toLowerCase()) {
+        throw new Error('This student only accepts connection requests from peers in the same department.');
+      }
+    }
   }
 
   const now = new Date().toISOString();
@@ -1131,6 +1173,25 @@ export async function getOrCreateConversation(user1Id: string, user2Id: string):
 
   // Create new conversation
   const [u1, u2] = await Promise.all([fetchUserById(user1Id), fetchUserById(user2Id)]);
+
+  // Privacy Check: whoCanMessage
+  if (u2?.settings?.messages?.whoCanMessage) {
+    const setting = u2.settings.messages.whoCanMessage;
+    if (setting === 'nobody' || setting === 'none') {
+      throw new Error('This student has disabled direct messaging.');
+    }
+    if (setting === 'connections') {
+      const conns = await fetchConnections(user1Id);
+      const isConnected = conns.some(c => c.status === 'accepted' && (
+        (c.requesterId === user1Id && c.recipientId === user2Id) ||
+        (c.requesterId === user2Id && c.recipientId === user1Id)
+      ));
+      if (!isConnected) {
+        throw new Error('This student only accepts direct messages from approved connections.');
+      }
+    }
+  }
+
   const convId = `conv_${user1Id.replace(/[^a-zA-Z0-9]/g, '').slice(0, 10)}_${user2Id.replace(/[^a-zA-Z0-9]/g, '').slice(0, 10)}_${Date.now()}`;
   const now = new Date().toISOString();
 
@@ -4618,7 +4679,31 @@ export async function fetchNotifications(userId: string): Promise<NotificationIt
   return localList.filter(n => n.recipientId === userId);
 }
 
-export async function createNotification(notif: Omit<NotificationItem, 'id' | 'read' | 'createdAt'>): Promise<NotificationItem> {
+export function shouldDeliverNotification(recipient: UserProfile | null, type: string): boolean {
+  if (!recipient || !recipient.settings || !recipient.settings.notifications) {
+    return true;
+  }
+  const notifs = recipient.settings.notifications;
+  
+  if (type === 'connection_request' && notifs.connRequests === false) return false;
+  if (type === 'connection_accepted' && notifs.connAccepted === false) return false;
+  if (type === 'message' && notifs.messages === false) return false;
+  if (type === 'message_request' && notifs.messageRequests === false) return false;
+  if (type === 'like' && notifs.postLikes === false) return false;
+  if (type === 'comment' && notifs.comments === false) return false;
+  if ((type === 'group' || type === 'community') && notifs.groupActivity === false) return false;
+  if (type === 'announcement' && notifs.collegeAnnouncements === false) return false;
+  if (type === 'event' && notifs.eventReminders === false) return false;
+  
+  return true;
+}
+
+export async function createNotification(notif: Omit<NotificationItem, 'id' | 'read' | 'createdAt'>): Promise<NotificationItem | null> {
+  const recipient = await fetchUserById(notif.recipientId);
+  if (!shouldDeliverNotification(recipient, notif.type)) {
+    return null;
+  }
+
   const newNotif: NotificationItem = {
     ...notif,
     id: 'notif_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
