@@ -1,32 +1,63 @@
 -- ==========================================================
--- EATM CampusConnect - Complete PostgreSQL Database Schema
+-- EATM CampusConnect - Complete PostgreSQL Database Schema & Hardened Security Architecture
 -- Run this script in your Supabase SQL Editor:
 -- https://supabase.com/dashboard/project/_/sql/new
 -- ==========================================================
 
--- 1. Create Public Storage Bucket for Campus Uploads
+-- 1. Create Storage Bucket for Campus Uploads
 insert into storage.buckets (id, name, public)
 values ('campus-uploads', 'campus-uploads', true)
 on conflict (id) do update set public = true;
 
--- Drop previous policies if they exist
+-- Drop previous storage policies if they exist
 drop policy if exists "Public Access to campus-uploads" on storage.objects;
 drop policy if exists "Allow Uploads to campus-uploads" on storage.objects;
 drop policy if exists "Allow all operations on campus-uploads" on storage.objects;
+drop policy if exists "Allow Authenticated Uploads" on storage.objects;
+drop policy if exists "Allow Authenticated Updates" on storage.objects;
+drop policy if exists "Allow Authenticated Deletions" on storage.objects;
 
--- Allow all operations (select, insert, update, delete) on campus-uploads
-create policy "Allow all operations on campus-uploads"
-on storage.objects for all
-using (bucket_id = 'campus-uploads')
-with check (bucket_id = 'campus-uploads');
+-- Secure Storage Policies for campus-uploads bucket
+create policy "Allow Public Read on campus-uploads"
+on storage.objects for select
+using (bucket_id = 'campus-uploads');
 
--- 2. Users Table
+create policy "Allow Authenticated Uploads to campus-uploads"
+on storage.objects for insert
+with check (
+  bucket_id = 'campus-uploads' 
+  and auth.role() = 'authenticated'
+);
+
+create policy "Allow Authenticated Updates on campus-uploads"
+on storage.objects for update
+using (
+  bucket_id = 'campus-uploads' 
+  and auth.role() = 'authenticated'
+)
+with check (
+  bucket_id = 'campus-uploads' 
+  and auth.role() = 'authenticated'
+);
+
+create policy "Allow Authenticated Deletions on campus-uploads"
+on storage.objects for delete
+using (
+  bucket_id = 'campus-uploads' 
+  and auth.role() = 'authenticated'
+);
+
+-- ==========================================================
+-- 2. Core Campus Tables
+-- ==========================================================
+
+-- 2.1 Users Table
 create table if not exists public.users (
   id text primary key,
   uid text,
   email text not null,
   "displayName" text not null,
-  role text not null default 'student',
+  role text not null default 'student', -- 'student' | 'faculty' | 'admin'
   department text,
   year text,
   semester text,
@@ -43,16 +74,21 @@ create table if not exists public.users (
   projects jsonb default '[]',
   achievements jsonb default '[]',
   "socialLinks" jsonb default '{}',
+  settings jsonb default '{}',
   status text default 'active',
   verified boolean default false,
   "createdAt" timestamptz default now(),
   "updatedAt" timestamptz default now()
 );
 
--- 3. Posts Table
+-- Ensure settings and columns exist
+alter table public.users add column if not exists settings jsonb default '{}';
+alter table public.users add column if not exists "socialLinks" jsonb default '{}';
+
+-- 2.2 Posts Table
 create table if not exists public.posts (
   id text primary key,
-  "authorId" text not null,
+  "authorId" text not null references public.users(id) on delete cascade,
   "authorName" text not null,
   "authorAvatar" text,
   "authorRole" text not null default 'student',
@@ -72,21 +108,25 @@ create table if not exists public.posts (
   "createdAt" timestamptz default now()
 );
 
--- Ensure mediaUrls column exists for multi-image carousel posts
+-- Ensure mediaUrls column exists
 alter table public.posts add column if not exists "mediaUrls" text[] default '{}';
 
--- 4. Comments Table
+-- 2.3 Comments Table
 create table if not exists public.comments (
   id text primary key,
   "postId" text not null references public.posts(id) on delete cascade,
-  "authorId" text not null,
+  "authorId" text not null references public.users(id) on delete cascade,
   "authorName" text not null,
   "authorAvatar" text,
   content text not null,
   "createdAt" timestamptz default now()
 );
 
--- 5. Communities / Clubs & Student Societies Table
+-- ==========================================================
+-- 3. Communities / Clubs & Student Societies Tables
+-- ==========================================================
+
+-- 3.1 Communities Table
 create table if not exists public.communities (
   id text primary key,
   name text not null,
@@ -116,7 +156,7 @@ create table if not exists public.communities (
   "updatedAt" timestamptz default now()
 );
 
--- 5.1 Community Memberships Table (Single Source of Truth for Member Roles & Status)
+-- 3.2 Community Memberships Table (Single Source of Truth)
 create table if not exists public.community_members (
   id text primary key,
   "communityId" text not null references public.communities(id) on delete cascade,
@@ -129,7 +169,7 @@ create table if not exists public.community_members (
   unique("communityId", "userId")
 );
 
--- 5.2 Community Posts Table
+-- 3.3 Community Posts Table
 create table if not exists public.community_posts (
   id text primary key,
   "communityId" text not null references public.communities(id) on delete cascade,
@@ -152,7 +192,7 @@ create table if not exists public.community_posts (
   "updatedAt" timestamptz default now()
 );
 
--- 5.3 Community Comments Table
+-- 3.4 Community Comments Table
 create table if not exists public.community_comments (
   id text primary key,
   "postId" text not null references public.community_posts(id) on delete cascade,
@@ -167,7 +207,7 @@ create table if not exists public.community_comments (
   "createdAt" timestamptz default now()
 );
 
--- 5.4 Community Discussions Table
+-- 3.5 Community Discussions Table
 create table if not exists public.community_discussions (
   id text primary key,
   "communityId" text not null references public.communities(id) on delete cascade,
@@ -187,7 +227,7 @@ create table if not exists public.community_discussions (
   "updatedAt" timestamptz default now()
 );
 
--- 5.5 Community Discussion Comments Table
+-- 3.6 Community Discussion Comments Table
 create table if not exists public.community_discussion_comments (
   id text primary key,
   "discussionId" text not null references public.community_discussions(id) on delete cascade,
@@ -199,7 +239,7 @@ create table if not exists public.community_discussion_comments (
   "createdAt" timestamptz default now()
 );
 
--- 5.6 Community Live Messages (Group Chat)
+-- 3.7 Community Live Messages Table (Group Chat)
 create table if not exists public.community_messages (
   id text primary key,
   "communityId" text not null references public.communities(id) on delete cascade,
@@ -216,7 +256,7 @@ create table if not exists public.community_messages (
   "createdAt" timestamptz default now()
 );
 
--- 5.7 Community Resources & Study Docs
+-- 3.8 Community Resources Table
 create table if not exists public.community_resources (
   id text primary key,
   "communityId" text not null references public.communities(id) on delete cascade,
@@ -233,7 +273,7 @@ create table if not exists public.community_resources (
   "createdAt" timestamptz default now()
 );
 
--- 5.8 Community Events Table
+-- 3.9 Community Events Table
 create table if not exists public.community_events (
   id text primary key,
   "communityId" text not null references public.communities(id) on delete cascade,
@@ -251,7 +291,7 @@ create table if not exists public.community_events (
   "createdAt" timestamptz default now()
 );
 
--- 5.9 Community Event RSVPs Table
+-- 3.10 Community Event RSVPs Table
 create table if not exists public.community_event_rsvps (
   id text primary key,
   "eventId" text not null references public.community_events(id) on delete cascade,
@@ -262,7 +302,7 @@ create table if not exists public.community_event_rsvps (
   unique("eventId", "userId")
 );
 
--- 5.10 Community Poll Votes Table
+-- 3.11 Community Poll Votes Table
 create table if not exists public.community_poll_votes (
   id text primary key,
   "pollId" text not null,
@@ -274,7 +314,7 @@ create table if not exists public.community_poll_votes (
   unique("pollId", "userId")
 );
 
--- 5.11 Community Reports & Moderation Queue
+-- 3.12 Community Reports Table
 create table if not exists public.community_reports (
   id text primary key,
   "communityId" text not null references public.communities(id) on delete cascade,
@@ -292,7 +332,7 @@ create table if not exists public.community_reports (
   "createdAt" timestamptz default now()
 );
 
--- 5.12 Community Moderation Actions & Audit Log
+-- 3.13 Community Moderation Actions & Audit Log Table
 create table if not exists public.community_moderation_actions (
   id text primary key,
   "communityId" text not null references public.communities(id) on delete cascade,
@@ -304,7 +344,11 @@ create table if not exists public.community_moderation_actions (
   "createdAt" timestamptz default now()
 );
 
--- 6. Events Table
+-- ==========================================================
+-- 4. Additional Campus Tables
+-- ==========================================================
+
+-- 4.1 Campus Events Table
 create table if not exists public.events (
   id text primary key,
   title text not null,
@@ -322,7 +366,7 @@ create table if not exists public.events (
   "createdAt" timestamptz default now()
 );
 
--- 7. Study Materials Table
+-- 4.2 Study Materials Table
 create table if not exists public.study_materials (
   id text primary key,
   title text not null,
@@ -340,7 +384,7 @@ create table if not exists public.study_materials (
   "createdAt" timestamptz default now()
 );
 
--- 8. Opportunities Table
+-- 4.3 Opportunities Table
 create table if not exists public.opportunities (
   id text primary key,
   title text not null,
@@ -360,7 +404,7 @@ create table if not exists public.opportunities (
   "createdAt" timestamptz default now()
 );
 
--- 9. Announcements Table
+-- 4.4 Announcements Table
 create table if not exists public.announcements (
   id text primary key,
   title text not null,
@@ -374,7 +418,7 @@ create table if not exists public.announcements (
   "createdAt" timestamptz default now()
 );
 
--- 10. Notifications Table
+-- 4.5 Notifications Table
 create table if not exists public.notifications (
   id text primary key,
   "recipientId" text not null,
@@ -389,17 +433,17 @@ create table if not exists public.notifications (
   "createdAt" timestamptz default now()
 );
 
--- 11. Connections Table
+-- 4.6 Connections Table
 create table if not exists public.connections (
   id text primary key,
   "requesterId" text not null,
   "recipientId" text not null,
-  status text not null default 'pending',
+  status text not null default 'pending', -- 'pending' | 'accepted' | 'rejected'
   "createdAt" timestamptz default now(),
   "updatedAt" timestamptz default now()
 );
 
--- 12. Conversations & Messages
+-- 4.7 Direct & Group Conversations Table
 create table if not exists public.conversations (
   id text primary key,
   participants text[] not null,
@@ -412,13 +456,7 @@ create table if not exists public.conversations (
   "updatedAt" timestamptz default now()
 );
 
--- Ensure existing installations have all columns
-alter table public.conversations add column if not exists "isGroup" boolean default false;
-alter table public.conversations add column if not exists "groupName" text;
-alter table public.conversations add column if not exists "groupAvatar" text;
-alter table public.conversations add column if not exists "participantDetails" jsonb default '{}';
-alter table public.conversations add column if not exists "unreadCount" jsonb default '{}';
-
+-- 4.8 Direct & Group Messages Table
 create table if not exists public.messages (
   id text primary key,
   "conversationId" text not null references public.conversations(id) on delete cascade,
@@ -427,21 +465,17 @@ create table if not exists public.messages (
   "senderAvatar" text,
   text text,
   "mediaUrl" text,
+  "mediaType" text,
+  "fileName" text,
+  "fileSize" text,
+  "audioDuration" numeric,
+  "isDeleted" boolean default false,
+  "deletedFor" text[] default '{}',
   read boolean default false,
   "createdAt" timestamptz default now()
 );
 
--- Ensure existing messages installations have sender metadata and media columns
-alter table public.messages add column if not exists "senderName" text;
-alter table public.messages add column if not exists "senderAvatar" text;
-alter table public.messages add column if not exists "mediaType" text;
-alter table public.messages add column if not exists "fileName" text;
-alter table public.messages add column if not exists "fileSize" text;
-alter table public.messages add column if not exists "audioDuration" numeric;
-alter table public.messages add column if not exists "isDeleted" boolean default false;
-alter table public.messages add column if not exists "deletedFor" text[] default '{}';
-
--- 13. Reports Table
+-- 4.9 Reports Table
 create table if not exists public.reports (
   id text primary key,
   "reportedItemId" text not null,
@@ -455,7 +489,7 @@ create table if not exists public.reports (
   "createdAt" timestamptz default now()
 );
 
--- 14. Assignments Table
+-- 4.10 Assignments Table
 create table if not exists public.assignments (
   id text primary key,
   title text not null,
@@ -471,7 +505,9 @@ create table if not exists public.assignments (
   "createdAt" timestamptz default now()
 );
 
--- Enable Row Level Security (RLS) on all tables
+-- ==========================================================
+-- 5. Enable Row Level Security (RLS) on ALL tables
+-- ==========================================================
 alter table public.users enable row level security;
 alter table public.posts enable row level security;
 alter table public.comments enable row level security;
@@ -500,19 +536,42 @@ alter table public.reports enable row level security;
 alter table public.assignments enable row level security;
 
 -- ==========================================================
--- 14. Community Role Hierarchy & RLS Helper Functions
--- Hierarchy: OWNER (rank 4) > ADMIN (rank 3) > MODERATOR (rank 2) > MEMBER (rank 1)
+-- 6. Role Hierarchy & Security Helper Functions (SECURITY DEFINER)
 -- ==========================================================
+
+-- Helper: Check if user is a campus-level administrator
+create or replace function public.is_campus_admin(usr_id text)
+returns boolean language sql stable security definer as $$
+  select exists (
+    select 1 from public.users 
+    where (id = usr_id or uid = usr_id) 
+      and role = 'admin' 
+      and status = 'active'
+  );
+$$;
+
+-- Helper: Check if user is faculty or campus admin
+create or replace function public.is_campus_faculty(usr_id text)
+returns boolean language sql stable security definer as $$
+  select exists (
+    select 1 from public.users 
+    where (id = usr_id or uid = usr_id) 
+      and role in ('faculty', 'admin') 
+      and status = 'active'
+  );
+$$;
 
 -- Helper: Retrieve approved role of a user in a community
 create or replace function public.get_community_role(comm_id text, usr_id text)
 returns text language sql stable security definer as $$
-  select role from public.community_members
-  where "communityId" = comm_id and "userId" = usr_id and status = 'approved'
-  limit 1;
+  select coalesce(
+    (select role from public.community_members 
+     where "communityId" = comm_id and "userId" = usr_id and status = 'approved' limit 1),
+    (select 'owner' from public.communities where id = comm_id and "ownerId" = usr_id limit 1)
+  );
 $$;
 
--- Helper: Check if user meets minimum role rank in community
+-- Helper: Check community role hierarchy rank (OWNER=4 > ADMIN=3 > MODERATOR=2 > MEMBER=1)
 create or replace function public.has_community_role_rank(comm_id text, usr_id text, min_role text)
 returns boolean language plpgsql stable security definer as $$
 declare
@@ -520,6 +579,15 @@ declare
   user_rank int := 0;
   required_rank int := 0;
 begin
+  if usr_id is null then
+    return false;
+  end if;
+
+  -- Campus super-admins always have maximum rank across all communities
+  if public.is_campus_admin(usr_id) then
+    return true;
+  end if;
+
   select role into user_role from public.community_members
   where "communityId" = comm_id and "userId" = usr_id and status = 'approved'
   limit 1;
@@ -559,52 +627,1027 @@ returns boolean language sql stable security definer as $$
     select 1 from public.community_members where "communityId" = comm_id and "userId" = usr_id and status = 'approved'
     union
     select 1 from public.communities where id = comm_id and "ownerId" = usr_id
+    union
+    select 1 where usr_id is not null and public.is_campus_admin(usr_id)
   );
 $$;
 
--- Policies for CampusConnect Client Operations & Granular RLS Hierarchy
-create policy "Allow all operations for authenticated and anonymous users" on public.users for all using (true) with check (true);
-create policy "Allow all operations on posts" on public.posts for all using (true) with check (true);
-create policy "Allow all operations on comments" on public.comments for all using (true) with check (true);
-create policy "Allow all operations on events" on public.events for all using (true) with check (true);
-create policy "Allow all operations on study_materials" on public.study_materials for all using (true) with check (true);
-create policy "Allow all operations on opportunities" on public.opportunities for all using (true) with check (true);
-create policy "Allow all operations on announcements" on public.announcements for all using (true) with check (true);
-create policy "Allow all operations on notifications" on public.notifications for all using (true) with check (true);
-create policy "Allow all operations on connections" on public.connections for all using (true) with check (true);
-create policy "Allow all operations on conversations" on public.conversations for all using (true) with check (true);
-create policy "Allow all operations on messages" on public.messages for all using (true) with check (true);
-create policy "Allow all operations on reports" on public.reports for all using (true) with check (true);
-create policy "Allow all operations on assignments" on public.assignments for all using (true) with check (true);
+-- ==========================================================
+-- 7. Privilege Escalation Protection Triggers
+-- ==========================================================
 
--- Community RLS Policies: Enforcing OWNER > ADMIN > MODERATOR > MEMBER & Private Content Isolation
-create policy "Allow all operations on communities" on public.communities for all using (true) with check (true);
-create policy "Allow all operations on community_members" on public.community_members for all using (true) with check (true);
-create policy "Allow all operations on community_posts" on public.community_posts for all using (true) with check (true);
-create policy "Allow all operations on community_comments" on public.community_comments for all using (true) with check (true);
-create policy "Allow all operations on community_discussions" on public.community_discussions for all using (true) with check (true);
-create policy "Allow all operations on community_discussion_comments" on public.community_discussion_comments for all using (true) with check (true);
-create policy "Allow all operations on community_messages" on public.community_messages for all using (true) with check (true);
-create policy "Allow all operations on community_resources" on public.community_resources for all using (true) with check (true);
-create policy "Allow all operations on community_events" on public.community_events for all using (true) with check (true);
-create policy "Allow all operations on community_event_rsvps" on public.community_event_rsvps for all using (true) with check (true);
-create policy "Allow all operations on community_poll_votes" on public.community_poll_votes for all using (true) with check (true);
-create policy "Allow all operations on community_reports" on public.community_reports for all using (true) with check (true);
-create policy "Allow all operations on community_moderation_actions" on public.community_moderation_actions for all using (true) with check (true);
-create policy "Allow all operations on events" on public.events for all using (true) with check (true);
-create policy "Allow all operations on study_materials" on public.study_materials for all using (true) with check (true);
-create policy "Allow all operations on opportunities" on public.opportunities for all using (true) with check (true);
-create policy "Allow all operations on announcements" on public.announcements for all using (true) with check (true);
-create policy "Allow all operations on notifications" on public.notifications for all using (true) with check (true);
-create policy "Allow all operations on connections" on public.connections for all using (true) with check (true);
-create policy "Allow all operations on conversations" on public.conversations for all using (true) with check (true);
-create policy "Allow all operations on messages" on public.messages for all using (true) with check (true);
-create policy "Allow all operations on reports" on public.reports for all using (true) with check (true);
-create policy "Allow all operations on assignments" on public.assignments for all using (true) with check (true);
+-- Trigger to prevent privilege escalation on users table
+create or replace function public.protect_user_fields()
+returns trigger language plpgsql security definer as $$
+begin
+  -- If not campus admin, prevent changing role, verified, id, uid, email
+  if not public.is_campus_admin(auth.uid()::text) then
+    NEW.role := OLD.role;
+    NEW.verified := OLD.verified;
+    NEW.status := OLD.status;
+    NEW.id := OLD.id;
+    NEW.uid := OLD.uid;
+    NEW.email := OLD.email;
+  end if;
+  NEW."updatedAt" := now();
+  return NEW;
+end;
+$$;
+
+drop trigger if exists trg_protect_user_fields on public.users;
+create trigger trg_protect_user_fields
+  before update on public.users
+  for each row
+  execute function public.protect_user_fields();
+
+-- Trigger for new user insertion
+create or replace function public.sanitize_new_user()
+returns trigger language plpgsql security definer as $$
+begin
+  if not public.is_campus_admin(auth.uid()::text) then
+    NEW.verified := false;
+    NEW.status := 'active';
+    if NEW.role not in ('student', 'faculty') then
+      NEW.role := 'student';
+    end if;
+  end if;
+  NEW."createdAt" := coalesce(NEW."createdAt", now());
+  NEW."updatedAt" := now();
+  return NEW;
+end;
+$$;
+
+drop trigger if exists trg_sanitize_new_user on public.users;
+create trigger trg_sanitize_new_user
+  before insert on public.users
+  for each row
+  execute function public.sanitize_new_user();
+
+-- Trigger for community creation to prevent students self-assigning verified / isOfficial
+create or replace function public.sanitize_new_community()
+returns trigger language plpgsql security definer as $$
+begin
+  if not public.is_campus_admin(auth.uid()::text) then
+    NEW."isOfficial" := false;
+    NEW."verificationStatus" := 'student';
+  end if;
+  NEW."createdAt" := coalesce(NEW."createdAt", now());
+  NEW."updatedAt" := now();
+  return NEW;
+end;
+$$;
+
+drop trigger if exists trg_sanitize_new_community on public.communities;
+create trigger trg_sanitize_new_community
+  before insert or update on public.communities
+  for each row
+  execute function public.sanitize_new_community();
 
 -- ==========================================================
--- 15. Enable Supabase Realtime (100% Free Tier)
--- Allows live WebSocket streaming across multi-browsers/devices
+-- 8. Clean up any open / dangerous RLS policies
+-- ==========================================================
+drop policy if exists "Allow all operations for authenticated and anonymous users" on public.users;
+drop policy if exists "Allow all operations on posts" on public.posts;
+drop policy if exists "Allow all operations on comments" on public.comments;
+drop policy if exists "Allow all operations on events" on public.events;
+drop policy if exists "Allow all operations on study_materials" on public.study_materials;
+drop policy if exists "Allow all operations on opportunities" on public.opportunities;
+drop policy if exists "Allow all operations on announcements" on public.announcements;
+drop policy if exists "Allow all operations on notifications" on public.notifications;
+drop policy if exists "Allow all operations on connections" on public.connections;
+drop policy if exists "Allow all operations on conversations" on public.conversations;
+drop policy if exists "Allow all operations on messages" on public.messages;
+drop policy if exists "Allow all operations on reports" on public.reports;
+drop policy if exists "Allow all operations on assignments" on public.assignments;
+drop policy if exists "Allow all operations on communities" on public.communities;
+drop policy if exists "Allow all operations on community_members" on public.community_members;
+drop policy if exists "Allow all operations on community_posts" on public.community_posts;
+drop policy if exists "Allow all operations on community_comments" on public.community_comments;
+drop policy if exists "Allow all operations on community_discussions" on public.community_discussions;
+drop policy if exists "Allow all operations on community_discussion_comments" on public.community_discussion_comments;
+drop policy if exists "Allow all operations on community_messages" on public.community_messages;
+drop policy if exists "Allow all operations on community_resources" on public.community_resources;
+drop policy if exists "Allow all operations on community_events" on public.community_events;
+drop policy if exists "Allow all operations on community_event_rsvps" on public.community_event_rsvps;
+drop policy if exists "Allow all operations on community_poll_votes" on public.community_poll_votes;
+drop policy if exists "Allow all operations on community_reports" on public.community_reports;
+drop policy if exists "Allow all operations on community_moderation_actions" on public.community_moderation_actions;
+
+-- Drop any previous granular policies to guarantee clean reload
+drop policy if exists "Users Select Policy" on public.users;
+drop policy if exists "Users Insert Policy" on public.users;
+drop policy if exists "Users Update Policy" on public.users;
+drop policy if exists "Users Delete Policy" on public.users;
+
+drop policy if exists "Posts Select Policy" on public.posts;
+drop policy if exists "Posts Insert Policy" on public.posts;
+drop policy if exists "Posts Update Policy" on public.posts;
+drop policy if exists "Posts Delete Policy" on public.posts;
+
+drop policy if exists "Comments Select Policy" on public.comments;
+drop policy if exists "Comments Insert Policy" on public.comments;
+drop policy if exists "Comments Update Policy" on public.comments;
+drop policy if exists "Comments Delete Policy" on public.comments;
+
+drop policy if exists "Communities Select Policy" on public.communities;
+drop policy if exists "Communities Insert Policy" on public.communities;
+drop policy if exists "Communities Update Policy" on public.communities;
+drop policy if exists "Communities Delete Policy" on public.communities;
+
+drop policy if exists "Community Members Select Policy" on public.community_members;
+drop policy if exists "Community Members Insert Policy" on public.community_members;
+drop policy if exists "Community Members Update Policy" on public.community_members;
+drop policy if exists "Community Members Delete Policy" on public.community_members;
+
+drop policy if exists "Community Posts Select Policy" on public.community_posts;
+drop policy if exists "Community Posts Insert Policy" on public.community_posts;
+drop policy if exists "Community Posts Update Policy" on public.community_posts;
+drop policy if exists "Community Posts Delete Policy" on public.community_posts;
+
+drop policy if exists "Community Comments Select Policy" on public.community_comments;
+drop policy if exists "Community Comments Insert Policy" on public.community_comments;
+drop policy if exists "Community Comments Delete Policy" on public.community_comments;
+
+drop policy if exists "Community Discussions Select Policy" on public.community_discussions;
+drop policy if exists "Community Discussions Insert Policy" on public.community_discussions;
+drop policy if exists "Community Discussions Update Policy" on public.community_discussions;
+drop policy if exists "Community Discussions Delete Policy" on public.community_discussions;
+
+drop policy if exists "Community Discussion Comments Select Policy" on public.community_discussion_comments;
+drop policy if exists "Community Discussion Comments Insert Policy" on public.community_discussion_comments;
+drop policy if exists "Community Discussion Comments Delete Policy" on public.community_discussion_comments;
+
+drop policy if exists "Community Messages Select Policy" on public.community_messages;
+drop policy if exists "Community Messages Insert Policy" on public.community_messages;
+drop policy if exists "Community Messages Update Policy" on public.community_messages;
+drop policy if exists "Community Messages Delete Policy" on public.community_messages;
+
+drop policy if exists "Community Resources Select Policy" on public.community_resources;
+drop policy if exists "Community Resources Insert Policy" on public.community_resources;
+drop policy if exists "Community Resources Delete Policy" on public.community_resources;
+
+drop policy if exists "Community Events Select Policy" on public.community_events;
+drop policy if exists "Community Events Insert Policy" on public.community_events;
+drop policy if exists "Community Events Update Policy" on public.community_events;
+drop policy if exists "Community Events Delete Policy" on public.community_events;
+
+drop policy if exists "Community Event RSVPs Select Policy" on public.community_event_rsvps;
+drop policy if exists "Community Event RSVPs Insert Policy" on public.community_event_rsvps;
+drop policy if exists "Community Event RSVPs Update Policy" on public.community_event_rsvps;
+drop policy if exists "Community Event RSVPs Delete Policy" on public.community_event_rsvps;
+
+drop policy if exists "Community Poll Votes Select Policy" on public.community_poll_votes;
+drop policy if exists "Community Poll Votes Insert Policy" on public.community_poll_votes;
+drop policy if exists "Community Poll Votes Update Policy" on public.community_poll_votes;
+drop policy if exists "Community Poll Votes Delete Policy" on public.community_poll_votes;
+
+drop policy if exists "Community Reports Select Policy" on public.community_reports;
+drop policy if exists "Community Reports Insert Policy" on public.community_reports;
+drop policy if exists "Community Reports Update Policy" on public.community_reports;
+drop policy if exists "Community Reports Delete Policy" on public.community_reports;
+
+drop policy if exists "Community Moderation Actions Select Policy" on public.community_moderation_actions;
+drop policy if exists "Community Moderation Actions Insert Policy" on public.community_moderation_actions;
+
+drop policy if exists "Events Select Policy" on public.events;
+drop policy if exists "Events Insert Policy" on public.events;
+drop policy if exists "Events Update Policy" on public.events;
+drop policy if exists "Events Delete Policy" on public.events;
+
+drop policy if exists "Study Materials Select Policy" on public.study_materials;
+drop policy if exists "Study Materials Insert Policy" on public.study_materials;
+drop policy if exists "Study Materials Update Policy" on public.study_materials;
+drop policy if exists "Study Materials Delete Policy" on public.study_materials;
+
+drop policy if exists "Opportunities Select Policy" on public.opportunities;
+drop policy if exists "Opportunities Insert Policy" on public.opportunities;
+drop policy if exists "Opportunities Update Policy" on public.opportunities;
+drop policy if exists "Opportunities Delete Policy" on public.opportunities;
+
+drop policy if exists "Announcements Select Policy" on public.announcements;
+drop policy if exists "Announcements Insert Policy" on public.announcements;
+drop policy if exists "Announcements Update Policy" on public.announcements;
+drop policy if exists "Announcements Delete Policy" on public.announcements;
+
+drop policy if exists "Notifications Select Policy" on public.notifications;
+drop policy if exists "Notifications Insert Policy" on public.notifications;
+drop policy if exists "Notifications Update Policy" on public.notifications;
+drop policy if exists "Notifications Delete Policy" on public.notifications;
+
+drop policy if exists "Connections Select Policy" on public.connections;
+drop policy if exists "Connections Insert Policy" on public.connections;
+drop policy if exists "Connections Update Policy" on public.connections;
+drop policy if exists "Connections Delete Policy" on public.connections;
+
+drop policy if exists "Conversations Select Policy" on public.conversations;
+drop policy if exists "Conversations Insert Policy" on public.conversations;
+drop policy if exists "Conversations Update Policy" on public.conversations;
+drop policy if exists "Conversations Delete Policy" on public.conversations;
+
+drop policy if exists "Messages Select Policy" on public.messages;
+drop policy if exists "Messages Insert Policy" on public.messages;
+drop policy if exists "Messages Update Policy" on public.messages;
+drop policy if exists "Messages Delete Policy" on public.messages;
+
+drop policy if exists "Reports Select Policy" on public.reports;
+drop policy if exists "Reports Insert Policy" on public.reports;
+drop policy if exists "Reports Update Policy" on public.reports;
+drop policy if exists "Reports Delete Policy" on public.reports;
+
+drop policy if exists "Assignments Select Policy" on public.assignments;
+drop policy if exists "Assignments Insert Policy" on public.assignments;
+drop policy if exists "Assignments Update Policy" on public.assignments;
+drop policy if exists "Assignments Delete Policy" on public.assignments;
+
+-- ==========================================================
+-- 9. Granular, Secure Row Level Security Policies
+-- ==========================================================
+
+-- 9.1 USERS
+create policy "Users Select Policy" on public.users for select
+using (true);
+
+create policy "Users Insert Policy" on public.users for insert
+with check (
+  auth.uid() is not null and (
+    auth.uid()::text = id or 
+    auth.uid()::text = uid or 
+    public.is_campus_admin(auth.uid()::text)
+  )
+);
+
+create policy "Users Update Policy" on public.users for update
+using (
+  auth.uid() is not null and (
+    auth.uid()::text = id or 
+    auth.uid()::text = uid or 
+    public.is_campus_admin(auth.uid()::text)
+  )
+)
+with check (
+  auth.uid() is not null and (
+    auth.uid()::text = id or 
+    auth.uid()::text = uid or 
+    public.is_campus_admin(auth.uid()::text)
+  )
+);
+
+create policy "Users Delete Policy" on public.users for delete
+using (
+  auth.uid() is not null and public.is_campus_admin(auth.uid()::text)
+);
+
+-- 9.2 POSTS
+create policy "Posts Select Policy" on public.posts for select
+using (true);
+
+create policy "Posts Insert Policy" on public.posts for insert
+with check (
+  auth.uid() is not null and "authorId" = auth.uid()::text
+);
+
+create policy "Posts Update Policy" on public.posts for update
+using (
+  auth.uid() is not null and (
+    "authorId" = auth.uid()::text or 
+    public.is_campus_admin(auth.uid()::text)
+  )
+)
+with check (
+  auth.uid() is not null and (
+    "authorId" = auth.uid()::text or 
+    public.is_campus_admin(auth.uid()::text)
+  )
+);
+
+create policy "Posts Delete Policy" on public.posts for delete
+using (
+  auth.uid() is not null and (
+    "authorId" = auth.uid()::text or 
+    public.is_campus_admin(auth.uid()::text)
+  )
+);
+
+-- 9.3 COMMENTS
+create policy "Comments Select Policy" on public.comments for select
+using (true);
+
+create policy "Comments Insert Policy" on public.comments for insert
+with check (
+  auth.uid() is not null and "authorId" = auth.uid()::text
+);
+
+create policy "Comments Update Policy" on public.comments for update
+using (
+  auth.uid() is not null and (
+    "authorId" = auth.uid()::text or 
+    public.is_campus_admin(auth.uid()::text)
+  )
+)
+with check (
+  auth.uid() is not null and (
+    "authorId" = auth.uid()::text or 
+    public.is_campus_admin(auth.uid()::text)
+  )
+);
+
+create policy "Comments Delete Policy" on public.comments for delete
+using (
+  auth.uid() is not null and (
+    "authorId" = auth.uid()::text or 
+    public.is_campus_admin(auth.uid()::text)
+  )
+);
+
+-- 9.4 COMMUNITIES (Clubs & Societies Directory)
+create policy "Communities Select Policy" on public.communities for select
+using (true);
+
+create policy "Communities Insert Policy" on public.communities for insert
+with check (
+  auth.uid() is not null and "ownerId" = auth.uid()::text
+);
+
+create policy "Communities Update Policy" on public.communities for update
+using (
+  auth.uid() is not null and (
+    public.has_community_role_rank(id, auth.uid()::text, 'admin') or 
+    public.is_campus_admin(auth.uid()::text)
+  )
+)
+with check (
+  auth.uid() is not null and (
+    public.has_community_role_rank(id, auth.uid()::text, 'admin') or 
+    public.is_campus_admin(auth.uid()::text)
+  )
+);
+
+create policy "Communities Delete Policy" on public.communities for delete
+using (
+  auth.uid() is not null and (
+    public.has_community_role_rank(id, auth.uid()::text, 'owner') or 
+    public.is_campus_admin(auth.uid()::text)
+  )
+);
+
+-- 9.5 COMMUNITY MEMBERSHIPS (Single Source of Truth)
+create policy "Community Members Select Policy" on public.community_members for select
+using (
+  public.can_access_community("communityId", auth.uid()::text) or 
+  "userId" = auth.uid()::text or 
+  role in ('owner', 'admin')
+);
+
+create policy "Community Members Insert Policy" on public.community_members for insert
+with check (
+  auth.uid() is not null and (
+    "userId" = auth.uid()::text or 
+    public.has_community_role_rank("communityId", auth.uid()::text, 'admin') or 
+    public.is_campus_admin(auth.uid()::text)
+  )
+);
+
+create policy "Community Members Update Policy" on public.community_members for update
+using (
+  auth.uid() is not null and (
+    public.has_community_role_rank("communityId", auth.uid()::text, 'admin') or 
+    public.is_campus_admin(auth.uid()::text)
+  )
+)
+with check (
+  auth.uid() is not null and (
+    public.has_community_role_rank("communityId", auth.uid()::text, 'admin') or 
+    public.is_campus_admin(auth.uid()::text)
+  )
+);
+
+create policy "Community Members Delete Policy" on public.community_members for delete
+using (
+  auth.uid() is not null and (
+    "userId" = auth.uid()::text or 
+    public.has_community_role_rank("communityId", auth.uid()::text, 'admin') or 
+    public.is_campus_admin(auth.uid()::text)
+  )
+);
+
+-- 9.6 COMMUNITY POSTS
+create policy "Community Posts Select Policy" on public.community_posts for select
+using (
+  public.can_access_community("communityId", auth.uid()::text)
+);
+
+create policy "Community Posts Insert Policy" on public.community_posts for insert
+with check (
+  auth.uid() is not null and 
+  "authorId" = auth.uid()::text and 
+  public.can_access_community("communityId", auth.uid()::text)
+);
+
+create policy "Community Posts Update Policy" on public.community_posts for update
+using (
+  auth.uid() is not null and (
+    "authorId" = auth.uid()::text or 
+    public.has_community_role_rank("communityId", auth.uid()::text, 'moderator') or 
+    public.is_campus_admin(auth.uid()::text)
+  )
+)
+with check (
+  auth.uid() is not null and (
+    "authorId" = auth.uid()::text or 
+    public.has_community_role_rank("communityId", auth.uid()::text, 'moderator') or 
+    public.is_campus_admin(auth.uid()::text)
+  )
+);
+
+create policy "Community Posts Delete Policy" on public.community_posts for delete
+using (
+  auth.uid() is not null and (
+    "authorId" = auth.uid()::text or 
+    public.has_community_role_rank("communityId", auth.uid()::text, 'moderator') or 
+    public.is_campus_admin(auth.uid()::text)
+  )
+);
+
+-- 9.7 COMMUNITY COMMENTS
+create policy "Community Comments Select Policy" on public.community_comments for select
+using (
+  public.can_access_community("communityId", auth.uid()::text)
+);
+
+create policy "Community Comments Insert Policy" on public.community_comments for insert
+with check (
+  auth.uid() is not null and 
+  "authorId" = auth.uid()::text and 
+  public.can_access_community("communityId", auth.uid()::text)
+);
+
+create policy "Community Comments Delete Policy" on public.community_comments for delete
+using (
+  auth.uid() is not null and (
+    "authorId" = auth.uid()::text or 
+    public.has_community_role_rank("communityId", auth.uid()::text, 'moderator') or 
+    public.is_campus_admin(auth.uid()::text)
+  )
+);
+
+-- 9.8 COMMUNITY DISCUSSIONS
+create policy "Community Discussions Select Policy" on public.community_discussions for select
+using (
+  public.can_access_community("communityId", auth.uid()::text)
+);
+
+create policy "Community Discussions Insert Policy" on public.community_discussions for insert
+with check (
+  auth.uid() is not null and 
+  "authorId" = auth.uid()::text and 
+  public.can_access_community("communityId", auth.uid()::text)
+);
+
+create policy "Community Discussions Update Policy" on public.community_discussions for update
+using (
+  auth.uid() is not null and (
+    "authorId" = auth.uid()::text or 
+    public.has_community_role_rank("communityId", auth.uid()::text, 'moderator') or 
+    public.is_campus_admin(auth.uid()::text)
+  )
+)
+with check (
+  auth.uid() is not null and (
+    "authorId" = auth.uid()::text or 
+    public.has_community_role_rank("communityId", auth.uid()::text, 'moderator') or 
+    public.is_campus_admin(auth.uid()::text)
+  )
+);
+
+create policy "Community Discussions Delete Policy" on public.community_discussions for delete
+using (
+  auth.uid() is not null and (
+    "authorId" = auth.uid()::text or 
+    public.has_community_role_rank("communityId", auth.uid()::text, 'moderator') or 
+    public.is_campus_admin(auth.uid()::text)
+  )
+);
+
+-- 9.9 COMMUNITY DISCUSSION COMMENTS
+create policy "Community Discussion Comments Select Policy" on public.community_discussion_comments for select
+using (
+  public.can_access_community("communityId", auth.uid()::text)
+);
+
+create policy "Community Discussion Comments Insert Policy" on public.community_discussion_comments for insert
+with check (
+  auth.uid() is not null and 
+  "authorId" = auth.uid()::text and 
+  public.can_access_community("communityId", auth.uid()::text)
+);
+
+create policy "Community Discussion Comments Delete Policy" on public.community_discussion_comments for delete
+using (
+  auth.uid() is not null and (
+    "authorId" = auth.uid()::text or 
+    public.has_community_role_rank("communityId", auth.uid()::text, 'moderator') or 
+    public.is_campus_admin(auth.uid()::text)
+  )
+);
+
+-- 9.10 COMMUNITY LIVE MESSAGES (Group Chat)
+create policy "Community Messages Select Policy" on public.community_messages for select
+using (
+  public.can_access_community("communityId", auth.uid()::text)
+);
+
+create policy "Community Messages Insert Policy" on public.community_messages for insert
+with check (
+  auth.uid() is not null and 
+  "senderId" = auth.uid()::text and 
+  public.can_access_community("communityId", auth.uid()::text)
+);
+
+create policy "Community Messages Update Policy" on public.community_messages for update
+using (
+  auth.uid() is not null and (
+    "senderId" = auth.uid()::text or 
+    public.has_community_role_rank("communityId", auth.uid()::text, 'moderator') or 
+    public.is_campus_admin(auth.uid()::text)
+  )
+)
+with check (
+  auth.uid() is not null and (
+    "senderId" = auth.uid()::text or 
+    public.has_community_role_rank("communityId", auth.uid()::text, 'moderator') or 
+    public.is_campus_admin(auth.uid()::text)
+  )
+);
+
+create policy "Community Messages Delete Policy" on public.community_messages for delete
+using (
+  auth.uid() is not null and (
+    "senderId" = auth.uid()::text or 
+    public.has_community_role_rank("communityId", auth.uid()::text, 'moderator') or 
+    public.is_campus_admin(auth.uid()::text)
+  )
+);
+
+-- 9.11 COMMUNITY RESOURCES
+create policy "Community Resources Select Policy" on public.community_resources for select
+using (
+  public.can_access_community("communityId", auth.uid()::text)
+);
+
+create policy "Community Resources Insert Policy" on public.community_resources for insert
+with check (
+  auth.uid() is not null and 
+  "uploadedBy" = auth.uid()::text and 
+  public.can_access_community("communityId", auth.uid()::text)
+);
+
+create policy "Community Resources Delete Policy" on public.community_resources for delete
+using (
+  auth.uid() is not null and (
+    "uploadedBy" = auth.uid()::text or 
+    public.has_community_role_rank("communityId", auth.uid()::text, 'moderator') or 
+    public.is_campus_admin(auth.uid()::text)
+  )
+);
+
+-- 9.12 COMMUNITY EVENTS
+create policy "Community Events Select Policy" on public.community_events for select
+using (
+  public.can_access_community("communityId", auth.uid()::text)
+);
+
+create policy "Community Events Insert Policy" on public.community_events for insert
+with check (
+  auth.uid() is not null and 
+  "createdBy" = auth.uid()::text and 
+  (
+    public.has_community_role_rank("communityId", auth.uid()::text, 'moderator') or 
+    public.is_campus_admin(auth.uid()::text)
+  )
+);
+
+create policy "Community Events Update Policy" on public.community_events for update
+using (
+  auth.uid() is not null and (
+    "createdBy" = auth.uid()::text or 
+    public.has_community_role_rank("communityId", auth.uid()::text, 'admin') or 
+    public.is_campus_admin(auth.uid()::text)
+  )
+)
+with check (
+  auth.uid() is not null and (
+    "createdBy" = auth.uid()::text or 
+    public.has_community_role_rank("communityId", auth.uid()::text, 'admin') or 
+    public.is_campus_admin(auth.uid()::text)
+  )
+);
+
+create policy "Community Events Delete Policy" on public.community_events for delete
+using (
+  auth.uid() is not null and (
+    "createdBy" = auth.uid()::text or 
+    public.has_community_role_rank("communityId", auth.uid()::text, 'admin') or 
+    public.is_campus_admin(auth.uid()::text)
+  )
+);
+
+-- 9.13 COMMUNITY EVENT RSVPS
+create policy "Community Event RSVPs Select Policy" on public.community_event_rsvps for select
+using (
+  public.can_access_community("communityId", auth.uid()::text)
+);
+
+create policy "Community Event RSVPs Insert Policy" on public.community_event_rsvps for insert
+with check (
+  auth.uid() is not null and 
+  "userId" = auth.uid()::text and 
+  public.can_access_community("communityId", auth.uid()::text)
+);
+
+create policy "Community Event RSVPs Update Policy" on public.community_event_rsvps for update
+using (
+  auth.uid() is not null and "userId" = auth.uid()::text
+)
+with check (
+  auth.uid() is not null and "userId" = auth.uid()::text
+);
+
+create policy "Community Event RSVPs Delete Policy" on public.community_event_rsvps for delete
+using (
+  auth.uid() is not null and "userId" = auth.uid()::text
+);
+
+-- 9.14 COMMUNITY POLL VOTES
+create policy "Community Poll Votes Select Policy" on public.community_poll_votes for select
+using (
+  public.can_access_community("communityId", auth.uid()::text)
+);
+
+create policy "Community Poll Votes Insert Policy" on public.community_poll_votes for insert
+with check (
+  auth.uid() is not null and 
+  "userId" = auth.uid()::text and 
+  public.can_access_community("communityId", auth.uid()::text)
+);
+
+create policy "Community Poll Votes Update Policy" on public.community_poll_votes for update
+using (
+  auth.uid() is not null and "userId" = auth.uid()::text
+)
+with check (
+  auth.uid() is not null and "userId" = auth.uid()::text
+);
+
+create policy "Community Poll Votes Delete Policy" on public.community_poll_votes for delete
+using (
+  auth.uid() is not null and "userId" = auth.uid()::text
+);
+
+-- 9.15 COMMUNITY REPORTS
+create policy "Community Reports Select Policy" on public.community_reports for select
+using (
+  auth.uid() is not null and (
+    "reporterId" = auth.uid()::text or 
+    public.has_community_role_rank("communityId", auth.uid()::text, 'moderator') or 
+    public.is_campus_admin(auth.uid()::text)
+  )
+);
+
+create policy "Community Reports Insert Policy" on public.community_reports for insert
+with check (
+  auth.uid() is not null and 
+  "reporterId" = auth.uid()::text and 
+  public.can_access_community("communityId", auth.uid()::text)
+);
+
+create policy "Community Reports Update Policy" on public.community_reports for update
+using (
+  auth.uid() is not null and (
+    public.has_community_role_rank("communityId", auth.uid()::text, 'moderator') or 
+    public.is_campus_admin(auth.uid()::text)
+  )
+)
+with check (
+  auth.uid() is not null and (
+    public.has_community_role_rank("communityId", auth.uid()::text, 'moderator') or 
+    public.is_campus_admin(auth.uid()::text)
+  )
+);
+
+create policy "Community Reports Delete Policy" on public.community_reports for delete
+using (
+  auth.uid() is not null and public.is_campus_admin(auth.uid()::text)
+);
+
+-- 9.16 COMMUNITY MODERATION ACTIONS
+create policy "Community Moderation Actions Select Policy" on public.community_moderation_actions for select
+using (
+  auth.uid() is not null and (
+    public.has_community_role_rank("communityId", auth.uid()::text, 'moderator') or 
+    public.is_campus_admin(auth.uid()::text)
+  )
+);
+
+create policy "Community Moderation Actions Insert Policy" on public.community_moderation_actions for insert
+with check (
+  auth.uid() is not null and (
+    public.has_community_role_rank("communityId", auth.uid()::text, 'moderator') or 
+    public.is_campus_admin(auth.uid()::text)
+  )
+);
+
+-- 9.17 CAMPUS EVENTS
+create policy "Events Select Policy" on public.events for select
+using (true);
+
+create policy "Events Insert Policy" on public.events for insert
+with check (
+  auth.uid() is not null and public.is_campus_faculty(auth.uid()::text)
+);
+
+create policy "Events Update Policy" on public.events for update
+using (
+  auth.uid() is not null and public.is_campus_faculty(auth.uid()::text)
+)
+with check (
+  auth.uid() is not null and public.is_campus_faculty(auth.uid()::text)
+);
+
+create policy "Events Delete Policy" on public.events for delete
+using (
+  auth.uid() is not null and public.is_campus_faculty(auth.uid()::text)
+);
+
+-- 9.18 STUDY MATERIALS
+create policy "Study Materials Select Policy" on public.study_materials for select
+using (true);
+
+create policy "Study Materials Insert Policy" on public.study_materials for insert
+with check (
+  auth.uid() is not null and "uploadedBy" = auth.uid()::text
+);
+
+create policy "Study Materials Update Policy" on public.study_materials for update
+using (
+  auth.uid() is not null and (
+    "uploadedBy" = auth.uid()::text or 
+    public.is_campus_faculty(auth.uid()::text)
+  )
+)
+with check (
+  auth.uid() is not null and (
+    "uploadedBy" = auth.uid()::text or 
+    public.is_campus_faculty(auth.uid()::text)
+  )
+);
+
+create policy "Study Materials Delete Policy" on public.study_materials for delete
+using (
+  auth.uid() is not null and (
+    "uploadedBy" = auth.uid()::text or 
+    public.is_campus_faculty(auth.uid()::text)
+  )
+);
+
+-- 9.19 OPPORTUNITIES & INTERNSHIPS
+create policy "Opportunities Select Policy" on public.opportunities for select
+using (true);
+
+create policy "Opportunities Insert Policy" on public.opportunities for insert
+with check (
+  auth.uid() is not null and public.is_campus_faculty(auth.uid()::text)
+);
+
+create policy "Opportunities Update Policy" on public.opportunities for update
+using (
+  auth.uid() is not null and public.is_campus_faculty(auth.uid()::text)
+)
+with check (
+  auth.uid() is not null and public.is_campus_faculty(auth.uid()::text)
+);
+
+create policy "Opportunities Delete Policy" on public.opportunities for delete
+using (
+  auth.uid() is not null and public.is_campus_faculty(auth.uid()::text)
+);
+
+-- 9.20 ANNOUNCEMENTS
+create policy "Announcements Select Policy" on public.announcements for select
+using (true);
+
+create policy "Announcements Insert Policy" on public.announcements for insert
+with check (
+  auth.uid() is not null and public.is_campus_faculty(auth.uid()::text)
+);
+
+create policy "Announcements Update Policy" on public.announcements for update
+using (
+  auth.uid() is not null and public.is_campus_faculty(auth.uid()::text)
+)
+with check (
+  auth.uid() is not null and public.is_campus_faculty(auth.uid()::text)
+);
+
+create policy "Announcements Delete Policy" on public.announcements for delete
+using (
+  auth.uid() is not null and public.is_campus_faculty(auth.uid()::text)
+);
+
+-- 9.21 NOTIFICATIONS
+create policy "Notifications Select Policy" on public.notifications for select
+using (
+  auth.uid() is not null and "recipientId" = auth.uid()::text
+);
+
+create policy "Notifications Insert Policy" on public.notifications for insert
+with check (
+  auth.uid() is not null
+);
+
+create policy "Notifications Update Policy" on public.notifications for update
+using (
+  auth.uid() is not null and "recipientId" = auth.uid()::text
+)
+with check (
+  auth.uid() is not null and "recipientId" = auth.uid()::text
+);
+
+create policy "Notifications Delete Policy" on public.notifications for delete
+using (
+  auth.uid() is not null and "recipientId" = auth.uid()::text
+);
+
+-- 9.22 CONNECTIONS
+create policy "Connections Select Policy" on public.connections for select
+using (
+  auth.uid() is not null and (
+    "requesterId" = auth.uid()::text or 
+    "recipientId" = auth.uid()::text or 
+    public.is_campus_admin(auth.uid()::text)
+  )
+);
+
+create policy "Connections Insert Policy" on public.connections for insert
+with check (
+  auth.uid() is not null and "requesterId" = auth.uid()::text
+);
+
+create policy "Connections Update Policy" on public.connections for update
+using (
+  auth.uid() is not null and (
+    "requesterId" = auth.uid()::text or 
+    "recipientId" = auth.uid()::text or 
+    public.is_campus_admin(auth.uid()::text)
+  )
+)
+with check (
+  auth.uid() is not null and (
+    "requesterId" = auth.uid()::text or 
+    "recipientId" = auth.uid()::text or 
+    public.is_campus_admin(auth.uid()::text)
+  )
+);
+
+create policy "Connections Delete Policy" on public.connections for delete
+using (
+  auth.uid() is not null and (
+    "requesterId" = auth.uid()::text or 
+    "recipientId" = auth.uid()::text or 
+    public.is_campus_admin(auth.uid()::text)
+  )
+);
+
+-- 9.23 CONVERSATIONS
+create policy "Conversations Select Policy" on public.conversations for select
+using (
+  auth.uid() is not null and (
+    auth.uid()::text = any(participants) or 
+    public.is_campus_admin(auth.uid()::text)
+  )
+);
+
+create policy "Conversations Insert Policy" on public.conversations for insert
+with check (
+  auth.uid() is not null and auth.uid()::text = any(participants)
+);
+
+create policy "Conversations Update Policy" on public.conversations for update
+using (
+  auth.uid() is not null and (
+    auth.uid()::text = any(participants) or 
+    public.is_campus_admin(auth.uid()::text)
+  )
+)
+with check (
+  auth.uid() is not null and (
+    auth.uid()::text = any(participants) or 
+    public.is_campus_admin(auth.uid()::text)
+  )
+);
+
+create policy "Conversations Delete Policy" on public.conversations for delete
+using (
+  auth.uid() is not null and (
+    auth.uid()::text = any(participants) or 
+    public.is_campus_admin(auth.uid()::text)
+  )
+);
+
+-- 9.24 MESSAGES
+create policy "Messages Select Policy" on public.messages for select
+using (
+  auth.uid() is not null and (
+    exists (
+      select 1 from public.conversations c 
+      where c.id = "conversationId" and auth.uid()::text = any(c.participants)
+    ) or 
+    public.is_campus_admin(auth.uid()::text)
+  )
+);
+
+create policy "Messages Insert Policy" on public.messages for insert
+with check (
+  auth.uid() is not null and 
+  "senderId" = auth.uid()::text and 
+  exists (
+    select 1 from public.conversations c 
+    where c.id = "conversationId" and auth.uid()::text = any(c.participants)
+  )
+);
+
+create policy "Messages Update Policy" on public.messages for update
+using (
+  auth.uid() is not null and (
+    "senderId" = auth.uid()::text or 
+    public.is_campus_admin(auth.uid()::text)
+  )
+)
+with check (
+  auth.uid() is not null and (
+    "senderId" = auth.uid()::text or 
+    public.is_campus_admin(auth.uid()::text)
+  )
+);
+
+create policy "Messages Delete Policy" on public.messages for delete
+using (
+  auth.uid() is not null and (
+    "senderId" = auth.uid()::text or 
+    public.is_campus_admin(auth.uid()::text)
+  )
+);
+
+-- 9.25 CAMPUS REPORTS
+create policy "Reports Select Policy" on public.reports for select
+using (
+  auth.uid() is not null and (
+    "reportedBy" = auth.uid()::text or 
+    public.is_campus_admin(auth.uid()::text)
+  )
+);
+
+create policy "Reports Insert Policy" on public.reports for insert
+with check (
+  auth.uid() is not null and "reportedBy" = auth.uid()::text
+);
+
+create policy "Reports Update Policy" on public.reports for update
+using (
+  auth.uid() is not null and public.is_campus_admin(auth.uid()::text)
+)
+with check (
+  auth.uid() is not null and public.is_campus_admin(auth.uid()::text)
+);
+
+create policy "Reports Delete Policy" on public.reports for delete
+using (
+  auth.uid() is not null and public.is_campus_admin(auth.uid()::text)
+);
+
+-- 9.26 ASSIGNMENTS
+create policy "Assignments Select Policy" on public.assignments for select
+using (true);
+
+create policy "Assignments Insert Policy" on public.assignments for insert
+with check (
+  auth.uid() is not null and public.is_campus_faculty(auth.uid()::text)
+);
+
+create policy "Assignments Update Policy" on public.assignments for update
+using (
+  auth.uid() is not null and public.is_campus_faculty(auth.uid()::text)
+)
+with check (
+  auth.uid() is not null and public.is_campus_faculty(auth.uid()::text)
+);
+
+create policy "Assignments Delete Policy" on public.assignments for delete
+using (
+  auth.uid() is not null and public.is_campus_faculty(auth.uid()::text)
+);
+
+-- ==========================================================
+-- 10. Enable Supabase Realtime (WebSocket Streaming)
 -- ==========================================================
 do $$
 begin
@@ -663,4 +1706,3 @@ begin
     alter publication supabase_realtime add table public.community_moderation_actions;
   end if;
 end $$;
-

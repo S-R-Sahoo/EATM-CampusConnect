@@ -40,7 +40,6 @@ export interface UserProfile {
     linkedin?: string;
     twitter?: string;
     portfolio?: string;
-    passHash?: string;
   };
   settings?: {
     account?: {

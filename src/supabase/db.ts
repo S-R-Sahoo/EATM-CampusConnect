@@ -552,20 +552,39 @@ export async function updateUserProfile(userId: string, data: Partial<UserProfil
   const index = users.findIndex(u => u.id === userId || u.uid === userId);
   let updatedUser: UserProfile;
 
+  // Clean socialLinks to ensure no password hashes are stored
+  const sanitizedSocialLinks = { ...(data.socialLinks || {}) };
+  if ('passHash' in sanitizedSocialLinks) {
+    delete (sanitizedSocialLinks as any).passHash;
+  }
+
   if (index !== -1) {
     const existing = users[index];
+    // Prevent non-admin self-elevation of role or verification status
+    const safeRole = data.role !== undefined && existing.role === 'admin' ? data.role : existing.role;
+    const safeVerified = data.verified !== undefined && existing.role === 'admin' ? data.verified : existing.verified;
+
     updatedUser = {
       ...existing,
       ...data,
+      role: safeRole,
+      verified: safeVerified,
       socialLinks: {
         ...(existing.socialLinks || {}),
-        ...(data.socialLinks || {})
+        ...sanitizedSocialLinks
       },
       updatedAt: new Date().toISOString()
     };
     users[index] = updatedUser;
   } else {
-    updatedUser = { ...(data as UserProfile), id: userId, uid: userId, updatedAt: new Date().toISOString() };
+    updatedUser = { 
+      ...(data as UserProfile), 
+      id: userId, 
+      uid: userId, 
+      verified: false,
+      socialLinks: sanitizedSocialLinks,
+      updatedAt: new Date().toISOString() 
+    };
     users.push(updatedUser);
   }
 
@@ -573,7 +592,11 @@ export async function updateUserProfile(userId: string, data: Partial<UserProfil
 
   if (isSupabaseConfigured() && supabase) {
     try {
-      await supabase.from('users').upsert([{ ...updatedUser, id: userId }]);
+      // Upsert profile without privilege escalation
+      await supabase.from('users').upsert([{ 
+        ...updatedUser, 
+        id: userId 
+      }]);
     } catch (err) {
       console.warn('Supabase updateUserProfile error:', err);
     }
@@ -2097,6 +2120,12 @@ export async function createCommunity(
   data: Partial<Community> & { name: string; category: string; description: string },
   creatorId: string
 ): Promise<Community> {
+  const users = await fetchUsers();
+  const creator = users.find(u => u.id === creatorId || u.uid === creatorId);
+  const isCampusAdmin = creator?.role === 'admin';
+  const isOfficial = isCampusAdmin ? (data.isOfficial || false) : false;
+  const verificationStatus = isOfficial ? 'verified' : 'student';
+
   const newId = 'club_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6);
   const newCommunity: Community = {
     id: newId,
@@ -2107,8 +2136,8 @@ export async function createCommunity(
     logoUrl: data.logoUrl || 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=300&auto=format&fit=crop&q=80',
     coverUrl: data.coverUrl || 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=1200&auto=format&fit=crop&q=80',
     ownerId: creatorId,
-    isOfficial: data.isOfficial || false,
-    verificationStatus: data.isOfficial ? 'verified' : 'student',
+    isOfficial,
+    verificationStatus,
     memberCount: 1,
     members: [creatorId],
     admins: [creatorId],
@@ -2352,6 +2381,14 @@ export async function handleCommunityJoinRequest(
   action: 'approve' | 'reject',
   adminId: string
 ): Promise<{ success: boolean; community?: Community }> {
+  const currentComm = await fetchCommunityById(communityId);
+  if (!currentComm) return { success: false };
+  const isAuthorized = currentComm.ownerId === adminId || (currentComm.admins || []).includes(adminId);
+  if (!isAuthorized) {
+    console.warn('Unauthorized join request action attempt by:', adminId);
+    return { success: false };
+  }
+
   if (isSupabaseConfigured() && supabase) {
     try {
       const { data: comm } = await supabase.from('communities').select('*').eq('id', communityId).maybeSingle();
@@ -2434,6 +2471,18 @@ export async function updateCommunityMemberRole(
   newRole: CommunityRole,
   adminId: string
 ): Promise<{ success: boolean; community?: Community }> {
+  const currentComm = await fetchCommunityById(communityId);
+  if (!currentComm) return { success: false };
+  if (newRole === 'owner' && currentComm.ownerId !== adminId) {
+    console.warn('Unauthorized ownership transfer attempt by non-owner:', adminId);
+    return { success: false };
+  }
+  const isAuthorized = currentComm.ownerId === adminId || (currentComm.admins || []).includes(adminId);
+  if (!isAuthorized) {
+    console.warn('Unauthorized role change attempt by:', adminId);
+    return { success: false };
+  }
+
   if (isSupabaseConfigured() && supabase) {
     try {
       if (newRole === 'owner') {
@@ -2500,6 +2549,18 @@ export async function removeCommunityMember(
   targetUserId: string,
   adminId: string
 ): Promise<{ success: boolean; community?: Community }> {
+  const currentComm = await fetchCommunityById(communityId);
+  if (!currentComm) return { success: false };
+  if (targetUserId === currentComm.ownerId) {
+    console.warn('Cannot remove the community owner');
+    return { success: false };
+  }
+  const isAuthorized = currentComm.ownerId === adminId || (currentComm.admins || []).includes(adminId);
+  if (!isAuthorized) {
+    console.warn('Unauthorized member removal attempt by:', adminId);
+    return { success: false };
+  }
+
   if (isSupabaseConfigured() && supabase) {
     try {
       await supabase.from('community_members')
@@ -2556,6 +2617,18 @@ export async function banCommunityMember(
   reason: string,
   adminId: string
 ): Promise<{ success: boolean; community?: Community }> {
+  const currentComm = await fetchCommunityById(communityId);
+  if (!currentComm) return { success: false };
+  if (targetUserId === currentComm.ownerId) {
+    console.warn('Cannot ban the community owner');
+    return { success: false };
+  }
+  const isAuthorized = currentComm.ownerId === adminId || (currentComm.admins || []).includes(adminId);
+  if (!isAuthorized) {
+    console.warn('Unauthorized member ban attempt by:', adminId);
+    return { success: false };
+  }
+
   if (isSupabaseConfigured() && supabase) {
     try {
       await supabase.from('community_members').upsert([{

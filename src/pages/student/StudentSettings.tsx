@@ -7,6 +7,7 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Modal } from '../../components/ui/Modal';
 import { Avatar } from '../../components/ui/Avatar';
+import { updateUserPassword } from '../../supabase/auth';
 import { 
   Settings, User, Shield, Bell, Palette, 
   LogOut, Trash2, Mail, Lock, Check,
@@ -96,19 +97,14 @@ export const StudentSettings: React.FC = () => {
     }
     setSaving(true);
     try {
-      await updateUser({
-        socialLinks: {
-          ...(user?.socialLinks || {}),
-          passHash: btoa(newPassword.trim())
-        }
-      });
-      success('Account password updated securely!', 'Password Changed');
+      await updateUserPassword(newPassword.trim());
+      success('Account password updated securely in Supabase Auth!', 'Password Changed');
       setPasswordModalOpen(false);
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
-    } catch {
-      toastError('Failed to update password.');
+    } catch (err: any) {
+      toastError(err.message || 'Failed to update password.');
     } finally {
       setSaving(false);
     }
