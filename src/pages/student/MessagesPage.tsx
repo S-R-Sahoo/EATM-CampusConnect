@@ -312,6 +312,82 @@ export const MessagesPage: React.FC = () => {
     return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
   };
 
+  // Helper: Stably sort conversations with newest active conversation at top
+  const sortConversationsList = useCallback((convs: Conversation[]): Conversation[] => {
+    return [...convs].sort((a, b) => {
+      const timeA = new Date((a.lastMessage as any)?.createdAt || a.updatedAt || 0).getTime();
+      const timeB = new Date((b.lastMessage as any)?.createdAt || b.updatedAt || 0).getTime();
+      return timeB - timeA;
+    });
+  }, []);
+
+  // Updates conversation list preview and moves conversation to top when a message is sent or received
+  const updateConversationOnMessage = useCallback((msg: Message) => {
+    if (!msg || !msg.conversationId) return;
+    setConversations(prev => {
+      let previewText = msg.text;
+      if (!previewText) {
+        if (msg.mediaType === 'image') previewText = '📷 Photo';
+        else if (msg.mediaType === 'video') previewText = '🎥 Video';
+        else if (msg.mediaType === 'audio') previewText = '🎤 Voice Note';
+        else if (msg.mediaType === 'file') previewText = `📄 ${msg.fileName || 'Document'}`;
+        else previewText = 'Attachment';
+      }
+
+      const existing = prev.find(c => c.id === msg.conversationId);
+      const isCurrentActive = msg.conversationId === activeConvId;
+      const isMyMsg = msg.senderId === user?.id;
+
+      const unreadCount = { ...(existing?.unreadCount || {}) };
+      if (!isCurrentActive && !isMyMsg && user?.id) {
+        unreadCount[user.id] = (unreadCount[user.id] || 0) + 1;
+      } else if (isCurrentActive && user?.id) {
+        unreadCount[user.id] = 0;
+      }
+
+      const updatedConv: Conversation = existing ? {
+        ...existing,
+        updatedAt: msg.createdAt,
+        unreadCount,
+        lastMessage: {
+          text: previewText,
+          senderId: msg.senderId,
+          timestamp: new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          read: isCurrentActive || isMyMsg
+        }
+      } : {
+        id: msg.conversationId,
+        participants: [user?.id || '', msg.senderId].filter(Boolean),
+        participantDetails: {},
+        updatedAt: msg.createdAt,
+        unreadCount,
+        isGroup: false,
+        lastMessage: {
+          text: previewText,
+          senderId: msg.senderId,
+          timestamp: new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          read: isCurrentActive || isMyMsg
+        }
+      };
+
+      const others = prev.filter(c => c.id !== msg.conversationId);
+      return [updatedConv, ...others];
+    });
+  }, [activeConvId, user?.id]);
+
+  // Global listener for all chat messages to keep conversation previews synchronized in real time
+  useEffect(() => {
+    const handleGlobalMsg = (e: CustomEvent<Message>) => {
+      if (e.detail) {
+        updateConversationOnMessage(e.detail);
+      }
+    };
+    window.addEventListener('eatm_chat_message', handleGlobalMsg as EventListener);
+    return () => {
+      window.removeEventListener('eatm_chat_message', handleGlobalMsg as EventListener);
+    };
+  }, [updateConversationOnMessage]);
+
   useEffect(() => {
     if (!user) return;
 
@@ -345,7 +421,9 @@ export const MessagesPage: React.FC = () => {
           console.warn('Auto-link friends error:', linkErr);
         }
 
-        if (isMounted) setConversations(convs);
+        if (isMounted) {
+          setConversations(sortConversationsList(convs));
+        }
 
         const targetConvId = (location.state as any)?.conversationId || searchParams.get('conversationId');
         const targetUserId = searchParams.get('userId');
@@ -372,16 +450,31 @@ export const MessagesPage: React.FC = () => {
 
     initConvs();
 
-    // Background interval to keep conversation list updated with latest messages/connections without shrinking
+    // Background interval to keep conversation list fresh without glitching or reordering jump
     const convsInterval = setInterval(async () => {
       if (!isMounted || !user) return;
       try {
         const fresh = await fetchConversations(user.id);
         if (isMounted && fresh.length > 0) {
           setConversations(prev => {
+            const prevMap = new Map(prev.map(c => [c.id, c]));
+            const merged = fresh.map(f => {
+              const local = prevMap.get(f.id);
+              // Preserve local unread count if already cleared locally
+              if (local && local.unreadCount && user.id && local.unreadCount[user.id] === 0) {
+                return {
+                  ...f,
+                  unreadCount: { ...(f.unreadCount || {}), [user.id]: 0 }
+                };
+              }
+              return f;
+            });
+            // Keep any locally created conversations not yet on server
             const freshIds = new Set(fresh.map(c => c.id));
-            const retained = prev.filter(c => !freshIds.has(c.id));
-            return [...fresh, ...retained];
+            prev.forEach(p => {
+              if (!freshIds.has(p.id)) merged.push(p);
+            });
+            return sortConversationsList(merged);
           });
         }
       } catch (_) {}
@@ -391,7 +484,7 @@ export const MessagesPage: React.FC = () => {
       isMounted = false;
       clearInterval(convsInterval);
     };
-  }, [user, location.state, searchParams, selectConversation]);
+  }, [user, location.state, searchParams, selectConversation, sortConversationsList]);
 
   useEffect(() => {
     if (activeConvId) {
@@ -401,7 +494,7 @@ export const MessagesPage: React.FC = () => {
       // Instantly load cached messages for 0ms render
       const cached = getCachedMessages(activeConvId);
       if (cached.length > 0) {
-        const dedupedCached = dedupeMessageList(cached);
+        const dedupedCached = dedupeMessageList(cached).sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
         setMessages(prev => (areMessageListsEqual(prev, dedupedCached) ? prev : dedupedCached));
         setTimeout(() => {
           if (messagesScrollRef.current) messagesScrollRef.current.scrollTop = messagesScrollRef.current.scrollHeight;
@@ -410,12 +503,12 @@ export const MessagesPage: React.FC = () => {
 
       fetchMessages(activeConvId, user?.id).then(msgs => {
         if (!isSubscribed) return;
-        const deduped = dedupeMessageList(msgs);
+        const deduped = dedupeMessageList(msgs).sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
         setMessages(prev => {
           if (areMessageListsEqual(prev, deduped)) return prev;
           setTimeout(() => {
             if (messagesScrollRef.current) messagesScrollRef.current.scrollTop = messagesScrollRef.current.scrollHeight;
-          }, 40);
+          }, 30);
           return deduped;
         });
         markMessageNotificationsAsRead();
@@ -428,12 +521,14 @@ export const MessagesPage: React.FC = () => {
           if (!isSubscribed) return;
           setMessages(prev => {
             if (prev.some(m => isDuplicateMessage(m, newMsg))) return prev;
-            return [...prev, newMsg];
+            const updated = [...prev, newMsg].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+            return updated;
           });
+          updateConversationOnMessage(newMsg);
           markMessageNotificationsAsRead();
           setTimeout(() => {
             if (messagesScrollRef.current) messagesScrollRef.current.scrollTop = messagesScrollRef.current.scrollHeight;
-          }, 60);
+          }, 40);
         },
         (deletedMsgId) => {
           if (!isSubscribed) return;
@@ -447,7 +542,7 @@ export const MessagesPage: React.FC = () => {
         }
       );
 
-      // Live Heartbeat Sync (every 4s) to guarantee zero missed messages without flicker
+      // Live Heartbeat Sync (every 5s) without re-scroll jump
       const heartbeatInterval = setInterval(async () => {
         if (!isSubscribed) return;
         try {
@@ -463,7 +558,7 @@ export const MessagesPage: React.FC = () => {
         } catch {
           // ignore background heartbeat errors
         }
-      }, 4000);
+      }, 5000);
 
       return () => {
         isSubscribed = false;
@@ -471,7 +566,7 @@ export const MessagesPage: React.FC = () => {
         unsubscribe();
       };
     }
-  }, [activeConvId, user?.id, markMessageNotificationsAsRead]);
+  }, [activeConvId, user?.id, markMessageNotificationsAsRead, updateConversationOnMessage]);
 
   // Clean up any ongoing audio recording when unmounting or switching chats
   useEffect(() => {
@@ -988,32 +1083,7 @@ export const MessagesPage: React.FC = () => {
         return [...prev, newMsg];
       });
 
-      // Update last message preview in conversations list
-      let lastText = textToSend;
-      if (!lastText) {
-        if (mediaTypeToSend === 'image') lastText = '📷 Photo';
-        else if (mediaTypeToSend === 'video') lastText = '🎥 Video';
-        else if (mediaTypeToSend === 'audio') lastText = '🎤 Voice Note';
-        else if (mediaTypeToSend === 'file') lastText = `📄 ${fileNameToSend || 'Document'}`;
-        else lastText = 'Attachment';
-      }
-
-      setConversations(prev =>
-        prev.map(c => {
-          if (c.id === activeConvId) {
-            return {
-              ...c,
-              lastMessage: {
-                text: lastText,
-                senderId: user.id,
-                timestamp: 'Just now',
-                read: true
-              }
-            };
-          }
-          return c;
-        })
-      );
+      updateConversationOnMessage(newMsg);
 
       setTimeout(() => {
         if (messagesScrollRef.current) messagesScrollRef.current.scrollTop = messagesScrollRef.current.scrollHeight;
@@ -1046,22 +1116,7 @@ export const MessagesPage: React.FC = () => {
               if (prev.some(m => isDuplicateMessage(m, replyMsg))) return prev;
               return [...prev, replyMsg];
             });
-            setConversations(prev =>
-              prev.map(c => {
-                if (c.id === activeConvId) {
-                  return {
-                    ...c,
-                    lastMessage: {
-                      text: randomReply,
-                      senderId: 'user_priya',
-                      timestamp: 'Just now',
-                      read: true
-                    }
-                  };
-                }
-                return c;
-              })
-            );
+            updateConversationOnMessage(replyMsg);
             setTimeout(() => {
               if (messagesScrollRef.current) messagesScrollRef.current.scrollTop = messagesScrollRef.current.scrollHeight;
             }, 60);
@@ -1121,15 +1176,17 @@ export const MessagesPage: React.FC = () => {
     }
   };
 
-  const filteredConversations = conversations.filter(c => {
-    if (activeTab === 'chats' && c.isGroup) return false;
-    if (activeTab === 'groups' && !c.isGroup) return false;
-    if (searchQuery) {
-      const name = c.isGroup ? c.groupName : Object.values(c.participantDetails || {}).map(d => d.name).join(' ');
-      return name?.toLowerCase().includes(searchQuery.toLowerCase());
-    }
-    return true;
-  });
+  const filteredConversations = useMemo(() => {
+    return sortConversationsList(conversations).filter(c => {
+      if (activeTab === 'chats' && c.isGroup) return false;
+      if (activeTab === 'groups' && !c.isGroup) return false;
+      if (searchQuery) {
+        const name = c.isGroup ? c.groupName : Object.values(c.participantDetails || {}).map(d => d.name).join(' ');
+        return name?.toLowerCase().includes(searchQuery.toLowerCase());
+      }
+      return true;
+    });
+  }, [conversations, activeTab, searchQuery, sortConversationsList]);
 
   const other = getOtherParty();
 

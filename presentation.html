@@ -1,0 +1,1091 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CampusConnect — Academic Minor Project Presentation (EATM)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Playfair+Display:wght@600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+    
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+    }
+    .serif-title {
+      font-family: 'Playfair Display', serif;
+    }
+    .mono-font {
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .slide-hidden {
+      display: none !important;
+    }
+    .slide-active {
+      display: flex !important;
+    }
+    @media print {
+      body { background: white !important; color: black !important; }
+      .no-print { display: none !important; }
+      .slide-container { display: flex !important; page-break-after: always; height: 100vh !important; width: 100vw !important; max-width: none !important; box-shadow: none !important; border: none !important; }
+    }
+  </style>
+</head>
+<body class="bg-[#06150c] text-slate-900 min-h-screen flex flex-col justify-between select-none overflow-hidden">
+
+  <!-- Top Navigation Control Bar -->
+  <header class="no-print h-14 bg-[#08170f]/95 backdrop-blur-md border-b border-emerald-800/40 px-6 flex items-center justify-between z-50 text-white">
+    <div class="flex items-center gap-3">
+      <img src="public/eatm-emblem.png" alt="EATM Emblem" class="w-9 h-9 object-contain rounded-xl p-1 bg-white/10 border border-emerald-500/30 shadow-md shadow-emerald-950/50" />
+      <div>
+        <div class="flex items-center gap-2">
+          <h1 class="text-sm font-extrabold text-emerald-400 leading-tight">CampusConnect</h1>
+          <span class="px-2 py-0.5 text-[10px] font-bold rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">EATM CSE</span>
+        </div>
+        <p class="text-[11px] text-slate-300 font-medium">B.Tech Computer Science & Engineering • Minor Project Presentation</p>
+      </div>
+    </div>
+
+    <!-- Slide Indicators & Controls -->
+    <div class="flex items-center gap-4">
+      <span class="mono-font text-xs font-bold text-emerald-300 bg-emerald-950/90 px-3.5 py-1 rounded-full border border-emerald-700/50 shadow-xs">
+        Slide <span id="current-slide-num">1</span> of <span id="total-slides-num">16</span>
+      </span>
+
+      <div class="flex items-center gap-1.5 bg-slate-900/90 p-1 rounded-xl border border-slate-700">
+        <button onclick="prevSlide()" class="p-1.5 hover:bg-emerald-900/50 text-slate-200 hover:text-emerald-400 rounded-lg transition active:scale-95" title="Previous Slide (← / ↑)">
+          <i data-lucide="chevron-left" class="w-4 h-4"></i>
+        </button>
+        <button onclick="nextSlide()" class="p-1.5 hover:bg-emerald-900/50 text-slate-200 hover:text-emerald-400 rounded-lg transition active:scale-95" title="Next Slide (→ / ↓ / Space)">
+          <i data-lucide="chevron-right" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <button onclick="toggleNotes()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-100 text-xs font-semibold rounded-xl transition border border-slate-600 flex items-center gap-1.5" title="Toggle Speaker Notes (N)">
+        <i data-lucide="mic" class="w-3.5 h-3.5 text-emerald-400"></i>
+        <span>Speaker Script</span>
+      </button>
+
+      <button onclick="toggleFullscreen()" class="p-2 hover:bg-emerald-900/50 text-slate-200 hover:text-emerald-400 rounded-xl transition border border-slate-700" title="Full Screen (F)">
+        <i data-lucide="maximize" class="w-4 h-4"></i>
+      </button>
+
+      <button onclick="window.print()" class="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl transition shadow-md flex items-center gap-1.5" title="Print to PDF">
+        <i data-lucide="printer" class="w-3.5 h-3.5"></i>
+        <span>PDF</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Slide Viewport -->
+  <main class="flex-1 flex items-center justify-center p-4 sm:p-6 overflow-hidden relative">
+
+    <!-- ========================================================================= -->
+    <!-- SLIDE 1 — TITLE & TEAM COVER (Deep Dark Green Luxury Hero) -->
+    <!-- ========================================================================= -->
+    <section class="slide-container slide-active w-full max-w-6xl aspect-[16/9] bg-gradient-to-br from-[#041d10] via-[#0b4627] to-[#02130a] rounded-3xl border border-emerald-500/40 p-8 sm:p-10 shadow-2xl flex flex-col justify-between relative overflow-hidden text-white" data-notes="Good morning respected evaluators, guide, and fellow peers. We are presenting our Computer Science Minor Project: CampusConnect — a web-based social networking and academic collaboration platform tailored specifically for college communities like EATM. Our team members are Soumyaranjan Sahoo, Somit Rout, Nihar Ranjan Singh, and Nitish Kumar Panda. Our motto is Connect, Collaborate, Grow.">
+      <div class="absolute -right-20 -bottom-20 w-96 h-96 rounded-full bg-emerald-500/10 blur-3xl pointer-events-none"></div>
+      
+      <!-- Top Header Row -->
+      <div class="flex items-start justify-between z-10">
+        <div class="flex items-center gap-4">
+          <img src="public/eatm-emblem.png" alt="EATM Emblem" class="w-14 h-14 sm:w-16 sm:h-16 object-contain p-2 rounded-2xl bg-white/10 border border-emerald-400/40 shadow-xl backdrop-blur-md" />
+          <div>
+            <div class="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 text-xs font-bold uppercase tracking-wider">
+              <i data-lucide="shield-check" class="w-3.5 h-3.5 text-emerald-400"></i>
+              <span>B.Tech CSE Minor Project Seminar 2026</span>
+            </div>
+            <p class="text-xs sm:text-sm text-emerald-100 font-semibold mt-1">Einstein Academy of Technology & Management (EATM), Bhubaneswar</p>
+          </div>
+        </div>
+        <div>
+          <span class="inline-block px-3.5 py-1.5 rounded-xl bg-red-600/90 text-white text-xs font-extrabold tracking-wider uppercase shadow-md">
+            FINAL DEFENSE
+          </span>
+        </div>
+      </div>
+
+      <!-- Title & Subtitle -->
+      <div class="space-y-1.5 z-10 my-auto py-1">
+        <h2 class="serif-title text-4xl sm:text-6xl font-extrabold text-white leading-tight tracking-tight drop-shadow-md">
+          CampusConnect
+        </h2>
+        <p class="text-base sm:text-xl text-emerald-100 font-normal max-w-3xl leading-snug">
+          A Web-Based Social Networking & Academic Collaboration Platform for College Communities
+        </p>
+        <div class="flex items-center gap-3 pt-1">
+          <span class="text-xs sm:text-sm font-extrabold text-emerald-300 tracking-widest uppercase bg-emerald-950/80 px-3.5 py-1 rounded-full border border-emerald-500/40">
+            CONNECT  •  COLLABORATE  •  GROW
+          </span>
+        </div>
+      </div>
+
+      <!-- Team Members Row (4 Prominent Cards) -->
+      <div class="z-10">
+        <p class="text-xs font-bold uppercase tracking-wider text-emerald-300 mb-2 mono-font">
+          Project Team Members (Department of Computer Science & Engineering)
+        </p>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div class="bg-black/40 backdrop-blur-md p-3 rounded-2xl border border-emerald-400/30 shadow-lg flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-emerald-700/60 flex items-center justify-center text-lg text-white font-bold shrink-0">
+              👨‍💻
+            </div>
+            <div>
+              <p class="text-xs sm:text-sm font-bold text-white">Soumyaranjan Sahoo</p>
+              <p class="text-[11px] text-emerald-200">Lead & Architecture</p>
+            </div>
+          </div>
+
+          <div class="bg-black/40 backdrop-blur-md p-3 rounded-2xl border border-emerald-400/30 shadow-lg flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-emerald-700/60 flex items-center justify-center text-lg text-white font-bold shrink-0">
+              👨‍💻
+            </div>
+            <div>
+              <p class="text-xs sm:text-sm font-bold text-white">Somit Rout</p>
+              <p class="text-[11px] text-emerald-200">Backend & DB</p>
+            </div>
+          </div>
+
+          <div class="bg-black/40 backdrop-blur-md p-3 rounded-2xl border border-emerald-400/30 shadow-lg flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-emerald-700/60 flex items-center justify-center text-lg text-white font-bold shrink-0">
+              👨‍💻
+            </div>
+            <div>
+              <p class="text-xs sm:text-sm font-bold text-white">Nihar Ranjan Singh</p>
+              <p class="text-[11px] text-emerald-200">Frontend & UI/UX</p>
+            </div>
+          </div>
+
+          <div class="bg-black/40 backdrop-blur-md p-3 rounded-2xl border border-emerald-400/30 shadow-lg flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-emerald-700/60 flex items-center justify-center text-lg text-white font-bold shrink-0">
+              👨‍💻
+            </div>
+            <div>
+              <p class="text-xs sm:text-sm font-bold text-white">Nitish Kumar Panda</p>
+              <p class="text-[11px] text-emerald-200">QA & Integration</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Slide 1 Footer -->
+      <div class="pt-3 border-t border-emerald-500/30 flex justify-between items-center text-[11px] text-emerald-200 z-10">
+        <span>Technology: React 18 • TypeScript • Tailwind CSS • Supabase PostgreSQL • Realtime WebSockets</span>
+        <span class="mono-font font-bold text-emerald-400">EATM Bhubaneswar</span>
+      </div>
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- SLIDE 2 — EXECUTIVE SUMMARY & MOTIVATION (High Contrast Light) -->
+    <!-- ========================================================================= -->
+    <section class="slide-container slide-hidden w-full max-w-6xl aspect-[16/9] bg-[#f8fafc] rounded-3xl border border-slate-300 p-8 shadow-2xl flex flex-col justify-between" data-notes="Every college campus suffers from fragmented communication. Notices get lost on WhatsApp, hackathons go unnoticed, and study materials are scattered across temporary cloud links. CampusConnect solves this by serving as an all-in-one digital intranet connecting every student, faculty member, and academic club under verified institutional profiles.">
+      <div class="flex justify-between items-start border-b border-slate-200 pb-3">
+        <div>
+          <p class="text-xs font-bold uppercase tracking-wider text-emerald-700 mono-font">01 / PROJECT OVERVIEW</p>
+          <h2 class="serif-title text-2xl sm:text-3xl font-extrabold text-[#0b4627] mt-0.5">Executive Summary: Why CampusConnect Matters</h2>
+        </div>
+        <img src="public/eatm-emblem.png" alt="EATM" class="w-9 h-9 object-contain" />
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-5 my-auto">
+        <div class="bg-white p-5 rounded-2xl border-2 border-emerald-200/80 shadow-md flex flex-col justify-between">
+          <div>
+            <div class="text-3xl mb-3">🏢</div>
+            <h3 class="serif-title text-lg font-bold text-[#0b4627] mb-2">Central Digital Intranet</h3>
+            <p class="text-sm text-slate-700 leading-relaxed">
+              Replaces chaotic, unorganized WhatsApp groups with a single verified institutional hub for announcements, academic discussions, and student networking.
+            </p>
+          </div>
+          <div class="mt-4 pt-3 border-t border-slate-100 flex items-center text-xs font-bold text-emerald-700">
+            <span>✔ 100% Verified Identities</span>
+          </div>
+        </div>
+
+        <div class="bg-white p-5 rounded-2xl border-2 border-emerald-200/80 shadow-md flex flex-col justify-between">
+          <div>
+            <div class="text-3xl mb-3">🤝</div>
+            <h3 class="serif-title text-lg font-bold text-[#0b4627] mb-2">Cross-Branch Synergy</h3>
+            <p class="text-sm text-slate-700 leading-relaxed">
+              Bridges communication gaps across CSE, EE, Mechanical, and Civil departments to easily discover hackathon teammates, capstone partners, and club members.
+            </p>
+          </div>
+          <div class="mt-4 pt-3 border-t border-slate-100 flex items-center text-xs font-bold text-emerald-700">
+            <span>✔ Multi-Faceted Directory</span>
+          </div>
+        </div>
+
+        <div class="bg-white p-5 rounded-2xl border-2 border-emerald-200/80 shadow-md flex flex-col justify-between">
+          <div>
+            <div class="text-3xl mb-3">📚</div>
+            <h3 class="serif-title text-lg font-bold text-[#0b4627] mb-2">Curated Knowledge Bank</h3>
+            <p class="text-sm text-slate-700 leading-relaxed">
+              Delivers structured semester and branch-wise access to verified lecture notes, previous-year question papers (PYQs), and faculty-approved study guides.
+            </p>
+          </div>
+          <div class="mt-4 pt-3 border-t border-slate-100 flex items-center text-xs font-bold text-emerald-700">
+            <span>✔ Fast 1-Click Downloads</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex justify-between items-center text-xs text-slate-500 border-t border-slate-200 pt-3">
+        <span>Einstein Academy of Technology & Management (EATM)</span>
+        <span class="mono-font font-semibold">Slide 2 of 16</span>
+      </div>
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- SLIDE 3 — THE PROBLEM STATEMENT (High Contrast Light) -->
+    <!-- ========================================================================= -->
+    <section class="slide-container slide-hidden w-full max-w-6xl aspect-[16/9] bg-[#f8fafc] rounded-3xl border border-slate-300 p-8 shadow-2xl flex flex-col justify-between" data-notes="Through our surveys at EATM, we identified four major communication bottlenecks: Information noise on WhatsApp, severe inter-branch silos, lost study materials on personal Google Drives, and zero faculty moderation. These gaps degrade student engagement.">
+      <div class="flex justify-between items-start border-b border-slate-200 pb-3">
+        <div>
+          <p class="text-xs font-bold uppercase tracking-wider text-red-600 mono-font">02 / PROBLEM STATEMENT</p>
+          <h2 class="serif-title text-2xl sm:text-3xl font-extrabold text-[#0b4627] mt-0.5">Current Campus Communication Gaps</h2>
+        </div>
+        <img src="public/eatm-emblem.png" alt="EATM" class="w-9 h-9 object-contain" />
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 my-auto">
+        <div class="bg-white p-4 sm:p-5 rounded-2xl border-2 border-red-200 shadow-md">
+          <div class="flex items-center gap-2 mb-2">
+            <span class="text-2xl">📢</span>
+            <h3 class="serif-title text-lg font-bold text-red-700">Noisy & Fragmented Channels</h3>
+          </div>
+          <p class="text-sm text-slate-700 leading-relaxed">
+            Crucial circulars, exam schedules, and assignments get buried in informal chat threads with zero searchability, indexing, or permanence.
+          </p>
+        </div>
+
+        <div class="bg-white p-4 sm:p-5 rounded-2xl border-2 border-red-200 shadow-md">
+          <div class="flex items-center gap-2 mb-2">
+            <span class="text-2xl">🔍</span>
+            <h3 class="serif-title text-lg font-bold text-red-700">Isolated Department Silos</h3>
+          </div>
+          <p class="text-sm text-slate-700 leading-relaxed">
+            Students cannot discover technical peers or complementary skills from other branches to build competitive hackathon and project teams.
+          </p>
+        </div>
+
+        <div class="bg-white p-4 sm:p-5 rounded-2xl border-2 border-red-200 shadow-md">
+          <div class="flex items-center gap-2 mb-2">
+            <span class="text-2xl">📁</span>
+            <h3 class="serif-title text-lg font-bold text-red-700">Scattered Study Notes</h3>
+          </div>
+          <p class="text-sm text-slate-700 leading-relaxed">
+            Lecture materials and previous-year question papers are hosted on fragile personal cloud drives that get broken or deleted after semesters.
+          </p>
+        </div>
+
+        <div class="bg-white p-4 sm:p-5 rounded-2xl border-2 border-red-200 shadow-md">
+          <div class="flex items-center gap-2 mb-2">
+            <span class="text-2xl">❌</span>
+            <h3 class="serif-title text-lg font-bold text-red-700">Zero Verification & Accountability</h3>
+          </div>
+          <p class="text-sm text-slate-700 leading-relaxed">
+            Informal social media channels lack academic verification, role distinctions, and institutional faculty moderation.
+          </p>
+        </div>
+      </div>
+
+      <div class="flex justify-between items-center text-xs text-slate-500 border-t border-slate-200 pt-3">
+        <span>Einstein Academy of Technology & Management (EATM)</span>
+        <span class="mono-font font-semibold">Slide 3 of 16</span>
+      </div>
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- SLIDE 4 — OUR SOLUTION (CampusConnect Ecosystem) -->
+    <!-- ========================================================================= -->
+    <section class="slide-container slide-hidden w-full max-w-6xl aspect-[16/9] bg-[#f8fafc] rounded-3xl border border-slate-300 p-8 shadow-2xl flex flex-col justify-between" data-notes="CampusConnect consolidates these four essential pillars into a unified web application: A social feed for technical discussions, real-time messaging with audio notes, a structured academic repository, and an automated event hub.">
+      <div class="flex justify-between items-start border-b border-slate-200 pb-3">
+        <div>
+          <p class="text-xs font-bold uppercase tracking-wider text-emerald-700 mono-font">03 / PROPOSED SOLUTION</p>
+          <h2 class="serif-title text-2xl sm:text-3xl font-extrabold text-[#0b4627] mt-0.5">Our Solution: The Unified Campus Ecosystem</h2>
+        </div>
+        <img src="public/eatm-emblem.png" alt="EATM" class="w-9 h-9 object-contain" />
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 my-auto">
+        <div class="bg-white p-4 sm:p-5 rounded-2xl border-2 border-emerald-300 shadow-md">
+          <div class="flex items-center gap-2 mb-2">
+            <span class="text-2xl">🌐</span>
+            <h3 class="serif-title text-lg font-bold text-[#0b4627]">Verified Social Feed</h3>
+          </div>
+          <p class="text-sm text-slate-700 leading-relaxed">
+            Share academic milestones, project demos, and code snippets with live syntax highlighting, optimistic reactions, and threaded comments.
+          </p>
+        </div>
+
+        <div class="bg-white p-4 sm:p-5 rounded-2xl border-2 border-emerald-300 shadow-md">
+          <div class="flex items-center gap-2 mb-2">
+            <span class="text-2xl">💬</span>
+            <h3 class="serif-title text-lg font-bold text-[#0b4627]">Real-Time Chat Engine</h3>
+          </div>
+          <p class="text-sm text-slate-700 leading-relaxed">
+            Instant 0ms direct & group messaging powered by Supabase WebSockets, featuring live voice notes with waveform visualizer and online presence.
+          </p>
+        </div>
+
+        <div class="bg-white p-4 sm:p-5 rounded-2xl border-2 border-emerald-300 shadow-md">
+          <div class="flex items-center gap-2 mb-2">
+            <span class="text-2xl">📚</span>
+            <h3 class="serif-title text-lg font-bold text-[#0b4627]">Central Resource Vault</h3>
+          </div>
+          <p class="text-sm text-slate-700 leading-relaxed">
+            Faculty-approved digital study library categorized by semester and department with one-click PDF downloads and solved PYQ papers.
+          </p>
+        </div>
+
+        <div class="bg-white p-4 sm:p-5 rounded-2xl border-2 border-emerald-300 shadow-md">
+          <div class="flex items-center gap-2 mb-2">
+            <span class="text-2xl">🎪</span>
+            <h3 class="serif-title text-lg font-bold text-[#0b4627]">Clubs & Events Portal</h3>
+          </div>
+          <p class="text-sm text-slate-700 leading-relaxed">
+            Comprehensive college event calendar with 1-click RSVP for hackathons, workshops, and robotics symposiums with live notifications.
+          </p>
+        </div>
+      </div>
+
+      <div class="flex justify-between items-center text-xs text-slate-500 border-t border-slate-200 pt-3">
+        <span>Einstein Academy of Technology & Management (EATM)</span>
+        <span class="mono-font font-semibold">Slide 4 of 16</span>
+      </div>
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- SLIDE 5 — USER JOURNEY & WORKFLOW -->
+    <!-- ========================================================================= -->
+    <section class="slide-container slide-hidden w-full max-w-6xl aspect-[16/9] bg-[#f8fafc] rounded-3xl border border-slate-300 p-8 shadow-2xl flex flex-col justify-between" data-notes="Here is the 5-step user lifecycle. Students register with their verified college identity, customize their skill profiles, discover peers, establish bilateral connections, and immediately begin collaborating on projects.">
+      <div class="flex justify-between items-start border-b border-slate-200 pb-3">
+        <div>
+          <p class="text-xs font-bold uppercase tracking-wider text-emerald-700 mono-font">04 / USER WORKFLOW</p>
+          <h2 class="serif-title text-2xl sm:text-3xl font-extrabold text-[#0b4627] mt-0.5">End-to-End User Experience & Flow</h2>
+        </div>
+        <img src="public/eatm-emblem.png" alt="EATM" class="w-9 h-9 object-contain" />
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-5 gap-3.5 my-auto">
+        <div class="bg-white p-4 rounded-2xl border-2 border-slate-200 shadow-md flex flex-col justify-between">
+          <div>
+            <p class="mono-font text-3xl font-extrabold text-emerald-600 mb-2">01</p>
+            <h3 class="serif-title text-base font-bold text-[#0b4627] mb-1">Sign Up</h3>
+            <p class="text-xs sm:text-sm text-slate-700 leading-relaxed">College email authentication & role selection.</p>
+          </div>
+          <span class="mt-3 text-[11px] font-bold text-emerald-700">Supabase Auth</span>
+        </div>
+
+        <div class="bg-white p-4 rounded-2xl border-2 border-slate-200 shadow-md flex flex-col justify-between">
+          <div>
+            <p class="mono-font text-3xl font-extrabold text-emerald-600 mb-2">02</p>
+            <h3 class="serif-title text-base font-bold text-[#0b4627] mb-1">Profile</h3>
+            <p class="text-xs sm:text-sm text-slate-700 leading-relaxed">Showcase branch, batch, skills & bio.</p>
+          </div>
+          <span class="mt-3 text-[11px] font-bold text-emerald-700">Portfolio Card</span>
+        </div>
+
+        <div class="bg-white p-4 rounded-2xl border-2 border-slate-200 shadow-md flex flex-col justify-between">
+          <div>
+            <p class="mono-font text-3xl font-extrabold text-emerald-600 mb-2">03</p>
+            <h3 class="serif-title text-base font-bold text-[#0b4627] mb-1">Discover</h3>
+            <p class="text-xs sm:text-sm text-slate-700 leading-relaxed">Search peers by branch, year & tech stack.</p>
+          </div>
+          <span class="mt-3 text-[11px] font-bold text-emerald-700">Multi-Filters</span>
+        </div>
+
+        <div class="bg-white p-4 rounded-2xl border-2 border-slate-200 shadow-md flex flex-col justify-between">
+          <div>
+            <p class="mono-font text-3xl font-extrabold text-emerald-600 mb-2">04</p>
+            <h3 class="serif-title text-base font-bold text-[#0b4627] mb-1">Connect</h3>
+            <p class="text-xs sm:text-sm text-slate-700 leading-relaxed">Send requests to unlock direct chat.</p>
+          </div>
+          <span class="mt-3 text-[11px] font-bold text-emerald-700">Bilateral Gate</span>
+        </div>
+
+        <div class="bg-white p-4 rounded-2xl border-2 border-slate-200 shadow-md flex flex-col justify-between">
+          <div>
+            <p class="mono-font text-3xl font-extrabold text-emerald-600 mb-2">05</p>
+            <h3 class="serif-title text-base font-bold text-[#0b4627] mb-1">Collaborate</h3>
+            <p class="text-xs sm:text-sm text-slate-700 leading-relaxed">Join clubs, share notes & chat in real-time.</p>
+          </div>
+          <span class="mt-3 text-[11px] font-bold text-emerald-700">Active Intranet</span>
+        </div>
+      </div>
+
+      <div class="flex justify-between items-center text-xs text-slate-500 border-t border-slate-200 pt-3">
+        <span>Einstein Academy of Technology & Management (EATM)</span>
+        <span class="mono-font font-semibold">Slide 5 of 16</span>
+      </div>
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- SLIDE 6 — ROLE-BASED ACCESS CONTROL (RBAC Matrix) -->
+    <!-- ========================================================================= -->
+    <section class="slide-container slide-hidden w-full max-w-6xl aspect-[16/9] bg-[#f8fafc] rounded-3xl border border-slate-300 p-8 shadow-2xl flex flex-col justify-between" data-notes="CampusConnect is built on strict Role-Based Access Control. Students have full networking and learning tools; faculty members hold elevated publishing and mentoring privileges; and administrators enforce moderation and security policies.">
+      <div class="flex justify-between items-start border-b border-slate-200 pb-3">
+        <div>
+          <p class="text-xs font-bold uppercase tracking-wider text-emerald-700 mono-font">05 / ACCESS CONTROL</p>
+          <h2 class="serif-title text-2xl sm:text-3xl font-extrabold text-[#0b4627] mt-0.5">User Roles & Granular Academic Permissions</h2>
+        </div>
+        <img src="public/eatm-emblem.png" alt="EATM" class="w-9 h-9 object-contain" />
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-5 my-auto">
+        <div class="bg-white p-5 rounded-2xl border-2 border-emerald-200 shadow-md">
+          <div class="flex items-center gap-2 mb-3">
+            <span class="text-3xl">👨‍🎓</span>
+            <h3 class="serif-title text-lg font-bold text-[#0b4627]">Student Role</h3>
+          </div>
+          <ul class="text-xs sm:text-sm text-slate-700 space-y-2">
+            <li>✔ Build verified profile & portfolio</li>
+            <li>✔ Connect with peers across branches</li>
+            <li>✔ Join interest clubs & group chats</li>
+            <li>✔ Share code snippets & download notes</li>
+          </ul>
+        </div>
+
+        <div class="bg-white p-5 rounded-2xl border-2 border-emerald-200 shadow-md">
+          <div class="flex items-center gap-2 mb-3">
+            <span class="text-3xl">👩‍🏫</span>
+            <h3 class="serif-title text-lg font-bold text-[#0b4627]">Faculty Role</h3>
+          </div>
+          <ul class="text-xs sm:text-sm text-slate-700 space-y-2">
+            <li>✔ Verified faculty badge on profile</li>
+            <li>✔ Broadcast official announcements</li>
+            <li>✔ Upload approved lecture notes & PYQs</li>
+            <li>✔ Conduct student mentoring & discussions</li>
+          </ul>
+        </div>
+
+        <div class="bg-white p-5 rounded-2xl border-2 border-emerald-200 shadow-md">
+          <div class="flex items-center gap-2 mb-3">
+            <span class="text-3xl">🛡️</span>
+            <h3 class="serif-title text-lg font-bold text-[#0b4627]">Administrator Role</h3>
+          </div>
+          <ul class="text-xs sm:text-sm text-slate-700 space-y-2">
+            <li>✔ User verification & role claim tokens</li>
+            <li>✔ Content moderation & safety controls</li>
+            <li>✔ Oversee college fests & hackathons</li>
+            <li>✔ Enforce database Row Level Security</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="flex justify-between items-center text-xs text-slate-500 border-t border-slate-200 pt-3">
+        <span>Einstein Academy of Technology & Management (EATM)</span>
+        <span class="mono-font font-semibold">Slide 6 of 16</span>
+      </div>
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- SLIDE 7 — SOCIAL FEED & PEER DISCOVERY -->
+    <!-- ========================================================================= -->
+    <section class="slide-container slide-hidden w-full max-w-6xl aspect-[16/9] bg-[#f8fafc] rounded-3xl border border-slate-300 p-8 shadow-2xl flex flex-col justify-between" data-notes="Our social feed is tailored for engineering students with embedded code highlighting and fast optimistic interactions. The peer discovery tool enables students to locate teammates across branches and send connection requests that seamlessly transition into real-time chats.">
+      <div class="flex justify-between items-start border-b border-slate-200 pb-3">
+        <div>
+          <p class="text-xs font-bold uppercase tracking-wider text-emerald-700 mono-font">06 / NETWORKING MODULE</p>
+          <h2 class="serif-title text-2xl sm:text-3xl font-extrabold text-[#0b4627] mt-0.5">Campus Social Feed & Smart Peer Discovery</h2>
+        </div>
+        <img src="public/eatm-emblem.png" alt="EATM" class="w-9 h-9 object-contain" />
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-5 my-auto">
+        <div class="bg-white p-5 rounded-2xl border-2 border-emerald-300 shadow-md">
+          <h3 class="serif-title text-xl font-bold text-[#0b4627] mb-3">📰 Campus Social Feed</h3>
+          <ul class="text-sm text-slate-700 space-y-2.5">
+            <li>★ <strong class="text-slate-900">Code Highlighting:</strong> Native syntax rendering for Python, C++, Java, JS.</li>
+            <li>★ <strong class="text-slate-900">Optimistic UI:</strong> 0ms latency for post likes, bookmarks, and comments.</li>
+            <li>★ <strong class="text-slate-900">Project Pinning:</strong> Showcase capstone projects directly on profiles.</li>
+            <li>★ <strong class="text-slate-900">Categorized Topics:</strong> Filter posts by #CSE, #Hackathon, #Placements.</li>
+          </ul>
+        </div>
+
+        <div class="bg-white p-5 rounded-2xl border-2 border-slate-200 shadow-md">
+          <h3 class="serif-title text-xl font-bold text-[#0b4627] mb-3">🔍 Smart Peer Discovery</h3>
+          <ul class="text-sm text-slate-700 space-y-2.5">
+            <li>★ <strong class="text-slate-900">Multi-Faceted Search:</strong> Filter peers by branch, year, and technical skills.</li>
+            <li>★ <strong class="text-slate-900">Connection Lifecycle:</strong> View Profile ➔ Send Request ➔ Accept ➔ Connected.</li>
+            <li>★ <strong class="text-slate-900">Instant Chat Access:</strong> Acceptance automatically unlocks private messaging.</li>
+            <li>★ <strong class="text-slate-900">Privacy Controls:</strong> Direct chats isolated strictly to confirmed connections.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="flex justify-between items-center text-xs text-slate-500 border-t border-slate-200 pt-3">
+        <span>Einstein Academy of Technology & Management (EATM)</span>
+        <span class="mono-font font-semibold">Slide 7 of 16</span>
+      </div>
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- SLIDE 8 — REAL-TIME MESSAGING & VOICE NOTES -->
+    <!-- ========================================================================= -->
+    <section class="slide-container slide-hidden w-full max-w-6xl aspect-[16/9] bg-[#f8fafc] rounded-3xl border border-slate-300 p-8 shadow-2xl flex flex-col justify-between" data-notes="The messaging system delivers a modern chat experience. It features Supabase WebSockets for instantaneous delivery, integrated voice recording with animated waveforms, live presence indicators, and automatic unread counter badge management.">
+      <div class="flex justify-between items-start border-b border-slate-200 pb-3">
+        <div>
+          <p class="text-xs font-bold uppercase tracking-wider text-emerald-700 mono-font">07 / CHAT ENGINE</p>
+          <h2 class="serif-title text-2xl sm:text-3xl font-extrabold text-[#0b4627] mt-0.5">Real-Time WebSocket Messaging & Audio Notes</h2>
+        </div>
+        <img src="public/eatm-emblem.png" alt="EATM" class="w-9 h-9 object-contain" />
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 my-auto">
+        <div class="bg-white p-4 sm:p-5 rounded-2xl border-2 border-emerald-300 shadow-md">
+          <div class="flex items-center gap-2 mb-2">
+            <span class="text-2xl">⚡</span>
+            <h3 class="serif-title text-lg font-bold text-[#0b4627]">Zero-Latency Sync</h3>
+          </div>
+          <p class="text-sm text-slate-700 leading-relaxed">
+            Powered by Supabase Realtime WebSockets with client-side deduplication, guaranteeing instantaneous message delivery.
+          </p>
+        </div>
+
+        <div class="bg-white p-4 sm:p-5 rounded-2xl border-2 border-emerald-300 shadow-md">
+          <div class="flex items-center gap-2 mb-2">
+            <span class="text-2xl">🎙️</span>
+            <h3 class="serif-title text-lg font-bold text-[#0b4627]">In-Browser Voice Notes</h3>
+          </div>
+          <p class="text-sm text-slate-700 leading-relaxed">
+            Record high-fidelity audio messages with real-time waveform visualizer, pause/resume controls, and inline playback.
+          </p>
+        </div>
+
+        <div class="bg-white p-4 sm:p-5 rounded-2xl border-2 border-emerald-300 shadow-md">
+          <div class="flex items-center gap-2 mb-2">
+            <span class="text-2xl">🟢</span>
+            <h3 class="serif-title text-lg font-bold text-[#0b4627]">Live Online Presence</h3>
+          </div>
+          <p class="text-sm text-slate-700 leading-relaxed">
+            Displays live online status indicators and typing indicators across direct messages and community group channels.
+          </p>
+        </div>
+
+        <div class="bg-white p-4 sm:p-5 rounded-2xl border-2 border-emerald-300 shadow-md">
+          <div class="flex items-center gap-2 mb-2">
+            <span class="text-2xl">📬</span>
+            <h3 class="serif-title text-lg font-bold text-[#0b4627]">Numeric Unread Badges</h3>
+          </div>
+          <p class="text-sm text-slate-700 leading-relaxed">
+            WhatsApp-grade green unread count pills that automatically synchronize and clear upon opening the chat conversation.
+          </p>
+        </div>
+      </div>
+
+      <div class="flex justify-between items-center text-xs text-slate-500 border-t border-slate-200 pt-3">
+        <span>Einstein Academy of Technology & Management (EATM)</span>
+        <span class="mono-font font-semibold">Slide 8 of 16</span>
+      </div>
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- SLIDE 9 — ACADEMIC VAULT & COMMUNITIES -->
+    <!-- ========================================================================= -->
+    <section class="slide-container slide-hidden w-full max-w-6xl aspect-[16/9] bg-[#f8fafc] rounded-3xl border border-slate-300 p-8 shadow-2xl flex flex-col justify-between" data-notes="The academic vault provides verified, branch-specific study materials with fast downloads. The student communities module empowers college clubs like the Robotics Club to maintain discussions, shared code assets, and event calendars in one dedicated space.">
+      <div class="flex justify-between items-start border-b border-slate-200 pb-3">
+        <div>
+          <p class="text-xs font-bold uppercase tracking-wider text-emerald-700 mono-font">08 / ACADEMIC HUB</p>
+          <h2 class="serif-title text-2xl sm:text-3xl font-extrabold text-[#0b4627] mt-0.5">Academic Study Vault & Student Communities</h2>
+        </div>
+        <img src="public/eatm-emblem.png" alt="EATM" class="w-9 h-9 object-contain" />
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-5 my-auto">
+        <div class="bg-white p-5 rounded-2xl border-2 border-emerald-300 shadow-md">
+          <h3 class="serif-title text-xl font-bold text-[#0b4627] mb-3">📚 Digital Study Library</h3>
+          <ul class="text-sm text-slate-700 space-y-2.5">
+            <li>✔ <strong class="text-slate-900">Branch & Semester Filters:</strong> Easy navigation across CSE, EE, Civil, Mech (Sem 1–8).</li>
+            <li>✔ <strong class="text-slate-900">Curated Materials:</strong> Faculty slides, PDF lecture notes & syllabus copies.</li>
+            <li>✔ <strong class="text-slate-900">PYQ Question Banks:</strong> Solved semester papers with 1-click downloads.</li>
+            <li>✔ <strong class="text-slate-900">Faculty Validation:</strong> Uploads verified by subject teachers for authenticity.</li>
+          </ul>
+        </div>
+
+        <div class="bg-white p-5 rounded-2xl border-2 border-slate-200 shadow-md">
+          <h3 class="serif-title text-xl font-bold text-[#0b4627] mb-3">🚀 Student Communities</h3>
+          <ul class="text-sm text-slate-700 space-y-2.5">
+            <li>✔ <strong class="text-slate-900">Club Hubs:</strong> Dedicated portals for Robotics Club, Coding Society & AI clubs.</li>
+            <li>✔ <strong class="text-slate-900">Embedded Collaboration:</strong> Forums, shared code repositories & timelines.</li>
+            <li>✔ <strong class="text-slate-900">Club Group Chat:</strong> Instant messaging for meeting announcements & doubts.</li>
+            <li>✔ <strong class="text-slate-900">Knowledge Archives:</strong> Preserves past project codes for junior batches.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="flex justify-between items-center text-xs text-slate-500 border-t border-slate-200 pt-3">
+        <span>Einstein Academy of Technology & Management (EATM)</span>
+        <span class="mono-font font-semibold">Slide 9 of 16</span>
+      </div>
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- SLIDE 10 — EVENTS & OPPORTUNITIES BOARD -->
+    <!-- ========================================================================= -->
+    <section class="slide-container slide-hidden w-full max-w-6xl aspect-[16/9] bg-[#f8fafc] rounded-3xl border border-slate-300 p-8 shadow-2xl flex flex-col justify-between" data-notes="The Events and Opportunities board solves the problem of missed hackathons and placement circulars. Students can discover upcoming symposiums, RSVP with one click, and form teams directly through the platform.">
+      <div class="flex justify-between items-start border-b border-slate-200 pb-3">
+        <div>
+          <p class="text-xs font-bold uppercase tracking-wider text-emerald-700 mono-font">09 / EVENTS & CAREERS</p>
+          <h2 class="serif-title text-2xl sm:text-3xl font-extrabold text-[#0b4627] mt-0.5">Campus Events & Opportunities Board</h2>
+        </div>
+        <img src="public/eatm-emblem.png" alt="EATM" class="w-9 h-9 object-contain" />
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-5 my-auto">
+        <div class="bg-white p-5 rounded-2xl border-2 border-emerald-200 shadow-md">
+          <div class="text-3xl mb-3">💻</div>
+          <h3 class="serif-title text-lg font-bold text-[#0b4627] mb-2">Hackathons & Contests</h3>
+          <p class="text-sm text-slate-700 leading-relaxed">
+            Promotes inter-college coding contests with team matchmaking across branches to ensure balanced, cross-functional technical skill sets.
+          </p>
+        </div>
+
+        <div class="bg-white p-5 rounded-2xl border-2 border-emerald-200 shadow-md">
+          <div class="text-3xl mb-3">🎪</div>
+          <h3 class="serif-title text-lg font-bold text-[#0b4627] mb-2">Symposiums & Fests</h3>
+          <p class="text-sm text-slate-700 leading-relaxed">
+            Central calendar for tech fests, workshops, and guest lectures with 1-click RSVP and live schedule tracking to eliminate missed deadlines.
+          </p>
+        </div>
+
+        <div class="bg-white p-5 rounded-2xl border-2 border-emerald-200 shadow-md">
+          <div class="text-3xl mb-3">💼</div>
+          <h3 class="serif-title text-lg font-bold text-[#0b4627] mb-2">Placement & Internships</h3>
+          <p class="text-sm text-slate-700 leading-relaxed">
+            Direct channel for Training & Placement cell circulars, recruitment drives, internship openings, and company eligibility criteria.
+          </p>
+        </div>
+      </div>
+
+      <div class="flex justify-between items-center text-xs text-slate-500 border-t border-slate-200 pt-3">
+        <span>Einstein Academy of Technology & Management (EATM)</span>
+        <span class="mono-font font-semibold">Slide 10 of 16</span>
+      </div>
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- SLIDE 11 — THREE-TIER TECHNICAL ARCHITECTURE -->
+    <!-- ========================================================================= -->
+    <section class="slide-container slide-hidden w-full max-w-6xl aspect-[16/9] bg-[#f8fafc] rounded-3xl border border-slate-300 p-8 shadow-2xl flex flex-col justify-between" data-notes="Here is our production architecture. The frontend is built on React 18 and TypeScript; the application layer leverages optimistic UI updates and in-memory caching; and the backend utilizes Supabase PostgreSQL 15 and WebSocket replication.">
+      <div class="flex justify-between items-start border-b border-slate-200 pb-3">
+        <div>
+          <p class="text-xs font-bold uppercase tracking-wider text-emerald-700 mono-font">10 / TECHNICAL DESIGN</p>
+          <h2 class="serif-title text-2xl sm:text-3xl font-extrabold text-[#0b4627] mt-0.5">Three-Tier Scalable System Architecture</h2>
+        </div>
+        <img src="public/eatm-emblem.png" alt="EATM" class="w-9 h-9 object-contain" />
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-5 my-auto">
+        <div class="bg-white p-5 rounded-2xl border-2 border-emerald-300 shadow-md">
+          <div class="flex items-center gap-2 mb-3">
+            <span class="text-3xl">💻</span>
+            <h3 class="serif-title text-lg font-bold text-[#0b4627]">Presentation Layer</h3>
+          </div>
+          <ul class="text-xs sm:text-sm text-slate-700 space-y-2">
+            <li>• React 18 SPA Architecture</li>
+            <li>• TypeScript 5 for static type safety</li>
+            <li>• Tailwind CSS responsive design</li>
+            <li>• 100dvh mobile viewport lock</li>
+          </ul>
+        </div>
+
+        <div class="bg-white p-5 rounded-2xl border-2 border-emerald-300 shadow-md">
+          <div class="flex items-center gap-2 mb-3">
+            <span class="text-3xl">⚡</span>
+            <h3 class="serif-title text-lg font-bold text-[#0b4627]">Application & State Layer</h3>
+          </div>
+          <ul class="text-xs sm:text-sm text-slate-700 space-y-2">
+            <li>• React Context API (Auth, Theme)</li>
+            <li>• 30s TTL in-memory caching</li>
+            <li>• LocalStorage instant fallback</li>
+            <li>• Optimistic UI state updates (0ms)</li>
+          </ul>
+        </div>
+
+        <div class="bg-white p-5 rounded-2xl border-2 border-emerald-300 shadow-md">
+          <div class="flex items-center gap-2 mb-3">
+            <span class="text-3xl">🗄️</span>
+            <h3 class="serif-title text-lg font-bold text-[#0b4627]">Backend & DB Layer</h3>
+          </div>
+          <ul class="text-xs sm:text-sm text-slate-700 space-y-2">
+            <li>• Supabase PostgreSQL 15 DB</li>
+            <li>• Realtime WebSocket Channel Bus</li>
+            <li>• Database Row Level Security (RLS)</li>
+            <li>• Secure Cloud Storage for media</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="flex justify-between items-center text-xs text-slate-500 border-t border-slate-200 pt-3">
+        <span>Einstein Academy of Technology & Management (EATM)</span>
+        <span class="mono-font font-semibold">Slide 11 of 16</span>
+      </div>
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- SLIDE 12 — SECURITY: AUTHENTICATION VS AUTHORIZATION -->
+    <!-- ========================================================================= -->
+    <section class="slide-container slide-hidden w-full max-w-6xl aspect-[16/9] bg-[#f8fafc] rounded-3xl border border-slate-300 p-8 shadow-2xl flex flex-col justify-between" data-notes="Security is implemented in depth. While Supabase Auth verifies user credentials and issues signed JWT tokens, PostgreSQL Row Level Security enforces database-level authorization policies so that data privacy cannot be bypassed from the client.">
+      <div class="flex justify-between items-start border-b border-slate-200 pb-3">
+        <div>
+          <p class="text-xs font-bold uppercase tracking-wider text-emerald-700 mono-font">11 / SECURITY MODEL</p>
+          <h2 class="serif-title text-2xl sm:text-3xl font-extrabold text-[#0b4627] mt-0.5">Enterprise Security: Authentication vs Authorization</h2>
+        </div>
+        <img src="public/eatm-emblem.png" alt="EATM" class="w-9 h-9 object-contain" />
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-5 my-auto">
+        <div class="bg-white p-5 rounded-2xl border-2 border-emerald-200 shadow-md">
+          <h3 class="serif-title text-xl font-bold text-[#0b4627] mb-3">🔐 Authentication (Who You Are)</h3>
+          <ul class="text-sm text-slate-700 space-y-3">
+            <li>✔ <strong class="text-slate-900">Supabase Auth Engine:</strong> Encrypted JWT-backed sessions with secure token rotation.</li>
+            <li>✔ <strong class="text-slate-900">Role Claim Tokens:</strong> Institutional role (Student, Faculty, Admin) embedded in session.</li>
+            <li>✔ <strong class="text-slate-900">Client Route Guards:</strong> Protected routing components preventing unauthorized access.</li>
+          </ul>
+        </div>
+
+        <div class="bg-white p-5 rounded-2xl border-2 border-emerald-300 shadow-md">
+          <h3 class="serif-title text-xl font-bold text-[#0b4627] mb-3">🛡️ Authorization (What You Can Do)</h3>
+          <ul class="text-sm text-slate-700 space-y-3">
+            <li>✔ <strong class="text-slate-900">PostgreSQL RLS:</strong> Security rules enforced directly inside the database kernel.</li>
+            <li>✔ <strong class="text-slate-900">Multi-Tenant Isolation:</strong> Users can query and modify only permitted records.</li>
+            <li>✔ <strong class="text-slate-900">Private Message Isolation:</strong> Direct messages inaccessible to non-participants.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="flex justify-between items-center text-xs text-slate-500 border-t border-slate-200 pt-3">
+        <span>Einstein Academy of Technology & Management (EATM)</span>
+        <span class="mono-font font-semibold">Slide 12 of 16</span>
+      </div>
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- SLIDE 13 — DATABASE SCHEMA & RELATIONAL DESIGN -->
+    <!-- ========================================================================= -->
+    <section class="slide-container slide-hidden w-full max-w-6xl aspect-[16/9] bg-[#f8fafc] rounded-3xl border border-slate-300 p-8 shadow-2xl flex flex-col justify-between" data-notes="Our PostgreSQL database schema is fully normalized into 12 core tables across 4 functional domains: User Identity, Real-Time Chat, Social Feed, and Academic Study Resources.">
+      <div class="flex justify-between items-start border-b border-slate-200 pb-3">
+        <div>
+          <p class="text-xs font-bold uppercase tracking-wider text-emerald-700 mono-font">12 / DATABASE DESIGN</p>
+          <h2 class="serif-title text-2xl sm:text-3xl font-extrabold text-[#0b4627] mt-0.5">Relational Database Schema (12 Tables)</h2>
+        </div>
+        <img src="public/eatm-emblem.png" alt="EATM" class="w-9 h-9 object-contain" />
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 my-auto">
+        <div class="bg-white p-4 rounded-2xl border-2 border-slate-200 shadow-md">
+          <h3 class="serif-title text-base font-bold text-[#0b4627]">👤 Identity & Profiles Domain</h3>
+          <p class="mono-font text-xs font-bold text-emerald-700 mt-0.5">Tables: profiles, auth.users</p>
+          <p class="text-xs sm:text-sm text-slate-700 mt-1.5 leading-relaxed">
+            User roles, department, semester, bio, profile avatar, and technical skills catalog.
+          </p>
+        </div>
+
+        <div class="bg-white p-4 rounded-2xl border-2 border-slate-200 shadow-md">
+          <h3 class="serif-title text-base font-bold text-[#0b4627]">💬 Real-Time Messaging Domain</h3>
+          <p class="mono-font text-xs font-bold text-emerald-700 mt-0.5">Tables: conversations, messages</p>
+          <p class="text-xs sm:text-sm text-slate-700 mt-1.5 leading-relaxed">
+            Direct/group conversation rooms, message text, media attachments, and audio waveform data.
+          </p>
+        </div>
+
+        <div class="bg-white p-4 rounded-2xl border-2 border-slate-200 shadow-md">
+          <h3 class="serif-title text-base font-bold text-[#0b4627]">🌐 Campus Social Feed Domain</h3>
+          <p class="mono-font text-xs font-bold text-emerald-700 mt-0.5">Tables: posts, comments, likes, connections</p>
+          <p class="text-xs sm:text-sm text-slate-700 mt-1.5 leading-relaxed">
+            Feed posts, code snippets, user reactions, timestamps, connection requests, and threaded comments.
+          </p>
+        </div>
+
+        <div class="bg-white p-4 rounded-2xl border-2 border-slate-200 shadow-md">
+          <h3 class="serif-title text-base font-bold text-[#0b4627]">📚 Academic Resources Domain</h3>
+          <p class="mono-font text-xs font-bold text-emerald-700 mt-0.5">Tables: study_materials, communities, events</p>
+          <p class="text-xs sm:text-sm text-slate-700 mt-1.5 leading-relaxed">
+            Department/semester study notes, question banks, symposium events, and RSVP registers.
+          </p>
+        </div>
+      </div>
+
+      <div class="flex justify-between items-center text-xs text-slate-500 border-t border-slate-200 pt-3">
+        <span>Einstein Academy of Technology & Management (EATM)</span>
+        <span class="mono-font font-semibold">Slide 13 of 16</span>
+      </div>
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- SLIDE 14 — TECHNOLOGY STACK SUMMARY -->
+    <!-- ========================================================================= -->
+    <section class="slide-container slide-hidden w-full max-w-6xl aspect-[16/9] bg-[#f8fafc] rounded-3xl border border-slate-300 p-8 shadow-2xl flex flex-col justify-between" data-notes="Every technology listed here is fully implemented in our codebase. We chose React 18, TypeScript, Tailwind CSS, Supabase Realtime, and PostgreSQL 15 for high reliability and exceptional performance.">
+      <div class="flex justify-between items-start border-b border-slate-200 pb-3">
+        <div>
+          <p class="text-xs font-bold uppercase tracking-wider text-emerald-700 mono-font">13 / TECH STACK</p>
+          <h2 class="serif-title text-2xl sm:text-3xl font-extrabold text-[#0b4627] mt-0.5">Implemented Production Technology Stack</h2>
+        </div>
+        <img src="public/eatm-emblem.png" alt="EATM" class="w-9 h-9 object-contain" />
+      </div>
+
+      <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 my-auto">
+        <div class="bg-white p-4 rounded-2xl border-2 border-slate-200 shadow-md">
+          <p class="text-2xl mb-1">⚛️</p>
+          <h3 class="serif-title text-base font-bold text-[#0b4627]">React 18</h3>
+          <p class="text-xs sm:text-sm text-slate-700 mt-1">Single-Page Application with reusable modular components.</p>
+        </div>
+
+        <div class="bg-white p-4 rounded-2xl border-2 border-slate-200 shadow-md">
+          <p class="text-2xl mb-1">🔷</p>
+          <h3 class="serif-title text-base font-bold text-[#0b4627]">TypeScript 5</h3>
+          <p class="text-xs sm:text-sm text-slate-700 mt-1">Strict static type checking for bug prevention & maintainability.</p>
+        </div>
+
+        <div class="bg-white p-4 rounded-2xl border-2 border-slate-200 shadow-md">
+          <p class="text-2xl mb-1">🎨</p>
+          <h3 class="serif-title text-base font-bold text-[#0b4627]">Tailwind CSS</h3>
+          <p class="text-xs sm:text-sm text-slate-700 mt-1">Modern responsive styling & custom design tokens.</p>
+        </div>
+
+        <div class="bg-white p-4 rounded-2xl border-2 border-slate-200 shadow-md">
+          <p class="text-2xl mb-1">⚡</p>
+          <h3 class="serif-title text-base font-bold text-[#0b4627]">Supabase Realtime</h3>
+          <p class="text-xs sm:text-sm text-slate-700 mt-1">WebSocket channel bus delivering instant 0ms chat sync.</p>
+        </div>
+
+        <div class="bg-white p-4 rounded-2xl border-2 border-slate-200 shadow-md">
+          <p class="text-2xl mb-1">🐘</p>
+          <h3 class="serif-title text-base font-bold text-[#0b4627]">PostgreSQL 15</h3>
+          <p class="text-xs sm:text-sm text-slate-700 mt-1">ACID relational database with kernel-level RLS policies.</p>
+        </div>
+
+        <div class="bg-white p-4 rounded-2xl border-2 border-slate-200 shadow-md">
+          <p class="text-2xl mb-1">⚡</p>
+          <h3 class="serif-title text-base font-bold text-[#0b4627]">Vite 6 Bundler</h3>
+          <p class="text-xs sm:text-sm text-slate-700 mt-1">Lightning-fast HMR and optimized asset compilation.</p>
+        </div>
+      </div>
+
+      <div class="flex justify-between items-center text-xs text-slate-500 border-t border-slate-200 pt-3">
+        <span>Einstein Academy of Technology & Management (EATM)</span>
+        <span class="mono-font font-semibold">Slide 14 of 16</span>
+      </div>
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- SLIDE 15 — FUTURE SCOPE & ROADMAP -->
+    <!-- ========================================================================= -->
+    <section class="slide-container slide-hidden w-full max-w-6xl aspect-[16/9] bg-[#f8fafc] rounded-3xl border border-slate-300 p-8 shadow-2xl flex flex-col justify-between" data-notes="Looking forward, our roadmap includes integrating Gemini AI for automated academic tutoring, syncing with college ERP systems for automated attendance, and launching an alumni mentorship network.">
+      <div class="flex justify-between items-start border-b border-slate-200 pb-3">
+        <div>
+          <p class="text-xs font-bold uppercase tracking-wider text-emerald-700 mono-font">14 / ROADMAP</p>
+          <h2 class="serif-title text-2xl sm:text-3xl font-extrabold text-[#0b4627] mt-0.5">Proposed Future Scope & Platform Roadmap</h2>
+        </div>
+        <img src="public/eatm-emblem.png" alt="EATM" class="w-9 h-9 object-contain" />
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-5 my-auto">
+        <div class="bg-white p-5 rounded-2xl border-2 border-emerald-300 shadow-md">
+          <div class="text-3xl mb-3">🤖</div>
+          <h3 class="serif-title text-lg font-bold text-[#0b4627] mb-2">Gemini AI Academic Tutor</h3>
+          <p class="text-sm text-slate-700 leading-relaxed">
+            Integrate Google Gemini API for automated doubt resolution, code debugging assistance, and instant summarization of research papers.
+          </p>
+        </div>
+
+        <div class="bg-white p-5 rounded-2xl border-2 border-emerald-300 shadow-md">
+          <div class="text-3xl mb-3">📊</div>
+          <h3 class="serif-title text-lg font-bold text-[#0b4627] mb-2">College ERP Integration</h3>
+          <p class="text-sm text-slate-700 leading-relaxed">
+            Direct synchronization with institutional ERP for automated semester attendance tracking, internal marks, and exam admit card generation.
+          </p>
+        </div>
+
+        <div class="bg-white p-5 rounded-2xl border-2 border-emerald-300 shadow-md">
+          <div class="text-3xl mb-3">🎓</div>
+          <h3 class="serif-title text-lg font-bold text-[#0b4627] mb-2">Alumni Mentorship Network</h3>
+          <p class="text-sm text-slate-700 leading-relaxed">
+            A dedicated verified portal connecting pre-final and final-year students with alumni working across top technology organizations.
+          </p>
+        </div>
+      </div>
+
+      <div class="flex justify-between items-center text-xs text-slate-500 border-t border-slate-200 pt-3">
+        <span>Einstein Academy of Technology & Management (EATM)</span>
+        <span class="mono-font font-semibold">Slide 15 of 16</span>
+      </div>
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- SLIDE 16 — CONCLUSION & TEAM CREDITS (Deep Dark Green Luxury Hero) -->
+    <!-- ========================================================================= -->
+    <section class="slide-container slide-hidden w-full max-w-6xl aspect-[16/9] bg-gradient-to-br from-[#041d10] via-[#0b4627] to-[#02130a] rounded-3xl border border-emerald-500/40 p-8 sm:p-10 shadow-2xl flex flex-col justify-between relative overflow-hidden text-white" data-notes="In conclusion, CampusConnect unites social engagement, academic rigor, and real-time communication into a single secure platform for EATM. On behalf of Soumyaranjan Sahoo, Somit Rout, Nihar Ranjan Singh, and Nitish Kumar Panda, thank you for your time. We are now open to questions from the panel.">
+      <div class="flex justify-between items-start z-10">
+        <div>
+          <p class="text-xs uppercase font-bold text-emerald-300 mono-font tracking-wider">15 / CONCLUSION & ACKNOWLEDGMENTS</p>
+          <h2 class="serif-title text-3xl sm:text-4xl font-extrabold text-white mt-1">Building a Connected Digital Campus for EATM</h2>
+          <p class="text-xs sm:text-sm text-emerald-100 mt-1">CampusConnect successfully delivers a modern, high-speed, and secure intranet for students & faculty.</p>
+        </div>
+        <img src="public/eatm-emblem.png" alt="EATM Emblem" class="w-14 h-14 object-contain p-1.5 rounded-xl bg-white/10 border border-emerald-400/30 shadow-lg" />
+      </div>
+
+      <!-- Team Members Summary Cards -->
+      <div class="z-10 my-auto py-2">
+        <p class="text-xs font-bold uppercase tracking-wider text-emerald-300 mb-2 mono-font">
+          Project Developed & Presented By
+        </p>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div class="bg-black/40 backdrop-blur-md p-3 rounded-2xl border border-emerald-400/30 shadow-lg flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-emerald-700/60 flex items-center justify-center text-lg text-white font-bold shrink-0">
+              👨‍💻
+            </div>
+            <div>
+              <p class="text-xs sm:text-sm font-bold text-white">Soumyaranjan Sahoo</p>
+              <p class="text-[11px] text-emerald-200">Lead & Architecture</p>
+            </div>
+          </div>
+
+          <div class="bg-black/40 backdrop-blur-md p-3 rounded-2xl border border-emerald-400/30 shadow-lg flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-emerald-700/60 flex items-center justify-center text-lg text-white font-bold shrink-0">
+              👨‍💻
+            </div>
+            <div>
+              <p class="text-xs sm:text-sm font-bold text-white">Somit Rout</p>
+              <p class="text-[11px] text-emerald-200">Backend & DB</p>
+            </div>
+          </div>
+
+          <div class="bg-black/40 backdrop-blur-md p-3 rounded-2xl border border-emerald-400/30 shadow-lg flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-emerald-700/60 flex items-center justify-center text-lg text-white font-bold shrink-0">
+              👨‍💻
+            </div>
+            <div>
+              <p class="text-xs sm:text-sm font-bold text-white">Nihar Ranjan Singh</p>
+              <p class="text-[11px] text-emerald-200">Frontend & UI/UX</p>
+            </div>
+          </div>
+
+          <div class="bg-black/40 backdrop-blur-md p-3 rounded-2xl border border-emerald-400/30 shadow-lg flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-emerald-700/60 flex items-center justify-center text-lg text-white font-bold shrink-0">
+              👨‍💻
+            </div>
+            <div>
+              <p class="text-xs sm:text-sm font-bold text-white">Nitish Kumar Panda</p>
+              <p class="text-[11px] text-emerald-200">QA & Integration</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Slide 16 Footer -->
+      <div class="pt-4 border-t border-emerald-500/30 flex justify-between items-center z-10">
+        <div>
+          <p class="text-base sm:text-lg font-bold text-white">CONNECT  •  COLLABORATE  •  GROW</p>
+          <p class="text-xs text-emerald-300">Thank You! Questions & Live Demonstration Welcome.</p>
+        </div>
+        <div class="text-right text-xs text-emerald-200 mono-font">
+          Department of Computer Science & Engineering<br/>
+          <span class="text-emerald-400 font-bold">Einstein Academy of Technology & Management</span>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Speaker Notes Modal Drawer -->
+  <div id="notes-modal" class="no-print hidden fixed bottom-12 right-6 w-96 max-w-[90vw] bg-[#0c1811]/95 backdrop-blur-xl border border-emerald-500/40 rounded-2xl p-4 shadow-2xl z-50 animate-in fade-in slide-in-from-bottom-3 text-white">
+    <div class="flex items-center justify-between border-b border-emerald-900/50 pb-2 mb-2">
+      <div class="flex items-center gap-2">
+        <i data-lucide="mic" class="w-4 h-4 text-emerald-400"></i>
+        <h4 class="text-xs font-bold text-emerald-300">Presenter Script (30-60s)</h4>
+      </div>
+      <button onclick="toggleNotes()" class="p-1 hover:bg-emerald-900/40 rounded-lg text-slate-400 hover:text-white">
+        <i data-lucide="x" class="w-3.5 h-3.5"></i>
+      </button>
+    </div>
+    <p id="speaker-notes-content" class="text-xs text-slate-200 leading-relaxed font-normal italic"></p>
+  </div>
+
+  <!-- Bottom Interactive Helper Bar -->
+  <footer class="no-print h-10 bg-[#08170f] border-t border-emerald-950 px-6 flex items-center justify-between text-[11px] text-slate-400">
+    <div class="flex items-center gap-4">
+      <span>Use <kbd class="px-1.5 py-0.5 bg-slate-800 text-slate-200 rounded text-[10px] mono-font">←</kbd> <kbd class="px-1.5 py-0.5 bg-slate-800 text-slate-200 rounded text-[10px] mono-font">→</kbd> or <kbd class="px-1.5 py-0.5 bg-slate-800 text-slate-200 rounded text-[10px] mono-font">Space</kbd> to navigate</span>
+      <span>Press <kbd class="px-1.5 py-0.5 bg-slate-800 text-slate-200 rounded text-[10px] mono-font">N</kbd> for Speaker Script</span>
+      <span>Press <kbd class="px-1.5 py-0.5 bg-slate-800 text-slate-200 rounded text-[10px] mono-font">F</kbd> for Fullscreen</span>
+    </div>
+    <div>
+      <span class="text-emerald-400 font-semibold">CampusConnect • B.Tech CSE Minor Project Seminar</span>
+    </div>
+  </footer>
+
+  <script>
+    lucide.createIcons();
+
+    let currentSlide = 0;
+    const slides = document.querySelectorAll('.slide-container');
+    const totalSlides = slides.length;
+    document.getElementById('total-slides-num').innerText = totalSlides;
+
+    function updateSlide() {
+      slides.forEach((s, idx) => {
+        if (idx === currentSlide) {
+          s.classList.remove('slide-hidden');
+          s.classList.add('slide-active');
+        } else {
+          s.classList.remove('slide-active');
+          s.classList.add('slide-hidden');
+        }
+      });
+      document.getElementById('current-slide-num').innerText = currentSlide + 1;
+      
+      // Update speaker notes
+      const activeSlide = slides[currentSlide];
+      const notes = activeSlide.getAttribute('data-notes') || 'No notes for this slide.';
+      document.getElementById('speaker-notes-content').innerText = notes;
+    }
+
+    function nextSlide() {
+      if (currentSlide < totalSlides - 1) {
+        currentSlide++;
+        updateSlide();
+      }
+    }
+
+    function prevSlide() {
+      if (currentSlide > 0) {
+        currentSlide--;
+        updateSlide();
+      }
+    }
+
+    function toggleFullscreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {});
+      } else {
+        if (document.exitFullscreen) {
+          document.exitFullscreen().catch(() => {});
+        }
+      }
+    }
+
+    function toggleNotes() {
+      const modal = document.getElementById('notes-modal');
+      modal.classList.toggle('hidden');
+    }
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ') {
+        e.preventDefault();
+        nextSlide();
+      } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        prevSlide();
+      } else if (e.key === 'f' || e.key === 'F') {
+        e.preventDefault();
+        toggleFullscreen();
+      } else if (e.key === 'n' || e.key === 'N') {
+        e.preventDefault();
+        toggleNotes();
+      }
+    });
+
+    // Initialize first slide notes
+    updateSlide();
+  </script>
+</body>
+</html>

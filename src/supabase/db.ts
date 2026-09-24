@@ -913,6 +913,16 @@ export async function fetchConversations(userId: string): Promise<Conversation[]
   const allUsers = await fetchUsers();
   const userMap = new Map(allUsers.map(u => [u.id, u]));
 
+  // Enrich participantDetails and sync true latest message from message bank
+  const allMessages = getLocalData<Message[]>('messages', SEED_MESSAGES);
+  const msgMap = new Map<string, Message>();
+  allMessages.forEach(m => {
+    const existing = msgMap.get(m.conversationId);
+    if (!existing || new Date(m.createdAt).getTime() > new Date(existing.createdAt).getTime()) {
+      msgMap.set(m.conversationId, m);
+    }
+  });
+
   const enrichedList = list.map(conv => {
     const details = { ...(conv.participantDetails || {}) };
     conv.participants.forEach(pId => {
@@ -932,10 +942,42 @@ export async function fetchConversations(userId: string): Promise<Conversation[]
         };
       }
     });
+
+    const latestMsg = msgMap.get(conv.id);
+    let lastMessage = conv.lastMessage;
+    let updatedAt = conv.updatedAt || (conv as any).createdAt || new Date().toISOString();
+    if (latestMsg) {
+      const msgTime = new Date(latestMsg.createdAt).getTime();
+      const currTime = new Date(updatedAt || 0).getTime();
+      if (!lastMessage || msgTime >= currTime) {
+        let previewText = latestMsg.text;
+        if (!previewText) {
+          if (latestMsg.mediaType === 'image') previewText = '📷 Photo';
+          else if (latestMsg.mediaType === 'video') previewText = '🎥 Video';
+          else if (latestMsg.mediaType === 'audio') previewText = '🎤 Voice Note';
+          else if (latestMsg.mediaType === 'file') previewText = `📄 ${latestMsg.fileName || 'Document'}`;
+          else previewText = 'Attachment';
+        }
+        lastMessage = {
+          text: previewText,
+          senderId: latestMsg.senderId,
+          timestamp: new Date(latestMsg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          read: latestMsg.read
+        };
+        updatedAt = latestMsg.createdAt;
+      }
+    }
+
     return {
       ...conv,
-      participantDetails: details
+      participantDetails: details,
+      lastMessage,
+      updatedAt
     };
+  }).sort((a, b) => {
+    const timeA = new Date(a.updatedAt || 0).getTime();
+    const timeB = new Date(b.updatedAt || 0).getTime();
+    return timeB - timeA;
   });
 
   // Keep local cache synced
