@@ -2790,10 +2790,83 @@ export async function deleteCommunity(
   return { success: true };
 }
 
+/**
+ * Helper to check if a user is authorized to access private community content
+ */
+export async function canUserAccessCommunityContent(communityId: string, userId?: string): Promise<boolean> {
+  const comm = await fetchCommunityById(communityId);
+  if (!comm) return false;
+  if (comm.type === 'public') return true;
+  if (!userId) return false;
+  return Array.isArray(comm.members) && comm.members.includes(userId);
+}
+
+/**
+ * Single source of truth roster fetching from community_members table
+ */
+export async function fetchCommunityMembers(communityId: string, currentUserId?: string): Promise<CommunityMember[]> {
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      const comm = await fetchCommunityById(communityId);
+      const isPriv = comm?.type === 'private';
+      const isApprovedMember = currentUserId && comm ? comm.members.includes(currentUserId) : false;
+
+      if (isPriv && !isApprovedMember) {
+        // Non-members of private community only see the verified owner/admins
+        const { data, error } = await supabase
+          .from('community_members')
+          .select('*')
+          .eq('communityId', communityId)
+          .in('role', ['owner', 'admin'])
+          .eq('status', 'approved');
+
+        if (!error && data) return data as CommunityMember[];
+        return [];
+      }
+
+      const { data, error } = await supabase
+        .from('community_members')
+        .select('*')
+        .eq('communityId', communityId);
+
+      if (!error && data && data.length > 0) {
+        return data as CommunityMember[];
+      }
+    } catch (err) {
+      console.warn('Supabase fetchCommunityMembers error:', err);
+    }
+  }
+
+  const comm = await fetchCommunityById(communityId);
+  if (!comm) return [];
+  if (comm.type === 'private' && currentUserId && !comm.members.includes(currentUserId)) {
+    return [];
+  }
+  const members: CommunityMember[] = [];
+  (comm.members || []).forEach(userId => {
+    const isOwner = comm.ownerId === userId;
+    const isAdmin = (comm.admins || []).includes(userId);
+    const isMod = (comm.moderators || []).includes(userId);
+    members.push({
+      id: `cm_${comm.id}_${userId}`,
+      communityId: comm.id,
+      userId,
+      role: isOwner ? 'owner' : (isAdmin ? 'admin' : (isMod ? 'moderator' : 'member')),
+      status: 'approved',
+      joinedAt: comm.createdAt
+    });
+  });
+  return members;
+}
+
 // ---------------------------------------------
 // COMMUNITY POSTS & COMMENTS (Supabase-first)
 // ---------------------------------------------
-export async function fetchCommunityPosts(communityId: string): Promise<CommunityPost[]> {
+export async function fetchCommunityPosts(communityId: string, currentUserId?: string): Promise<CommunityPost[]> {
+  if (currentUserId !== undefined && !(await canUserAccessCommunityContent(communityId, currentUserId))) {
+    return [];
+  }
+
   if (isSupabaseConfigured() && supabase) {
     try {
       const { data, error } = await supabase
@@ -2958,7 +3031,11 @@ export async function createCommunityComment(comment: Omit<CommunityComment, 'id
 // ---------------------------------------------
 // COMMUNITY DISCUSSIONS & THREADS (Supabase-first)
 // ---------------------------------------------
-export async function fetchCommunityDiscussions(communityId: string): Promise<CommunityDiscussion[]> {
+export async function fetchCommunityDiscussions(communityId: string, currentUserId?: string): Promise<CommunityDiscussion[]> {
+  if (currentUserId !== undefined && !(await canUserAccessCommunityContent(communityId, currentUserId))) {
+    return [];
+  }
+
   if (isSupabaseConfigured() && supabase) {
     try {
       const { data, error } = await supabase
@@ -3107,7 +3184,11 @@ export async function createCommunityDiscussionComment(comment: Omit<CommunityDi
 // ---------------------------------------------
 // COMMUNITY LIVE REALTIME CHAT (Supabase Realtime & WebSocket Broadcast)
 // ---------------------------------------------
-export async function fetchCommunityMessages(communityId: string): Promise<CommunityMessage[]> {
+export async function fetchCommunityMessages(communityId: string, currentUserId?: string): Promise<CommunityMessage[]> {
+  if (currentUserId !== undefined && !(await canUserAccessCommunityContent(communityId, currentUserId))) {
+    return [];
+  }
+
   if (isSupabaseConfigured() && supabase) {
     try {
       const { data, error } = await supabase
@@ -3201,7 +3282,11 @@ export function subscribeToCommunityMessages(
 // ---------------------------------------------
 // COMMUNITY RESOURCES (Supabase-first)
 // ---------------------------------------------
-export async function fetchCommunityResources(communityId: string): Promise<CommunityResource[]> {
+export async function fetchCommunityResources(communityId: string, currentUserId?: string): Promise<CommunityResource[]> {
+  if (currentUserId !== undefined && !(await canUserAccessCommunityContent(communityId, currentUserId))) {
+    return [];
+  }
+
   if (isSupabaseConfigured() && supabase) {
     try {
       const { data, error } = await supabase
@@ -3262,7 +3347,11 @@ export async function deleteCommunityResource(resourceId: string, userId: string
 // ---------------------------------------------
 // COMMUNITY EVENTS (Supabase-first)
 // ---------------------------------------------
-export async function fetchCommunityEvents(communityId: string): Promise<CommunityEventItem[]> {
+export async function fetchCommunityEvents(communityId: string, currentUserId?: string): Promise<CommunityEventItem[]> {
+  if (currentUserId !== undefined && !(await canUserAccessCommunityContent(communityId, currentUserId))) {
+    return [];
+  }
+
   if (isSupabaseConfigured() && supabase) {
     try {
       const { data, error } = await supabase

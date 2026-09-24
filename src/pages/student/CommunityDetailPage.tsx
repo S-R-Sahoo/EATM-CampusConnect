@@ -172,11 +172,11 @@ export const CommunityDetailPage: React.FC = () => {
 
       // Load sub-entities
       const [p, d, m, r, e, rep, act] = await Promise.all([
-        fetchCommunityPosts(id),
-        fetchCommunityDiscussions(id),
-        fetchCommunityMessages(id),
-        fetchCommunityResources(id),
-        fetchCommunityEvents(id),
+        fetchCommunityPosts(id, user?.id),
+        fetchCommunityDiscussions(id, user?.id),
+        fetchCommunityMessages(id, user?.id),
+        fetchCommunityResources(id, user?.id),
+        fetchCommunityEvents(id, user?.id),
         fetchCommunityReports(id),
         fetchCommunityModerationActions(id)
       ]);
@@ -197,24 +197,24 @@ export const CommunityDetailPage: React.FC = () => {
 
   useEffect(() => {
     loadCommunityData();
-  }, [id]);
+  }, [id, user?.id]);
 
   // Live updates across devices for posts, discussions, members, events
   useEffect(() => {
     if (!id) return;
     const unsubLive = subscribeToCommunityLiveEvents(id, () => {
       fetchCommunityById(id).then(c => c && setCommunity(c));
-      fetchCommunityPosts(id).then(setPosts);
-      fetchCommunityDiscussions(id).then(setDiscussions);
-      fetchCommunityResources(id).then(setResources);
-      fetchCommunityEvents(id).then(setEvents);
+      fetchCommunityPosts(id, user?.id).then(setPosts);
+      fetchCommunityDiscussions(id, user?.id).then(setDiscussions);
+      fetchCommunityResources(id, user?.id).then(setResources);
+      fetchCommunityEvents(id, user?.id).then(setEvents);
       fetchCommunityReports(id).then(setReports);
       fetchCommunityModerationActions(id).then(setActions);
     });
     return () => {
       unsubLive();
     };
-  }, [id]);
+  }, [id, user?.id]);
 
   // Realtime chat subscription
   useEffect(() => {

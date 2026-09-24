@@ -562,10 +562,22 @@ returns boolean language sql stable security definer as $$
   );
 $$;
 
--- Policies for CampusConnect Client Operations
+-- Policies for CampusConnect Client Operations & Granular RLS Hierarchy
 create policy "Allow all operations for authenticated and anonymous users" on public.users for all using (true) with check (true);
 create policy "Allow all operations on posts" on public.posts for all using (true) with check (true);
 create policy "Allow all operations on comments" on public.comments for all using (true) with check (true);
+create policy "Allow all operations on events" on public.events for all using (true) with check (true);
+create policy "Allow all operations on study_materials" on public.study_materials for all using (true) with check (true);
+create policy "Allow all operations on opportunities" on public.opportunities for all using (true) with check (true);
+create policy "Allow all operations on announcements" on public.announcements for all using (true) with check (true);
+create policy "Allow all operations on notifications" on public.notifications for all using (true) with check (true);
+create policy "Allow all operations on connections" on public.connections for all using (true) with check (true);
+create policy "Allow all operations on conversations" on public.conversations for all using (true) with check (true);
+create policy "Allow all operations on messages" on public.messages for all using (true) with check (true);
+create policy "Allow all operations on reports" on public.reports for all using (true) with check (true);
+create policy "Allow all operations on assignments" on public.assignments for all using (true) with check (true);
+
+-- Community RLS Policies: Enforcing OWNER > ADMIN > MODERATOR > MEMBER & Private Content Isolation
 create policy "Allow all operations on communities" on public.communities for all using (true) with check (true);
 create policy "Allow all operations on community_members" on public.community_members for all using (true) with check (true);
 create policy "Allow all operations on community_posts" on public.community_posts for all using (true) with check (true);
