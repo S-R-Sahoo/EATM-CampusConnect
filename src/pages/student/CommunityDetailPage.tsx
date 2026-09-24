@@ -28,6 +28,7 @@ import { Avatar } from '../../components/ui/Avatar';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
 import { Input } from '../../components/ui/Input';
+import { CommunityShareModal } from '../../components/common/CommunityShareModal';
 import { 
   Award, Users, ShieldCheck, Lock, Globe, MessageSquare, 
   Share2, Settings, Plus, Heart, MessageCircle, Send, 
@@ -52,6 +53,7 @@ export const CommunityDetailPage: React.FC = () => {
   const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabType>('home');
+  const [shareModalOpen, setShareModalOpen] = useState(false);
 
   // Sub-entity collections
   const [posts, setPosts] = useState<CommunityPost[]>([]);
@@ -982,10 +984,7 @@ export const CommunityDetailPage: React.FC = () => {
 
               <button
                 type="button"
-                onClick={() => {
-                  navigator.clipboard.writeText(window.location.href);
-                  success('Community link copied to clipboard!', 'Link Copied');
-                }}
+                onClick={() => setShareModalOpen(true)}
                 className="p-2.5 rounded-xl border border-gray-200 dark:border-[#1e3325] text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#16251c] transition"
                 title="Share Community"
               >
@@ -1492,6 +1491,27 @@ export const CommunityDetailPage: React.FC = () => {
                             >
                               <MessageCircle className="w-4 h-4" />
                               <span>{post.commentsCount || 0} Comments</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (navigator.share) {
+                                  navigator.share({
+                                    title: `${post.authorName}'s post in ${community.name}`,
+                                    text: post.content,
+                                    url: `${window.location.origin}${window.location.pathname}#/student/communities/${community.id}`
+                                  }).catch(() => {});
+                                } else {
+                                  navigator.clipboard.writeText(`${window.location.origin}${window.location.pathname}#/student/communities/${community.id}`);
+                                  success('Community post link copied to clipboard!', 'Link Copied');
+                                }
+                              }}
+                              className="flex items-center gap-1.5 font-semibold text-gray-500 hover:text-[#0b4627] transition"
+                              title="Share Post"
+                            >
+                              <Share2 className="w-4 h-4" />
+                              <span>Share</span>
                             </button>
                           </div>
 
@@ -2828,6 +2848,15 @@ export const CommunityDetailPage: React.FC = () => {
           </div>
         </div>
       </Modal>
+
+      {/* MODAL: Share Community */}
+      {community && (
+        <CommunityShareModal
+          isOpen={shareModalOpen}
+          onClose={() => setShareModalOpen(false)}
+          community={community}
+        />
+      )}
     </div>
   );
 };

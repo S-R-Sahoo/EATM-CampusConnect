@@ -10,11 +10,12 @@ import { Community, CommunityType } from '../../types';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
 import { Input } from '../../components/ui/Input';
+import { CommunityShareModal } from '../../components/common/CommunityShareModal';
 import { 
   Search, Plus, Users, Award, Check, Upload, X, ShieldCheck, 
   Lock, Globe, Sparkles, Filter, ArrowRight, BookOpen, 
   Flame, Calendar, ExternalLink, ChevronRight, Layers, HelpCircle,
-  AlertTriangle, RefreshCw
+  AlertTriangle, RefreshCw, Share2
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -43,6 +44,7 @@ export const CommunitiesPage: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [sortBy, setSortBy] = useState<'popular' | 'newest' | 'members'>('popular');
   const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [selectedShareClub, setSelectedShareClub] = useState<Community | null>(null);
 
   // Create club form states
   const [newClubName, setNewClubName] = useState('');
@@ -539,46 +541,60 @@ export const CommunitiesPage: React.FC = () => {
                       </p>
                     </div>
 
-                    {/* Bottom Metadata & Join Button */}
+                    {/* Bottom Metadata & Join / Share Buttons */}
                     <div className="pt-3.5 border-t border-gray-100 dark:border-[#1e3325] flex items-center justify-between gap-2">
                       <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 font-semibold">
                         <Users className="w-4 h-4 text-gray-400" />
                         <span>{club.memberCount} members</span>
                       </div>
 
-                      <button
-                        type="button"
-                        onClick={(e) => handleJoinToggle(e, club)}
-                        className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95 ${
-                          isMember
-                            ? 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-200 dark:hover:bg-emerald-900/60 border border-emerald-200 dark:border-emerald-800/60'
-                            : hasPending
-                            ? 'bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800 cursor-default'
-                            : 'bg-[#0b4627] hover:bg-[#0f5132] text-white shadow-xs'
-                        }`}
-                      >
-                        {isMember ? (
-                          <>
-                            <Check className="w-3.5 h-3.5 stroke-[2.5]" />
-                            <span>Joined ✓</span>
-                          </>
-                        ) : hasPending ? (
-                          <>
-                            <Lock className="w-3.5 h-3.5" />
-                            <span>Request Sent</span>
-                          </>
-                        ) : isPrivate ? (
-                          <>
-                            <Lock className="w-3.5 h-3.5" />
-                            <span>Request</span>
-                          </>
-                        ) : (
-                          <>
-                            <Plus className="w-3.5 h-3.5" />
-                            <span>Join</span>
-                          </>
-                        )}
-                      </button>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedShareClub(club);
+                          }}
+                          className="p-1.5 rounded-xl border border-gray-200 dark:border-[#1e3325] text-gray-500 hover:text-[#0b4627] hover:bg-gray-50 dark:hover:bg-[#16251c] transition"
+                          title="Share Society"
+                        >
+                          <Share2 className="w-3.5 h-3.5" />
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={(e) => handleJoinToggle(e, club)}
+                          className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95 ${
+                            isMember
+                              ? 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-200 dark:hover:bg-emerald-900/60 border border-emerald-200 dark:border-emerald-800/60'
+                              : hasPending
+                              ? 'bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800 cursor-default'
+                              : 'bg-[#0b4627] hover:bg-[#0f5132] text-white shadow-xs'
+                          }`}
+                        >
+                          {isMember ? (
+                            <>
+                              <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                              <span>Joined ✓</span>
+                            </>
+                          ) : hasPending ? (
+                            <>
+                              <Lock className="w-3.5 h-3.5" />
+                              <span>Request Sent</span>
+                            </>
+                          ) : isPrivate ? (
+                            <>
+                              <Lock className="w-3.5 h-3.5" />
+                              <span>Request</span>
+                            </>
+                          ) : (
+                            <>
+                              <Plus className="w-3.5 h-3.5" />
+                              <span>Join</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -863,6 +879,15 @@ export const CommunitiesPage: React.FC = () => {
           </div>
         </form>
       </Modal>
+
+      {/* Share Community Modal */}
+      {selectedShareClub && (
+        <CommunityShareModal
+          isOpen={!!selectedShareClub}
+          onClose={() => setSelectedShareClub(null)}
+          community={selectedShareClub}
+        />
+      )}
     </div>
   );
 };
