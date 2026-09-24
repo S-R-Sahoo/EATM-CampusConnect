@@ -138,8 +138,8 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }
   }, [user?.id]);
 
-  const unreadCount = notifications.filter(n => !n.read).length;
   const unreadMessagesCount = notifications.filter(n => !n.read && (n.type === 'message' || n.type.includes('message'))).length;
+  const unreadCount = notifications.filter(n => !n.read && n.type !== 'message' && !n.type.includes('message')).length;
 
   return (
     <NotificationContext.Provider

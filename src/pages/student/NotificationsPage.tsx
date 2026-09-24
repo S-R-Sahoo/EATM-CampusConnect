@@ -136,7 +136,7 @@ export const NotificationsPage: React.FC = () => {
                 <h1 className="text-xl sm:text-2xl font-black text-gray-900 dark:text-gray-100 tracking-tight flex items-center gap-2">
                   <span>Campus Alerts & Notifications</span>
                   {unreadTotal > 0 && (
-                    <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-[#dc2626] text-white">
+                    <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-[#0b4627] dark:bg-emerald-600 text-white shadow-2xs">
                       {unreadTotal} new
                     </span>
                   )}
@@ -205,7 +205,9 @@ export const NotificationsPage: React.FC = () => {
           >
             <span>Unread</span>
             {unreadTotal > 0 && (
-              <span className="px-1.5 py-0.2 text-[10px] rounded-full font-bold bg-[#dc2626] text-white">
+              <span className={`px-1.5 py-0.2 text-[10px] rounded-full font-bold ${
+                activeTab === 'unread' ? 'bg-white/20 text-white' : 'bg-emerald-600 text-white'
+              }`}>
                 {unreadTotal}
               </span>
             )}

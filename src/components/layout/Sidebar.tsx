@@ -93,12 +93,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
                   <Icon className={`w-4 h-4 transition-colors ${isActive ? 'text-white' : 'text-gray-400 dark:text-gray-500 group-hover:text-[#0b4627] dark:group-hover:text-emerald-400'}`} />
                   <span className="truncate">{link.label}</span>
                   {link.to.includes('notifications') && unreadCount > 0 && (
-                    <span className="ml-auto px-1.5 py-0.5 text-[10px] font-bold text-white bg-[#dc2626] rounded-full">
+                    <span className="ml-auto min-w-[18px] h-[18px] px-1 text-[10px] font-bold text-white bg-[#0b4627] dark:bg-emerald-500 rounded-full flex items-center justify-center shadow-xs">
                       {unreadCount > 99 ? '99+' : unreadCount}
                     </span>
                   )}
                   {link.to.includes('messages') && unreadMessagesCount > 0 && (
-                    <span className="ml-auto px-1.5 py-0.5 text-[10px] font-bold text-white bg-[#dc2626] rounded-full">
+                    <span className="ml-auto min-w-[18px] h-[18px] px-1 text-[10px] font-bold text-white bg-[#25d366] rounded-full flex items-center justify-center shadow-xs">
                       {unreadMessagesCount > 99 ? '99+' : unreadMessagesCount}
                     </span>
                   )}

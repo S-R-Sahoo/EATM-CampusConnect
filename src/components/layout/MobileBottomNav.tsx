@@ -11,8 +11,20 @@ export const MobileBottomNav: React.FC = () => {
   const navItems = [
     { to: `/${user?.role || 'student'}/dashboard`, icon: Home, label: 'Home' },
     { to: `/${user?.role || 'student'}/discover`, icon: Compass, label: 'Discover' },
-    { to: `/${user?.role || 'student'}/messages`, icon: MessageSquare, label: 'Messages', badge: unreadMessagesCount > 0 ? unreadMessagesCount : undefined },
-    { to: `/${user?.role || 'student'}/notifications`, icon: Bell, label: 'Alerts', badge: unreadCount > 0 ? unreadCount : undefined },
+    { 
+      to: `/${user?.role || 'student'}/messages`, 
+      icon: MessageSquare, 
+      label: 'Messages', 
+      badge: unreadMessagesCount > 0 ? unreadMessagesCount : undefined,
+      badgeColor: 'bg-[#25d366]' 
+    },
+    { 
+      to: `/${user?.role || 'student'}/notifications`, 
+      icon: Bell, 
+      label: 'Alerts', 
+      badge: unreadCount > 0 ? unreadCount : undefined,
+      badgeColor: 'bg-[#0b4627] dark:bg-emerald-500' 
+    },
     { to: `/${user?.role || 'student'}/profile`, icon: User, label: 'Profile' },
   ];
 
@@ -39,8 +51,8 @@ export const MobileBottomNav: React.FC = () => {
               <div className="relative">
                 <Icon className="w-5 h-5" />
                 {item.badge !== undefined && item.badge > 0 && (
-                  <span className="absolute -top-1 -right-2 px-1 text-[9px] font-bold bg-[#dc2626] text-white rounded-full">
-                    {item.badge}
+                  <span className={`absolute -top-1.5 -right-2.5 min-w-[17px] h-[17px] px-1 text-[10px] font-bold text-white ${item.badgeColor || 'bg-[#25d366]'} rounded-full flex items-center justify-center ring-2 ring-white dark:ring-[#111d15] shadow-xs leading-none`}>
+                    {item.badge > 99 ? '99+' : item.badge}
                   </span>
                 )}
               </div>

@@ -119,7 +119,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileMenu, onOpenSearch
           >
             <MessageSquare className="w-5 h-5" />
             {unreadMessagesCount > 0 && (
-              <span className="absolute top-1 right-1 px-1.5 py-0.2 text-[9px] sm:text-[10px] font-bold text-white bg-[#dc2626] rounded-full ring-2 ring-white dark:ring-[#0f1b14]">
+              <span className="absolute top-1 right-1 min-w-[17px] h-[17px] px-1 text-[10px] font-bold text-white bg-[#25d366] rounded-full flex items-center justify-center ring-2 ring-white dark:ring-[#0f1b14] shadow-xs">
                 {unreadMessagesCount > 99 ? '99+' : unreadMessagesCount}
               </span>
             )}
@@ -133,7 +133,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleMobileMenu, onOpenSearch
           >
             <Bell className="w-5 h-5" />
             {unreadCount > 0 && (
-              <span className="absolute top-1 right-1 px-1.5 py-0.2 text-[9px] sm:text-[10px] font-bold text-white bg-[#dc2626] rounded-full ring-2 ring-white dark:ring-[#0f1b14]">
+              <span className="absolute top-1 right-1 min-w-[17px] h-[17px] px-1 text-[10px] font-bold text-white bg-[#0b4627] dark:bg-emerald-500 rounded-full flex items-center justify-center ring-2 ring-white dark:ring-[#0f1b14] shadow-xs">
                 {unreadCount > 99 ? '99+' : unreadCount}
               </span>
             )}
