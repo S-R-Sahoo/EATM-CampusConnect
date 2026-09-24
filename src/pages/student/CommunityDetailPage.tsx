@@ -15,7 +15,7 @@ import {
   fetchCommunityResources, uploadCommunityResource, deleteCommunityResource,
   fetchCommunityEvents, createCommunityEvent, rsvpCommunityEvent,
   voteCommunityPoll, submitCommunityReport, fetchCommunityReports, resolveCommunityReport,
-  fetchCommunityModerationActions, fetchUsers
+  fetchCommunityModerationActions, fetchUsers, subscribeToCommunityLiveEvents
 } from '../../supabase/db';
 import { uploadFile } from '../../supabase/storage';
 import { 
@@ -197,6 +197,23 @@ export const CommunityDetailPage: React.FC = () => {
 
   useEffect(() => {
     loadCommunityData();
+  }, [id]);
+
+  // Live updates across devices for posts, discussions, members, events
+  useEffect(() => {
+    if (!id) return;
+    const unsubLive = subscribeToCommunityLiveEvents(id, () => {
+      fetchCommunityById(id).then(c => c && setCommunity(c));
+      fetchCommunityPosts(id).then(setPosts);
+      fetchCommunityDiscussions(id).then(setDiscussions);
+      fetchCommunityResources(id).then(setResources);
+      fetchCommunityEvents(id).then(setEvents);
+      fetchCommunityReports(id).then(setReports);
+      fetchCommunityModerationActions(id).then(setActions);
+    });
+    return () => {
+      unsubLive();
+    };
   }, [id]);
 
   // Realtime chat subscription

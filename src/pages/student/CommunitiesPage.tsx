@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { 
-  fetchCommunities, joinCommunity, leaveCommunity, createCommunity 
+  fetchCommunities, joinCommunity, leaveCommunity, createCommunity, subscribeToAllCommunities 
 } from '../../supabase/db';
 import { uploadFile } from '../../supabase/storage';
 import { Community, CommunityType } from '../../types';
@@ -61,20 +61,24 @@ export const CommunitiesPage: React.FC = () => {
   const logoInputRef = useRef<HTMLInputElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
 
-  const loadData = async () => {
+  const loadData = async (showLoading = true) => {
     try {
-      setLoading(true);
+      if (showLoading) setLoading(true);
       const data = await fetchCommunities();
       setCommunities(data);
     } catch (err) {
       console.error('Failed to load communities:', err);
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadData();
+    loadData(true);
+    const unsub = subscribeToAllCommunities(() => {
+      loadData(false);
+    });
+    return () => unsub();
   }, []);
 
   const handleLogoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {

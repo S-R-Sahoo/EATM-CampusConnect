@@ -97,7 +97,7 @@ create table if not exists public.communities (
   "logoUrl" text,
   cover text,
   "coverUrl" text,
-  "ownerId" text references public.profiles(id) on delete set null,
+  "ownerId" text references public.users(id) on delete set null,
   "isOfficial" boolean default false,
   "verificationStatus" text default 'student', -- 'verified' | 'student' | 'pending'
   lead text,
@@ -116,11 +116,11 @@ create table if not exists public.communities (
   "updatedAt" timestamptz default now()
 );
 
--- 5.1 Community Memberships Table
+-- 5.1 Community Memberships Table (Single Source of Truth for Member Roles & Status)
 create table if not exists public.community_members (
   id text primary key,
   "communityId" text not null references public.communities(id) on delete cascade,
-  "userId" text not null references public.profiles(id) on delete cascade,
+  "userId" text not null references public.users(id) on delete cascade,
   role text not null default 'member', -- 'owner' | 'admin' | 'moderator' | 'member'
   status text not null default 'approved', -- 'approved' | 'pending' | 'rejected' | 'banned'
   "requestedAt" timestamptz,
@@ -133,7 +133,7 @@ create table if not exists public.community_members (
 create table if not exists public.community_posts (
   id text primary key,
   "communityId" text not null references public.communities(id) on delete cascade,
-  "authorId" text not null references public.profiles(id) on delete cascade,
+  "authorId" text not null references public.users(id) on delete cascade,
   "authorName" text not null,
   "authorAvatar" text,
   "authorRole" text,
@@ -157,7 +157,7 @@ create table if not exists public.community_comments (
   id text primary key,
   "postId" text not null references public.community_posts(id) on delete cascade,
   "communityId" text not null references public.communities(id) on delete cascade,
-  "authorId" text not null references public.profiles(id) on delete cascade,
+  "authorId" text not null references public.users(id) on delete cascade,
   "authorName" text not null,
   "authorAvatar" text,
   "authorDept" text,
@@ -171,7 +171,7 @@ create table if not exists public.community_comments (
 create table if not exists public.community_discussions (
   id text primary key,
   "communityId" text not null references public.communities(id) on delete cascade,
-  "authorId" text not null references public.profiles(id) on delete cascade,
+  "authorId" text not null references public.users(id) on delete cascade,
   "authorName" text not null,
   "authorAvatar" text,
   "authorRole" text,
@@ -192,7 +192,7 @@ create table if not exists public.community_discussion_comments (
   id text primary key,
   "discussionId" text not null references public.community_discussions(id) on delete cascade,
   "communityId" text not null references public.communities(id) on delete cascade,
-  "authorId" text not null references public.profiles(id) on delete cascade,
+  "authorId" text not null references public.users(id) on delete cascade,
   "authorName" text not null,
   "authorAvatar" text,
   content text not null,
@@ -203,7 +203,7 @@ create table if not exists public.community_discussion_comments (
 create table if not exists public.community_messages (
   id text primary key,
   "communityId" text not null references public.communities(id) on delete cascade,
-  "senderId" text not null references public.profiles(id) on delete cascade,
+  "senderId" text not null references public.users(id) on delete cascade,
   "senderName" text not null,
   "senderAvatar" text,
   text text not null,
@@ -225,7 +225,7 @@ create table if not exists public.community_resources (
   "fileUrl" text not null,
   "fileType" text not null,
   "fileSize" text not null,
-  "uploadedBy" text not null references public.profiles(id) on delete cascade,
+  "uploadedBy" text not null references public.users(id) on delete cascade,
   "uploadedByName" text not null,
   "uploadedByAvatar" text,
   "isMemberOnly" boolean default true,
@@ -233,11 +233,52 @@ create table if not exists public.community_resources (
   "createdAt" timestamptz default now()
 );
 
--- 5.8 Community Reports & Moderation Queue
+-- 5.8 Community Events Table
+create table if not exists public.community_events (
+  id text primary key,
+  "communityId" text not null references public.communities(id) on delete cascade,
+  title text not null,
+  description text not null,
+  date text not null,
+  time text not null,
+  location text not null,
+  "isOnline" boolean default false,
+  "meetingLink" text,
+  category text not null default 'Workshop',
+  "createdBy" text not null references public.users(id) on delete cascade,
+  "attendeesCount" int default 0,
+  attendees jsonb default '[]',
+  "createdAt" timestamptz default now()
+);
+
+-- 5.9 Community Event RSVPs Table
+create table if not exists public.community_event_rsvps (
+  id text primary key,
+  "eventId" text not null references public.community_events(id) on delete cascade,
+  "communityId" text not null references public.communities(id) on delete cascade,
+  "userId" text not null references public.users(id) on delete cascade,
+  status text not null default 'going', -- 'going' | 'interested' | 'not_going'
+  "createdAt" timestamptz default now(),
+  unique("eventId", "userId")
+);
+
+-- 5.10 Community Poll Votes Table
+create table if not exists public.community_poll_votes (
+  id text primary key,
+  "pollId" text not null,
+  "postId" text references public.community_posts(id) on delete cascade,
+  "communityId" text not null references public.communities(id) on delete cascade,
+  "userId" text not null references public.users(id) on delete cascade,
+  "optionId" text not null,
+  "createdAt" timestamptz default now(),
+  unique("pollId", "userId")
+);
+
+-- 5.11 Community Reports & Moderation Queue
 create table if not exists public.community_reports (
   id text primary key,
   "communityId" text not null references public.communities(id) on delete cascade,
-  "reporterId" text not null references public.profiles(id) on delete cascade,
+  "reporterId" text not null references public.users(id) on delete cascade,
   "reporterName" text not null,
   "targetType" text not null, -- 'post' | 'comment' | 'discussion' | 'message' | 'resource' | 'member'
   "targetId" text not null,
@@ -251,11 +292,11 @@ create table if not exists public.community_reports (
   "createdAt" timestamptz default now()
 );
 
--- 5.9 Community Moderation Actions & Audit Log
+-- 5.12 Community Moderation Actions & Audit Log
 create table if not exists public.community_moderation_actions (
   id text primary key,
   "communityId" text not null references public.communities(id) on delete cascade,
-  "moderatorId" text not null references public.profiles(id) on delete cascade,
+  "moderatorId" text not null references public.users(id) on delete cascade,
   "moderatorName" text not null,
   "targetUserId" text,
   "actionType" text not null, -- 'warn' | 'remove_content' | 'remove_member' | 'ban_member' | 'unban_member' | 'role_change'
@@ -435,6 +476,18 @@ alter table public.users enable row level security;
 alter table public.posts enable row level security;
 alter table public.comments enable row level security;
 alter table public.communities enable row level security;
+alter table public.community_members enable row level security;
+alter table public.community_posts enable row level security;
+alter table public.community_comments enable row level security;
+alter table public.community_discussions enable row level security;
+alter table public.community_discussion_comments enable row level security;
+alter table public.community_messages enable row level security;
+alter table public.community_resources enable row level security;
+alter table public.community_events enable row level security;
+alter table public.community_event_rsvps enable row level security;
+alter table public.community_poll_votes enable row level security;
+alter table public.community_reports enable row level security;
+alter table public.community_moderation_actions enable row level security;
 alter table public.events enable row level security;
 alter table public.study_materials enable row level security;
 alter table public.opportunities enable row level security;
@@ -446,11 +499,86 @@ alter table public.messages enable row level security;
 alter table public.reports enable row level security;
 alter table public.assignments enable row level security;
 
--- Create Open Access Policies for rapid student prototype and live campus operations
+-- ==========================================================
+-- 14. Community Role Hierarchy & RLS Helper Functions
+-- Hierarchy: OWNER (rank 4) > ADMIN (rank 3) > MODERATOR (rank 2) > MEMBER (rank 1)
+-- ==========================================================
+
+-- Helper: Retrieve approved role of a user in a community
+create or replace function public.get_community_role(comm_id text, usr_id text)
+returns text language sql stable security definer as $$
+  select role from public.community_members
+  where "communityId" = comm_id and "userId" = usr_id and status = 'approved'
+  limit 1;
+$$;
+
+-- Helper: Check if user meets minimum role rank in community
+create or replace function public.has_community_role_rank(comm_id text, usr_id text, min_role text)
+returns boolean language plpgsql stable security definer as $$
+declare
+  user_role text;
+  user_rank int := 0;
+  required_rank int := 0;
+begin
+  select role into user_role from public.community_members
+  where "communityId" = comm_id and "userId" = usr_id and status = 'approved'
+  limit 1;
+  
+  if user_role is null then
+    if exists (select 1 from public.communities where id = comm_id and "ownerId" = usr_id) then
+      user_role := 'owner';
+    end if;
+  end if;
+
+  user_rank := case user_role
+    when 'owner' then 4
+    when 'admin' then 3
+    when 'moderator' then 2
+    when 'member' then 1
+    else 0
+  end;
+
+  required_rank := case min_role
+    when 'owner' then 4
+    when 'admin' then 3
+    when 'moderator' then 2
+    when 'member' then 1
+    else 0
+  end;
+
+  return user_rank >= required_rank;
+end;
+$$;
+
+-- Helper: Check if community is public or user is an approved member
+create or replace function public.can_access_community(comm_id text, usr_id text)
+returns boolean language sql stable security definer as $$
+  select exists (
+    select 1 from public.communities where id = comm_id and type = 'public'
+    union
+    select 1 from public.community_members where "communityId" = comm_id and "userId" = usr_id and status = 'approved'
+    union
+    select 1 from public.communities where id = comm_id and "ownerId" = usr_id
+  );
+$$;
+
+-- Policies for CampusConnect Client Operations
 create policy "Allow all operations for authenticated and anonymous users" on public.users for all using (true) with check (true);
 create policy "Allow all operations on posts" on public.posts for all using (true) with check (true);
 create policy "Allow all operations on comments" on public.comments for all using (true) with check (true);
 create policy "Allow all operations on communities" on public.communities for all using (true) with check (true);
+create policy "Allow all operations on community_members" on public.community_members for all using (true) with check (true);
+create policy "Allow all operations on community_posts" on public.community_posts for all using (true) with check (true);
+create policy "Allow all operations on community_comments" on public.community_comments for all using (true) with check (true);
+create policy "Allow all operations on community_discussions" on public.community_discussions for all using (true) with check (true);
+create policy "Allow all operations on community_discussion_comments" on public.community_discussion_comments for all using (true) with check (true);
+create policy "Allow all operations on community_messages" on public.community_messages for all using (true) with check (true);
+create policy "Allow all operations on community_resources" on public.community_resources for all using (true) with check (true);
+create policy "Allow all operations on community_events" on public.community_events for all using (true) with check (true);
+create policy "Allow all operations on community_event_rsvps" on public.community_event_rsvps for all using (true) with check (true);
+create policy "Allow all operations on community_poll_votes" on public.community_poll_votes for all using (true) with check (true);
+create policy "Allow all operations on community_reports" on public.community_reports for all using (true) with check (true);
+create policy "Allow all operations on community_moderation_actions" on public.community_moderation_actions for all using (true) with check (true);
 create policy "Allow all operations on events" on public.events for all using (true) with check (true);
 create policy "Allow all operations on study_materials" on public.study_materials for all using (true) with check (true);
 create policy "Allow all operations on opportunities" on public.opportunities for all using (true) with check (true);
@@ -463,11 +591,12 @@ create policy "Allow all operations on reports" on public.reports for all using 
 create policy "Allow all operations on assignments" on public.assignments for all using (true) with check (true);
 
 -- ==========================================================
--- 14. Enable Supabase Realtime (100% Free Tier)
--- Allows live WebSocket streaming for Posts, Comments, Messages, Connections, Notifications
+-- 15. Enable Supabase Realtime (100% Free Tier)
+-- Allows live WebSocket streaming across multi-browsers/devices
 -- ==========================================================
 do $$
 begin
+  -- General app tables
   if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'posts') then
     alter publication supabase_realtime add table public.posts;
   end if;
@@ -485,6 +614,41 @@ begin
   end if;
   if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'notifications') then
     alter publication supabase_realtime add table public.notifications;
+  end if;
+
+  -- Community System Realtime Tables
+  if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'communities') then
+    alter publication supabase_realtime add table public.communities;
+  end if;
+  if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'community_members') then
+    alter publication supabase_realtime add table public.community_members;
+  end if;
+  if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'community_posts') then
+    alter publication supabase_realtime add table public.community_posts;
+  end if;
+  if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'community_comments') then
+    alter publication supabase_realtime add table public.community_comments;
+  end if;
+  if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'community_discussions') then
+    alter publication supabase_realtime add table public.community_discussions;
+  end if;
+  if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'community_discussion_comments') then
+    alter publication supabase_realtime add table public.community_discussion_comments;
+  end if;
+  if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'community_messages') then
+    alter publication supabase_realtime add table public.community_messages;
+  end if;
+  if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'community_resources') then
+    alter publication supabase_realtime add table public.community_resources;
+  end if;
+  if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'community_events') then
+    alter publication supabase_realtime add table public.community_events;
+  end if;
+  if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'community_reports') then
+    alter publication supabase_realtime add table public.community_reports;
+  end if;
+  if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'community_moderation_actions') then
+    alter publication supabase_realtime add table public.community_moderation_actions;
   end if;
 end $$;
 

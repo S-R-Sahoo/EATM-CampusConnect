@@ -1798,37 +1798,243 @@ export function subscribeToNotifications(
 }
 
 // ---------------------------------------------
-// CLUBS & COMMUNITIES
+// CLUBS & COMMUNITIES (Supabase Single Source of Truth)
 // ---------------------------------------------
+
+/**
+ * Helper to auto-seed initial rich communities into Supabase if empty
+ */
+async function seedCommunityDataIfEmpty(): Promise<void> {
+  if (!isSupabaseConfigured() || !supabase) return;
+  try {
+    const { data: existingComm, error } = await supabase.from('communities').select('id').limit(1);
+    if (error || (existingComm && existingComm.length > 0)) return;
+
+    console.info('🌱 Seeding initial CampusConnect communities & clubs into Supabase...');
+
+    // 1. Seed Communities
+    const commRows = SEED_COMMUNITIES.map(c => ({
+      id: c.id,
+      name: c.name,
+      description: c.description,
+      category: c.category,
+      type: c.type || 'public',
+      logo: c.logoUrl,
+      "logoUrl": c.logoUrl,
+      cover: c.coverUrl,
+      "coverUrl": c.coverUrl,
+      "ownerId": c.ownerId,
+      "isOfficial": c.isOfficial || false,
+      "verificationStatus": c.verificationStatus || (c.isOfficial ? 'verified' : 'student'),
+      lead: c.lead,
+      "leadRole": c.leadRole,
+      "memberCount": c.memberCount || c.members.length || 1,
+      members: c.members,
+      admins: c.admins || (c.ownerId ? [c.ownerId] : []),
+      moderators: c.moderators || [],
+      "pendingRequests": c.pendingRequests || [],
+      "bannedUsers": c.bannedUsers || [],
+      rules: c.rules || [],
+      tags: c.tags || [c.category],
+      "meetingTime": c.meetingTime,
+      room: c.room,
+      "createdAt": c.createdAt || new Date().toISOString(),
+      "updatedAt": c.updatedAt || new Date().toISOString()
+    }));
+    await supabase.from('communities').upsert(commRows);
+
+    // 2. Seed Community Members
+    const memberRows: any[] = [];
+    SEED_COMMUNITIES.forEach(c => {
+      // Owner
+      if (c.ownerId) {
+        memberRows.push({
+          id: `cm_${c.id}_${c.ownerId}`,
+          communityId: c.id,
+          userId: c.ownerId,
+          role: 'owner',
+          status: 'approved',
+          joinedAt: c.createdAt || new Date().toISOString()
+        });
+      }
+      // Admins
+      (c.admins || []).forEach(adminId => {
+        if (adminId !== c.ownerId && !memberRows.some(m => m.communityId === c.id && m.userId === adminId)) {
+          memberRows.push({
+            id: `cm_${c.id}_${adminId}`,
+            communityId: c.id,
+            userId: adminId,
+            role: 'admin',
+            status: 'approved',
+            joinedAt: c.createdAt || new Date().toISOString()
+          });
+        }
+      });
+      // Moderators
+      (c.moderators || []).forEach(modId => {
+        if (!memberRows.some(m => m.communityId === c.id && m.userId === modId)) {
+          memberRows.push({
+            id: `cm_${c.id}_${modId}`,
+            communityId: c.id,
+            userId: modId,
+            role: 'moderator',
+            status: 'approved',
+            joinedAt: c.createdAt || new Date().toISOString()
+          });
+        }
+      });
+      // Members
+      (c.members || []).forEach(memId => {
+        if (!memberRows.some(m => m.communityId === c.id && m.userId === memId)) {
+          memberRows.push({
+            id: `cm_${c.id}_${memId}`,
+            communityId: c.id,
+            userId: memId,
+            role: 'member',
+            status: 'approved',
+            joinedAt: c.createdAt || new Date().toISOString()
+          });
+        }
+      });
+      // Pending requests
+      (c.pendingRequests || []).forEach(pId => {
+        if (!memberRows.some(m => m.communityId === c.id && m.userId === pId)) {
+          memberRows.push({
+            id: `cm_${c.id}_${pId}`,
+            communityId: c.id,
+            userId: pId,
+            role: 'member',
+            status: 'pending',
+            requestedAt: new Date().toISOString()
+          });
+        }
+      });
+      // Banned
+      (c.bannedUsers || []).forEach(bId => {
+        if (!memberRows.some(m => m.communityId === c.id && m.userId === bId)) {
+          memberRows.push({
+            id: `cm_${c.id}_${bId}`,
+            communityId: c.id,
+            userId: bId,
+            role: 'member',
+            status: 'banned'
+          });
+        }
+      });
+    });
+    if (memberRows.length > 0) {
+      await supabase.from('community_members').upsert(memberRows);
+    }
+
+    // 3. Seed Posts
+    if (SEED_COMMUNITY_POSTS.length > 0) {
+      await supabase.from('community_posts').upsert(SEED_COMMUNITY_POSTS);
+    }
+
+    // 4. Seed Comments
+    if (SEED_COMMUNITY_COMMENTS.length > 0) {
+      await supabase.from('community_comments').upsert(SEED_COMMUNITY_COMMENTS);
+    }
+
+    // 5. Seed Discussions
+    if (SEED_COMMUNITY_DISCUSSIONS.length > 0) {
+      await supabase.from('community_discussions').upsert(SEED_COMMUNITY_DISCUSSIONS);
+    }
+
+    // 6. Seed Discussion Comments
+    if (SEED_COMMUNITY_DISCUSSION_COMMENTS.length > 0) {
+      await supabase.from('community_discussion_comments').upsert(SEED_COMMUNITY_DISCUSSION_COMMENTS);
+    }
+
+    // 7. Seed Messages
+    if (SEED_COMMUNITY_MESSAGES.length > 0) {
+      await supabase.from('community_messages').upsert(SEED_COMMUNITY_MESSAGES);
+    }
+
+    // 8. Seed Resources
+    if (SEED_COMMUNITY_RESOURCES.length > 0) {
+      await supabase.from('community_resources').upsert(SEED_COMMUNITY_RESOURCES);
+    }
+
+    // 9. Seed Events
+    if (SEED_COMMUNITY_EVENTS.length > 0) {
+      await supabase.from('community_events').upsert(SEED_COMMUNITY_EVENTS);
+    }
+
+    console.info('✅ Initial Supabase communities seeded successfully!');
+  } catch (err) {
+    console.warn('Initial community auto-seeding encountered non-fatal error:', err);
+  }
+}
+
 export async function fetchCommunities(): Promise<Community[]> {
   let list: Community[] = [];
   if (isSupabaseConfigured() && supabase) {
     try {
-      const { data, error } = await supabase
-        .from('communities')
-        .select('*')
-        .order('name', { ascending: true });
+      const [commRes, memRes] = await Promise.all([
+        supabase.from('communities').select('*').order('name', { ascending: true }),
+        supabase.from('community_members').select('*')
+      ]);
 
-      if (!error && data && data.length > 0) {
-        const normalized = data.map(c => ({
-          ...c,
-          logoUrl: c.logoUrl || c.logo || 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=300&auto=format&fit=crop&q=80',
-          coverUrl: c.coverUrl || c.cover || 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=1200&auto=format&fit=crop&q=80',
-          type: (c.type as CommunityType) || 'public',
-          memberCount: typeof c.memberCount === 'number' ? c.memberCount : (c.members?.length || 1),
-          members: Array.isArray(c.members) ? c.members : [],
-          admins: Array.isArray(c.admins) ? c.admins : (c.ownerId ? [c.ownerId] : []),
-          moderators: Array.isArray(c.moderators) ? c.moderators : [],
-          pendingRequests: Array.isArray(c.pendingRequests) ? c.pendingRequests : [],
-          bannedUsers: Array.isArray(c.bannedUsers) ? c.bannedUsers : [],
-          rules: Array.isArray(c.rules) ? c.rules : [],
-          tags: Array.isArray(c.tags) ? c.tags : []
-        }));
+      if (!commRes.error && commRes.data && commRes.data.length > 0) {
+        const membersData = memRes.data || [];
+        const normalized: Community[] = commRes.data.map(c => {
+          const clubMembers = membersData.filter((m: any) => m.communityId === c.id);
+          const approved = clubMembers.filter((m: any) => m.status === 'approved');
+          const pending = clubMembers.filter((m: any) => m.status === 'pending').map((m: any) => m.userId);
+          const banned = clubMembers.filter((m: any) => m.status === 'banned').map((m: any) => m.userId);
+          const admins = approved.filter((m: any) => m.role === 'admin' || m.role === 'owner').map((m: any) => m.userId);
+          const moderators = approved.filter((m: any) => m.role === 'moderator').map((m: any) => m.userId);
+          const membersList = approved.map((m: any) => m.userId);
+
+          const finalMembers = membersList.length > 0 ? membersList : (Array.isArray(c.members) ? c.members : (c.ownerId ? [c.ownerId] : []));
+          const finalAdmins = admins.length > 0 ? admins : (Array.isArray(c.admins) ? c.admins : (c.ownerId ? [c.ownerId] : []));
+          const finalMods = moderators.length > 0 ? moderators : (Array.isArray(c.moderators) ? c.moderators : []);
+          const finalPending = pending.length > 0 ? pending : (Array.isArray(c.pendingRequests) ? c.pendingRequests : []);
+          const finalBanned = banned.length > 0 ? banned : (Array.isArray(c.bannedUsers) ? c.bannedUsers : []);
+
+          return {
+            ...c,
+            logoUrl: c.logoUrl || c.logo || 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=300&auto=format&fit=crop&q=80',
+            coverUrl: c.coverUrl || c.cover || 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=1200&auto=format&fit=crop&q=80',
+            type: (c.type as CommunityType) || 'public',
+            memberCount: Math.max(finalMembers.length, typeof c.memberCount === 'number' ? c.memberCount : 1),
+            members: finalMembers,
+            admins: finalAdmins,
+            moderators: finalMods,
+            pendingRequests: finalPending,
+            bannedUsers: finalBanned,
+            rules: Array.isArray(c.rules) ? c.rules : [],
+            tags: Array.isArray(c.tags) ? c.tags : []
+          };
+        });
+
         setLocalData('communities', normalized);
-        list = normalized;
+        return normalized;
+      } else if (!commRes.error && (!commRes.data || commRes.data.length === 0)) {
+        await seedCommunityDataIfEmpty();
+        const recheck = await supabase.from('communities').select('*').order('name', { ascending: true });
+        if (recheck.data && recheck.data.length > 0) {
+          const norm = recheck.data.map(c => ({
+            ...c,
+            logoUrl: c.logoUrl || c.logo || 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=300&auto=format&fit=crop&q=80',
+            coverUrl: c.coverUrl || c.cover || 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=1200&auto=format&fit=crop&q=80',
+            type: (c.type as CommunityType) || 'public',
+            memberCount: typeof c.memberCount === 'number' ? c.memberCount : (c.members?.length || 1),
+            members: Array.isArray(c.members) ? c.members : [],
+            admins: Array.isArray(c.admins) ? c.admins : [],
+            moderators: Array.isArray(c.moderators) ? c.moderators : [],
+            pendingRequests: Array.isArray(c.pendingRequests) ? c.pendingRequests : [],
+            bannedUsers: Array.isArray(c.bannedUsers) ? c.bannedUsers : [],
+            rules: Array.isArray(c.rules) ? c.rules : [],
+            tags: Array.isArray(c.tags) ? c.tags : []
+          }));
+          setLocalData('communities', norm);
+          return norm;
+        }
       }
     } catch (err) {
-      console.warn('Supabase fetchCommunities error, using local fallback:', err);
+      console.warn('Supabase fetchCommunities error, using local cache:', err);
     }
   }
 
@@ -1839,6 +2045,50 @@ export async function fetchCommunities(): Promise<Community[]> {
 }
 
 export async function fetchCommunityById(id: string): Promise<Community | null> {
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      const [commRes, memRes] = await Promise.all([
+        supabase.from('communities').select('*').eq('id', id).maybeSingle(),
+        supabase.from('community_members').select('*').eq('communityId', id)
+      ]);
+
+      if (!commRes.error && commRes.data) {
+        const c = commRes.data;
+        const clubMembers = memRes.data || [];
+        const approved = clubMembers.filter((m: any) => m.status === 'approved');
+        const pending = clubMembers.filter((m: any) => m.status === 'pending').map((m: any) => m.userId);
+        const banned = clubMembers.filter((m: any) => m.status === 'banned').map((m: any) => m.userId);
+        const admins = approved.filter((m: any) => m.role === 'admin' || m.role === 'owner').map((m: any) => m.userId);
+        const moderators = approved.filter((m: any) => m.role === 'moderator').map((m: any) => m.userId);
+        const membersList = approved.map((m: any) => m.userId);
+
+        const finalMembers = membersList.length > 0 ? membersList : (Array.isArray(c.members) ? c.members : (c.ownerId ? [c.ownerId] : []));
+        const finalAdmins = admins.length > 0 ? admins : (Array.isArray(c.admins) ? c.admins : (c.ownerId ? [c.ownerId] : []));
+        const finalMods = moderators.length > 0 ? moderators : (Array.isArray(c.moderators) ? c.moderators : []);
+        const finalPending = pending.length > 0 ? pending : (Array.isArray(c.pendingRequests) ? c.pendingRequests : []);
+        const finalBanned = banned.length > 0 ? banned : (Array.isArray(c.bannedUsers) ? c.bannedUsers : []);
+
+        const community: Community = {
+          ...c,
+          logoUrl: c.logoUrl || c.logo || 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=300&auto=format&fit=crop&q=80',
+          coverUrl: c.coverUrl || c.cover || 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=1200&auto=format&fit=crop&q=80',
+          type: (c.type as CommunityType) || 'public',
+          memberCount: Math.max(finalMembers.length, typeof c.memberCount === 'number' ? c.memberCount : 1),
+          members: finalMembers,
+          admins: finalAdmins,
+          moderators: finalMods,
+          pendingRequests: finalPending,
+          bannedUsers: finalBanned,
+          rules: Array.isArray(c.rules) ? c.rules : [],
+          tags: Array.isArray(c.tags) ? c.tags : []
+        };
+        return community;
+      }
+    } catch (err) {
+      console.warn('Supabase fetchCommunityById error:', err);
+    }
+  }
+
   const all = await fetchCommunities();
   return all.find(c => c.id === id) || null;
 }
@@ -1847,8 +2097,9 @@ export async function createCommunity(
   data: Partial<Community> & { name: string; category: string; description: string },
   creatorId: string
 ): Promise<Community> {
+  const newId = 'club_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6);
   const newCommunity: Community = {
-    id: 'club_' + Date.now(),
+    id: newId,
     name: data.name.trim(),
     category: data.category,
     description: data.description.trim(),
@@ -1892,10 +2143,23 @@ export async function createCommunity(
         "memberCount": 1,
         members: [creatorId],
         admins: [creatorId],
-        rules: newCommunity.rules
+        moderators: [],
+        "pendingRequests": [],
+        "bannedUsers": [],
+        rules: newCommunity.rules,
+        tags: newCommunity.tags
+      }]);
+
+      await supabase.from('community_members').insert([{
+        id: 'cm_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+        "communityId": newCommunity.id,
+        "userId": creatorId,
+        role: 'owner',
+        status: 'approved',
+        "joinedAt": new Date().toISOString()
       }]);
     } catch (err) {
-      console.warn('Supabase createCommunity error, saved locally:', err);
+      console.warn('Supabase createCommunity error:', err);
     }
   }
 
@@ -1908,6 +2172,77 @@ export async function joinCommunity(
   communityId: string, 
   userId: string
 ): Promise<{ status: 'joined' | 'requested' | 'already_member' | 'banned'; count: number; community?: Community }> {
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      const { data: comm } = await supabase.from('communities').select('*').eq('id', communityId).maybeSingle();
+      if (!comm) return { status: 'already_member', count: 0 };
+
+      const { data: existing } = await supabase.from('community_members')
+        .select('*')
+        .eq('communityId', communityId)
+        .eq('userId', userId)
+        .maybeSingle();
+
+      if (existing) {
+        if (existing.status === 'banned') return { status: 'banned', count: comm.memberCount || 1 };
+        if (existing.status === 'approved') return { status: 'already_member', count: comm.memberCount || 1 };
+        if (existing.status === 'pending') return { status: 'requested', count: comm.memberCount || 1 };
+      }
+
+      const isPrivate = comm.type === 'private';
+      const targetStatus = isPrivate ? 'pending' : 'approved';
+
+      const memberRow = {
+        id: existing?.id || ('cm_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6)),
+        communityId,
+        userId,
+        role: 'member',
+        status: targetStatus,
+        requestedAt: isPrivate ? new Date().toISOString() : null,
+        joinedAt: !isPrivate ? new Date().toISOString() : null,
+        updatedAt: new Date().toISOString()
+      };
+
+      await supabase.from('community_members').upsert([memberRow]);
+
+      if (isPrivate) {
+        const { data: adminRows } = await supabase.from('community_members')
+          .select('userId')
+          .eq('communityId', communityId)
+          .in('role', ['owner', 'admin'])
+          .eq('status', 'approved');
+        
+        const targets = Array.from(new Set([comm.ownerId, ...(adminRows || []).map((r: any) => r.userId)])).filter(Boolean);
+        for (const adminId of targets) {
+          if (adminId !== userId) {
+            await createNotification({
+              recipientId: adminId,
+              type: 'connection_request',
+              title: 'New Community Join Request',
+              message: `A student requested to join "${comm.name}".`,
+              link: `/student/communities/${communityId}`
+            });
+          }
+        }
+        return { status: 'requested', count: comm.memberCount || 1 };
+      } else {
+        const currentMembers = Array.isArray(comm.members) ? comm.members : [];
+        if (!currentMembers.includes(userId)) currentMembers.push(userId);
+        const newCount = currentMembers.length;
+
+        await supabase.from('communities').update({
+          memberCount: newCount,
+          members: currentMembers
+        }).eq('id', communityId);
+
+        return { status: 'joined', count: newCount };
+      }
+    } catch (err) {
+      console.warn('Supabase joinCommunity error, using local fallback:', err);
+    }
+  }
+
+  // Local fallback
   const list = getLocalData<Community[]>('communities', SEED_COMMUNITIES);
   const community = list.find(c => c.id === communityId);
   if (!community) return { status: 'already_member', count: 0 };
@@ -1915,53 +2250,22 @@ export async function joinCommunity(
   if (community.bannedUsers?.includes(userId)) {
     return { status: 'banned', count: community.memberCount, community };
   }
-
   if (community.members.includes(userId)) {
     return { status: 'already_member', count: community.memberCount, community };
   }
 
   if (community.type === 'private') {
-    // Private community -> create pending join request
     community.pendingRequests = community.pendingRequests || [];
     if (!community.pendingRequests.includes(userId)) {
       community.pendingRequests.push(userId);
     }
     setLocalData('communities', [...list]);
-
-    // Send notification to Owner and Admins ONLY
-    const adminTargets = Array.from(new Set([community.ownerId, ...(community.admins || [])])).filter(Boolean) as string[];
-    for (const adminId of adminTargets) {
-      if (adminId !== userId) {
-        await createNotification({
-          recipientId: adminId,
-          type: 'connection_request',
-          title: 'New Community Join Request',
-          message: `A student requested to join "${community.name}".`,
-          link: `/student/communities/${community.id}`
-        });
-      }
-    }
-
     return { status: 'requested', count: community.memberCount, community };
   }
 
-  // Public community -> instant approval
   community.members.push(userId);
   community.memberCount = (community.memberCount || 0) + 1;
   setLocalData('communities', [...list]);
-
-  if (isSupabaseConfigured() && supabase) {
-    try {
-      await supabase
-        .from('communities')
-        .update({ 
-          members: community.members, 
-          memberCount: community.memberCount 
-        })
-        .eq('id', communityId);
-    } catch {}
-  }
-
   return { status: 'joined', count: community.memberCount, community };
 }
 
@@ -1969,11 +2273,53 @@ export async function leaveCommunity(
   communityId: string, 
   userId: string
 ): Promise<{ success: boolean; isOwnerMustTransfer?: boolean; count: number }> {
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      const { data: comm } = await supabase.from('communities').select('*').eq('id', communityId).maybeSingle();
+      const { data: existing } = await supabase.from('community_members')
+        .select('*')
+        .eq('communityId', communityId)
+        .eq('userId', userId)
+        .maybeSingle();
+
+      if (existing?.role === 'owner' || comm?.ownerId === userId) {
+        const { count: memberTotal } = await supabase.from('community_members')
+          .select('*', { count: 'exact', head: true })
+          .eq('communityId', communityId)
+          .eq('status', 'approved');
+
+        if ((memberTotal || 0) > 1) {
+          return { success: false, isOwnerMustTransfer: true, count: comm?.memberCount || 1 };
+        }
+      }
+
+      await supabase.from('community_members')
+        .delete()
+        .eq('communityId', communityId)
+        .eq('userId', userId);
+
+      const currentMembers = Array.isArray(comm?.members) ? comm.members.filter((id: string) => id !== userId) : [];
+      const currentAdmins = Array.isArray(comm?.admins) ? comm.admins.filter((id: string) => id !== userId) : [];
+      const currentMods = Array.isArray(comm?.moderators) ? comm.moderators.filter((id: string) => id !== userId) : [];
+      const newCount = Math.max(0, currentMembers.length);
+
+      await supabase.from('communities').update({
+        memberCount: newCount,
+        members: currentMembers,
+        admins: currentAdmins,
+        moderators: currentMods
+      }).eq('id', communityId);
+
+      return { success: true, count: newCount };
+    } catch (err) {
+      console.warn('Supabase leaveCommunity error:', err);
+    }
+  }
+
   const list = getLocalData<Community[]>('communities', SEED_COMMUNITIES);
   const community = list.find(c => c.id === communityId);
   if (!community) return { success: false, count: 0 };
 
-  // If user is the owner and there are other members, owner must transfer ownership or delete club
   if (community.ownerId === userId && community.members.length > 1) {
     return { success: false, isOwnerMustTransfer: true, count: community.memberCount };
   }
@@ -1982,29 +2328,13 @@ export async function leaveCommunity(
   community.admins = (community.admins || []).filter(id => id !== userId);
   community.moderators = (community.moderators || []).filter(id => id !== userId);
   community.memberCount = Math.max(0, (community.memberCount || 1) - 1);
-
   setLocalData('communities', [...list]);
-
-  if (isSupabaseConfigured() && supabase) {
-    try {
-      await supabase
-        .from('communities')
-        .update({ 
-          members: community.members, 
-          admins: community.admins,
-          moderators: community.moderators,
-          memberCount: community.memberCount 
-        })
-        .eq('id', communityId);
-    } catch {}
-  }
 
   return { success: true, count: community.memberCount };
 }
 
 export async function toggleJoinCommunity(communityId: string, userId: string): Promise<{ joined: boolean; count: number }> {
-  const all = await fetchCommunities();
-  const comm = all.find(c => c.id === communityId);
+  const comm = await fetchCommunityById(communityId);
   if (!comm) return { joined: false, count: 0 };
   const isMember = comm.members.includes(userId);
   if (isMember) {
@@ -2022,11 +2352,70 @@ export async function handleCommunityJoinRequest(
   action: 'approve' | 'reject',
   adminId: string
 ): Promise<{ success: boolean; community?: Community }> {
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      const { data: comm } = await supabase.from('communities').select('*').eq('id', communityId).maybeSingle();
+
+      if (action === 'approve') {
+        await supabase.from('community_members')
+          .update({
+            status: 'approved',
+            joinedAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          })
+          .eq('communityId', communityId)
+          .eq('userId', targetUserId);
+
+        const currentMembers = Array.isArray(comm?.members) ? comm.members : [];
+        if (!currentMembers.includes(targetUserId)) currentMembers.push(targetUserId);
+        const currentPending = Array.isArray(comm?.pendingRequests) ? comm.pendingRequests.filter((id: string) => id !== targetUserId) : [];
+        const newCount = currentMembers.length;
+
+        await supabase.from('communities').update({
+          memberCount: newCount,
+          members: currentMembers,
+          pendingRequests: currentPending
+        }).eq('id', communityId);
+
+        await createNotification({
+          recipientId: targetUserId,
+          type: 'connection_accepted',
+          title: 'Community Request Approved',
+          message: `Your request to join "${comm?.name || 'the community'}" was approved! Welcome aboard.`,
+          link: `/student/communities/${communityId}`
+        });
+      } else {
+        await supabase.from('community_members')
+          .delete()
+          .eq('communityId', communityId)
+          .eq('userId', targetUserId);
+
+        const currentPending = Array.isArray(comm?.pendingRequests) ? comm.pendingRequests.filter((id: string) => id !== targetUserId) : [];
+        await supabase.from('communities').update({
+          pendingRequests: currentPending
+        }).eq('id', communityId);
+
+        await createNotification({
+          recipientId: targetUserId,
+          type: 'system',
+          title: 'Community Request Declined',
+          message: `Your request to join "${comm?.name || 'the community'}" was declined.`,
+          link: `/student/communities`
+        });
+      }
+
+      const updatedComm = await fetchCommunityById(communityId);
+      return { success: true, community: updatedComm || undefined };
+    } catch (err) {
+      console.warn('Supabase handleCommunityJoinRequest error:', err);
+    }
+  }
+
+  // Local fallback
   const list = getLocalData<Community[]>('communities', SEED_COMMUNITIES);
   const community = list.find(c => c.id === communityId);
   if (!community) return { success: false };
 
-  // Remove from pending
   community.pendingRequests = (community.pendingRequests || []).filter(id => id !== targetUserId);
 
   if (action === 'approve') {
@@ -2034,38 +2423,8 @@ export async function handleCommunityJoinRequest(
       community.members.push(targetUserId);
       community.memberCount = (community.memberCount || 0) + 1;
     }
-    await createNotification({
-      recipientId: targetUserId,
-      type: 'connection_accepted',
-      title: 'Community Request Approved',
-      message: `Your request to join "${community.name}" was accepted! Welcome to the society.`,
-      link: `/student/communities/${community.id}`
-    });
-  } else {
-    await createNotification({
-      recipientId: targetUserId,
-      type: 'system',
-      title: 'Community Request Declined',
-      message: `Your request to join "${community.name}" was declined.`,
-      link: `/student/communities`
-    });
   }
-
   setLocalData('communities', [...list]);
-
-  if (isSupabaseConfigured() && supabase) {
-    try {
-      await supabase
-        .from('communities')
-        .update({ 
-          members: community.members, 
-          memberCount: community.memberCount,
-          pendingRequests: community.pendingRequests 
-        })
-        .eq('id', communityId);
-    } catch {}
-  }
-
   return { success: true, community };
 }
 
@@ -2075,6 +2434,47 @@ export async function updateCommunityMemberRole(
   newRole: CommunityRole,
   adminId: string
 ): Promise<{ success: boolean; community?: Community }> {
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      if (newRole === 'owner') {
+        const { data: comm } = await supabase.from('communities').select('ownerId').eq('id', communityId).maybeSingle();
+        if (comm?.ownerId) {
+          await supabase.from('community_members')
+            .update({ role: 'admin', updatedAt: new Date().toISOString() })
+            .eq('communityId', communityId)
+            .eq('userId', comm.ownerId);
+        }
+        await supabase.from('community_members')
+          .update({ role: 'owner', updatedAt: new Date().toISOString() })
+          .eq('communityId', communityId)
+          .eq('userId', targetUserId);
+
+        await supabase.from('communities').update({ ownerId: targetUserId }).eq('id', communityId);
+      } else {
+        await supabase.from('community_members')
+          .update({ role: newRole, updatedAt: new Date().toISOString() })
+          .eq('communityId', communityId)
+          .eq('userId', targetUserId);
+      }
+
+      await supabase.from('community_moderation_actions').insert([{
+        id: 'cact_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+        communityId,
+        moderatorId: adminId,
+        moderatorName: 'Society Leadership',
+        targetUserId,
+        actionType: 'role_change',
+        reason: `Role updated to ${newRole}`,
+        createdAt: new Date().toISOString()
+      }]);
+
+      const updatedComm = await fetchCommunityById(communityId);
+      return { success: true, community: updatedComm || undefined };
+    } catch (err) {
+      console.warn('Supabase updateCommunityMemberRole error:', err);
+    }
+  }
+
   const list = getLocalData<Community[]>('communities', SEED_COMMUNITIES);
   const community = list.find(c => c.id === communityId);
   if (!community) return { success: false };
@@ -2100,6 +2500,43 @@ export async function removeCommunityMember(
   targetUserId: string,
   adminId: string
 ): Promise<{ success: boolean; community?: Community }> {
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      await supabase.from('community_members')
+        .delete()
+        .eq('communityId', communityId)
+        .eq('userId', targetUserId);
+
+      const { data: comm } = await supabase.from('communities').select('*').eq('id', communityId).maybeSingle();
+      const currentMembers = Array.isArray(comm?.members) ? comm.members.filter((id: string) => id !== targetUserId) : [];
+      const currentAdmins = Array.isArray(comm?.admins) ? comm.admins.filter((id: string) => id !== targetUserId) : [];
+      const currentMods = Array.isArray(comm?.moderators) ? comm.moderators.filter((id: string) => id !== targetUserId) : [];
+
+      await supabase.from('communities').update({
+        memberCount: Math.max(0, currentMembers.length),
+        members: currentMembers,
+        admins: currentAdmins,
+        moderators: currentMods
+      }).eq('id', communityId);
+
+      await supabase.from('community_moderation_actions').insert([{
+        id: 'cact_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+        communityId,
+        moderatorId: adminId,
+        moderatorName: 'Society Leadership',
+        targetUserId,
+        actionType: 'remove_member',
+        reason: 'Removed from community roster',
+        createdAt: new Date().toISOString()
+      }]);
+
+      const updatedComm = await fetchCommunityById(communityId);
+      return { success: true, community: updatedComm || undefined };
+    } catch (err) {
+      console.warn('Supabase removeCommunityMember error:', err);
+    }
+  }
+
   const list = getLocalData<Community[]>('communities', SEED_COMMUNITIES);
   const community = list.find(c => c.id === communityId);
   if (!community) return { success: false };
@@ -2119,6 +2556,50 @@ export async function banCommunityMember(
   reason: string,
   adminId: string
 ): Promise<{ success: boolean; community?: Community }> {
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      await supabase.from('community_members').upsert([{
+        id: 'cm_' + communityId + '_' + targetUserId,
+        communityId,
+        userId: targetUserId,
+        role: 'member',
+        status: 'banned',
+        updatedAt: new Date().toISOString()
+      }]);
+
+      const { data: comm } = await supabase.from('communities').select('*').eq('id', communityId).maybeSingle();
+      const currentMembers = Array.isArray(comm?.members) ? comm.members.filter((id: string) => id !== targetUserId) : [];
+      const currentAdmins = Array.isArray(comm?.admins) ? comm.admins.filter((id: string) => id !== targetUserId) : [];
+      const currentMods = Array.isArray(comm?.moderators) ? comm.moderators.filter((id: string) => id !== targetUserId) : [];
+      const currentBanned = Array.isArray(comm?.bannedUsers) ? comm.bannedUsers : [];
+      if (!currentBanned.includes(targetUserId)) currentBanned.push(targetUserId);
+
+      await supabase.from('communities').update({
+        memberCount: Math.max(0, currentMembers.length),
+        members: currentMembers,
+        admins: currentAdmins,
+        moderators: currentMods,
+        bannedUsers: currentBanned
+      }).eq('id', communityId);
+
+      await supabase.from('community_moderation_actions').insert([{
+        id: 'cact_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+        communityId,
+        moderatorId: adminId,
+        moderatorName: 'Society Leadership',
+        targetUserId,
+        actionType: 'ban_member',
+        reason: reason || 'Violation of society guidelines',
+        createdAt: new Date().toISOString()
+      }]);
+
+      const updatedComm = await fetchCommunityById(communityId);
+      return { success: true, community: updatedComm || undefined };
+    } catch (err) {
+      console.warn('Supabase banCommunityMember error:', err);
+    }
+  }
+
   const list = getLocalData<Community[]>('communities', SEED_COMMUNITIES);
   const community = list.find(c => c.id === communityId);
   if (!community) return { success: false };
@@ -2141,6 +2622,39 @@ export async function unbanCommunityMember(
   targetUserId: string,
   adminId: string
 ): Promise<{ success: boolean; community?: Community }> {
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      await supabase.from('community_members')
+        .delete()
+        .eq('communityId', communityId)
+        .eq('userId', targetUserId)
+        .eq('status', 'banned');
+
+      const { data: comm } = await supabase.from('communities').select('*').eq('id', communityId).maybeSingle();
+      const currentBanned = Array.isArray(comm?.bannedUsers) ? comm.bannedUsers.filter((id: string) => id !== targetUserId) : [];
+
+      await supabase.from('communities').update({
+        bannedUsers: currentBanned
+      }).eq('id', communityId);
+
+      await supabase.from('community_moderation_actions').insert([{
+        id: 'cact_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+        communityId,
+        moderatorId: adminId,
+        moderatorName: 'Society Leadership',
+        targetUserId,
+        actionType: 'unban_member',
+        reason: 'Restored society access',
+        createdAt: new Date().toISOString()
+      }]);
+
+      const updatedComm = await fetchCommunityById(communityId);
+      return { success: true, community: updatedComm || undefined };
+    } catch (err) {
+      console.warn('Supabase unbanCommunityMember error:', err);
+    }
+  }
+
   const list = getLocalData<Community[]>('communities', SEED_COMMUNITIES);
   const community = list.find(c => c.id === communityId);
   if (!community) return { success: false };
@@ -2155,6 +2669,46 @@ export async function transferCommunityOwnership(
   newOwnerId: string,
   currentOwnerId: string
 ): Promise<{ success: boolean; error?: string }> {
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      const { data: comm } = await supabase.from('communities').select('*').eq('id', communityId).maybeSingle();
+      if (!comm) return { success: false, error: 'Community not found' };
+      if (comm.ownerId !== currentOwnerId) return { success: false, error: 'Only the current owner can transfer ownership' };
+
+      await supabase.from('community_members')
+        .update({ role: 'admin', updatedAt: new Date().toISOString() })
+        .eq('communityId', communityId)
+        .eq('userId', currentOwnerId);
+
+      await supabase.from('community_members')
+        .upsert([{
+          id: 'cm_' + communityId + '_' + newOwnerId,
+          communityId,
+          userId: newOwnerId,
+          role: 'owner',
+          status: 'approved',
+          updatedAt: new Date().toISOString()
+        }]);
+
+      await supabase.from('communities').update({ ownerId: newOwnerId }).eq('id', communityId);
+
+      await supabase.from('community_moderation_actions').insert([{
+        id: 'cact_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+        communityId,
+        moderatorId: currentOwnerId,
+        moderatorName: 'Founding Owner',
+        targetUserId: newOwnerId,
+        actionType: 'role_change',
+        reason: 'Transferred society ownership',
+        createdAt: new Date().toISOString()
+      }]);
+
+      return { success: true };
+    } catch (err) {
+      console.warn('Supabase transferCommunityOwnership error:', err);
+    }
+  }
+
   const list = getLocalData<Community[]>('communities', SEED_COMMUNITIES);
   const community = list.find(c => c.id === communityId);
   if (!community) return { success: false, error: 'Community not found' };
@@ -2173,6 +2727,26 @@ export async function updateCommunity(
   data: Partial<Community>,
   adminId: string
 ): Promise<{ success: boolean; community?: Community }> {
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      const payload: any = { ...data, updatedAt: new Date().toISOString() };
+      if (data.logoUrl) {
+        payload.logo = data.logoUrl;
+        payload.logoUrl = data.logoUrl;
+      }
+      if (data.coverUrl) {
+        payload.cover = data.coverUrl;
+        payload.coverUrl = data.coverUrl;
+      }
+
+      await supabase.from('communities').update(payload).eq('id', communityId);
+      const updated = await fetchCommunityById(communityId);
+      return { success: true, community: updated || undefined };
+    } catch (err) {
+      console.warn('Supabase updateCommunity error:', err);
+    }
+  }
+
   const list = getLocalData<Community[]>('communities', SEED_COMMUNITIES);
   const index = list.findIndex(c => c.id === communityId);
   if (index === -1) return { success: false };
@@ -2191,6 +2765,21 @@ export async function deleteCommunity(
   communityId: string,
   ownerId: string
 ): Promise<{ success: boolean; error?: string }> {
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      const { data: comm } = await supabase.from('communities').select('ownerId').eq('id', communityId).maybeSingle();
+      if (!comm) return { success: false, error: 'Community not found' };
+      if (comm.ownerId !== ownerId) return { success: false, error: 'Unauthorized. Only owner can delete the community.' };
+
+      await supabase.from('communities').delete().eq('id', communityId);
+      const list = getLocalData<Community[]>('communities', SEED_COMMUNITIES).filter(c => c.id !== communityId);
+      setLocalData('communities', list);
+      return { success: true };
+    } catch (err) {
+      console.warn('Supabase deleteCommunity error:', err);
+    }
+  }
+
   const list = getLocalData<Community[]>('communities', SEED_COMMUNITIES);
   const community = list.find(c => c.id === communityId);
   if (!community) return { success: false, error: 'Community not found' };
@@ -2202,9 +2791,31 @@ export async function deleteCommunity(
 }
 
 // ---------------------------------------------
-// COMMUNITY POSTS & COMMENTS
+// COMMUNITY POSTS & COMMENTS (Supabase-first)
 // ---------------------------------------------
 export async function fetchCommunityPosts(communityId: string): Promise<CommunityPost[]> {
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('community_posts')
+        .select('*')
+        .eq('communityId', communityId)
+        .order('createdAt', { ascending: false });
+
+      if (!error && data && data.length > 0) {
+        const sorted = data.sort((a, b) => {
+          if (a.isPinned && !b.isPinned) return -1;
+          if (!a.isPinned && b.isPinned) return 1;
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        });
+        setLocalData(`comm_posts_${communityId}`, sorted);
+        return sorted;
+      }
+    } catch (err) {
+      console.warn('Supabase fetchCommunityPosts error:', err);
+    }
+  }
+
   const all = getLocalData<CommunityPost[]>('community_posts', SEED_COMMUNITY_POSTS);
   return all.filter(p => p.communityId === communityId).sort((a, b) => {
     if (a.isPinned && !b.isPinned) return -1;
@@ -2216,18 +2827,52 @@ export async function fetchCommunityPosts(communityId: string): Promise<Communit
 export async function createCommunityPost(post: Omit<CommunityPost, 'id' | 'likes' | 'likesCount' | 'commentsCount' | 'createdAt'>): Promise<CommunityPost> {
   const newPost: CommunityPost = {
     ...post,
-    id: 'cpost_' + Date.now(),
+    id: 'cpost_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
     likes: [],
     likesCount: 0,
     commentsCount: 0,
     createdAt: new Date().toISOString()
   };
+
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      await supabase.from('community_posts').insert([newPost]);
+    } catch (err) {
+      console.warn('Supabase createCommunityPost error:', err);
+    }
+  }
+
   const all = getLocalData<CommunityPost[]>('community_posts', SEED_COMMUNITY_POSTS);
   setLocalData('community_posts', [newPost, ...all]);
   return newPost;
 }
 
 export async function toggleCommunityPostLike(postId: string, userId: string): Promise<{ liked: boolean; count: number }> {
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      const { data: post } = await supabase.from('community_posts').select('*').eq('id', postId).maybeSingle();
+      if (post) {
+        let likes: string[] = Array.isArray(post.likes) ? post.likes : [];
+        const isLiked = likes.includes(userId);
+        if (isLiked) {
+          likes = likes.filter(id => id !== userId);
+        } else {
+          likes.push(userId);
+        }
+        const likesCount = likes.length;
+
+        await supabase.from('community_posts').update({
+          likes,
+          likesCount
+        }).eq('id', postId);
+
+        return { liked: !isLiked, count: likesCount };
+      }
+    } catch (err) {
+      console.warn('Supabase toggleCommunityPostLike error:', err);
+    }
+  }
+
   const all = getLocalData<CommunityPost[]>('community_posts', SEED_COMMUNITY_POSTS);
   const post = all.find(p => p.id === postId);
   if (!post) return { liked: false, count: 0 };
@@ -2245,6 +2890,14 @@ export async function toggleCommunityPostLike(postId: string, userId: string): P
 }
 
 export async function deleteCommunityPost(postId: string, userId: string): Promise<boolean> {
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      await supabase.from('community_posts').delete().eq('id', postId);
+    } catch (err) {
+      console.warn('Supabase deleteCommunityPost error:', err);
+    }
+  }
+
   const all = getLocalData<CommunityPost[]>('community_posts', SEED_COMMUNITY_POSTS);
   const updated = all.filter(p => p.id !== postId);
   setLocalData('community_posts', updated);
@@ -2252,6 +2905,20 @@ export async function deleteCommunityPost(postId: string, userId: string): Promi
 }
 
 export async function fetchCommunityComments(postId: string): Promise<CommunityComment[]> {
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('community_comments')
+        .select('*')
+        .eq('postId', postId)
+        .order('createdAt', { ascending: true });
+
+      if (!error && data) return data;
+    } catch (err) {
+      console.warn('Supabase fetchCommunityComments error:', err);
+    }
+  }
+
   const all = getLocalData<CommunityComment[]>('community_comments', SEED_COMMUNITY_COMMENTS);
   return all.filter(c => c.postId === postId).sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 }
@@ -2259,13 +2926,25 @@ export async function fetchCommunityComments(postId: string): Promise<CommunityC
 export async function createCommunityComment(comment: Omit<CommunityComment, 'id' | 'createdAt'>): Promise<CommunityComment> {
   const newComment: CommunityComment = {
     ...comment,
-    id: 'ccmt_' + Date.now(),
+    id: 'ccmt_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
     createdAt: new Date().toISOString()
   };
+
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      await supabase.from('community_comments').insert([newComment]);
+      // Increment comment count on post
+      const { data: post } = await supabase.from('community_posts').select('commentsCount').eq('id', comment.postId).maybeSingle();
+      const currentCount = post?.commentsCount || 0;
+      await supabase.from('community_posts').update({ commentsCount: currentCount + 1 }).eq('id', comment.postId);
+    } catch (err) {
+      console.warn('Supabase createCommunityComment error:', err);
+    }
+  }
+
   const all = getLocalData<CommunityComment[]>('community_comments', SEED_COMMUNITY_COMMENTS);
   setLocalData('community_comments', [...all, newComment]);
 
-  // Increment comments count on post
   const posts = getLocalData<CommunityPost[]>('community_posts', SEED_COMMUNITY_POSTS);
   const post = posts.find(p => p.id === comment.postId);
   if (post) {
@@ -2277,9 +2956,31 @@ export async function createCommunityComment(comment: Omit<CommunityComment, 'id
 }
 
 // ---------------------------------------------
-// COMMUNITY DISCUSSIONS & THREADS
+// COMMUNITY DISCUSSIONS & THREADS (Supabase-first)
 // ---------------------------------------------
 export async function fetchCommunityDiscussions(communityId: string): Promise<CommunityDiscussion[]> {
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('community_discussions')
+        .select('*')
+        .eq('communityId', communityId)
+        .order('createdAt', { ascending: false });
+
+      if (!error && data && data.length > 0) {
+        const sorted = data.sort((a, b) => {
+          if (a.isPinned && !b.isPinned) return -1;
+          if (!a.isPinned && b.isPinned) return 1;
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        });
+        setLocalData(`comm_discs_${communityId}`, sorted);
+        return sorted;
+      }
+    } catch (err) {
+      console.warn('Supabase fetchCommunityDiscussions error:', err);
+    }
+  }
+
   const all = getLocalData<CommunityDiscussion[]>('community_discussions', SEED_COMMUNITY_DISCUSSIONS);
   return all.filter(d => d.communityId === communityId).sort((a, b) => {
     if (a.isPinned && !b.isPinned) return -1;
@@ -2291,18 +2992,52 @@ export async function fetchCommunityDiscussions(communityId: string): Promise<Co
 export async function createCommunityDiscussion(disc: Omit<CommunityDiscussion, 'id' | 'likes' | 'likesCount' | 'commentsCount' | 'createdAt'>): Promise<CommunityDiscussion> {
   const newDisc: CommunityDiscussion = {
     ...disc,
-    id: 'cdisc_' + Date.now(),
+    id: 'cdisc_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
     likes: [],
     likesCount: 0,
     commentsCount: 0,
     createdAt: new Date().toISOString()
   };
+
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      await supabase.from('community_discussions').insert([newDisc]);
+    } catch (err) {
+      console.warn('Supabase createCommunityDiscussion error:', err);
+    }
+  }
+
   const all = getLocalData<CommunityDiscussion[]>('community_discussions', SEED_COMMUNITY_DISCUSSIONS);
   setLocalData('community_discussions', [newDisc, ...all]);
   return newDisc;
 }
 
 export async function toggleCommunityDiscussionLike(discId: string, userId: string): Promise<{ liked: boolean; count: number }> {
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      const { data: disc } = await supabase.from('community_discussions').select('*').eq('id', discId).maybeSingle();
+      if (disc) {
+        let likes: string[] = Array.isArray(disc.likes) ? disc.likes : [];
+        const isLiked = likes.includes(userId);
+        if (isLiked) {
+          likes = likes.filter(id => id !== userId);
+        } else {
+          likes.push(userId);
+        }
+        const likesCount = likes.length;
+
+        await supabase.from('community_discussions').update({
+          likes,
+          likesCount
+        }).eq('id', discId);
+
+        return { liked: !isLiked, count: likesCount };
+      }
+    } catch (err) {
+      console.warn('Supabase toggleCommunityDiscussionLike error:', err);
+    }
+  }
+
   const all = getLocalData<CommunityDiscussion[]>('community_discussions', SEED_COMMUNITY_DISCUSSIONS);
   const disc = all.find(d => d.id === discId);
   if (!disc) return { liked: false, count: 0 };
@@ -2320,6 +3055,20 @@ export async function toggleCommunityDiscussionLike(discId: string, userId: stri
 }
 
 export async function fetchCommunityDiscussionComments(discId: string): Promise<CommunityDiscussionComment[]> {
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('community_discussion_comments')
+        .select('*')
+        .eq('discussionId', discId)
+        .order('createdAt', { ascending: true });
+
+      if (!error && data) return data;
+    } catch (err) {
+      console.warn('Supabase fetchCommunityDiscussionComments error:', err);
+    }
+  }
+
   const all = getLocalData<CommunityDiscussionComment[]>('community_disc_comments', SEED_COMMUNITY_DISCUSSION_COMMENTS);
   return all.filter(c => c.discussionId === discId).sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 }
@@ -2327,9 +3076,21 @@ export async function fetchCommunityDiscussionComments(discId: string): Promise<
 export async function createCommunityDiscussionComment(comment: Omit<CommunityDiscussionComment, 'id' | 'createdAt'>): Promise<CommunityDiscussionComment> {
   const newCmt: CommunityDiscussionComment = {
     ...comment,
-    id: 'cdcmt_' + Date.now(),
+    id: 'cdcmt_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
     createdAt: new Date().toISOString()
   };
+
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      await supabase.from('community_discussion_comments').insert([newCmt]);
+      const { data: disc } = await supabase.from('community_discussions').select('commentsCount').eq('id', comment.discussionId).maybeSingle();
+      const currentCount = disc?.commentsCount || 0;
+      await supabase.from('community_discussions').update({ commentsCount: currentCount + 1 }).eq('id', comment.discussionId);
+    } catch (err) {
+      console.warn('Supabase createCommunityDiscussionComment error:', err);
+    }
+  }
+
   const all = getLocalData<CommunityDiscussionComment[]>('community_disc_comments', SEED_COMMUNITY_DISCUSSION_COMMENTS);
   setLocalData('community_disc_comments', [...all, newCmt]);
 
@@ -2344,9 +3105,26 @@ export async function createCommunityDiscussionComment(comment: Omit<CommunityDi
 }
 
 // ---------------------------------------------
-// COMMUNITY REALTIME CHAT
+// COMMUNITY LIVE REALTIME CHAT (Supabase Realtime & WebSocket Broadcast)
 // ---------------------------------------------
 export async function fetchCommunityMessages(communityId: string): Promise<CommunityMessage[]> {
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('community_messages')
+        .select('*')
+        .eq('communityId', communityId)
+        .order('createdAt', { ascending: true });
+
+      if (!error && data && data.length > 0) {
+        setLocalData(`comm_msgs_${communityId}`, data);
+        return data;
+      }
+    } catch (err) {
+      console.warn('Supabase fetchCommunityMessages error:', err);
+    }
+  }
+
   const all = getLocalData<CommunityMessage[]>('community_messages', SEED_COMMUNITY_MESSAGES);
   return all.filter(m => m.communityId === communityId).sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 }
@@ -2354,11 +3132,27 @@ export async function fetchCommunityMessages(communityId: string): Promise<Commu
 export async function sendCommunityMessage(msg: Omit<CommunityMessage, 'id' | 'createdAt'>): Promise<CommunityMessage> {
   const newMsg: CommunityMessage = {
     ...msg,
-    id: 'cmsg_' + Date.now(),
+    id: 'cmsg_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
     createdAt: new Date().toISOString()
   };
-  const all = getLocalData<CommunityMessage[]>('community_messages', SEED_COMMUNITY_MESSAGES);
-  setLocalData('community_messages', [...all, newMsg]);
+
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      await supabase.from('community_messages').insert([newMsg]);
+      
+      // Broadcast over live Supabase Realtime WebSocket channel for cross-browser sync
+      const channel = supabase.channel(`community_chat_${msg.communityId}`);
+      channel.send({
+        type: 'broadcast',
+        event: 'community_chat_message',
+        payload: newMsg
+      });
+    } catch (err) {
+      console.warn('Supabase sendCommunityMessage error:', err);
+    }
+  }
+
+  // Local dispatch for instantaneous UI feedback
   window.dispatchEvent(new CustomEvent('eatm_community_chat_message', { detail: newMsg }));
   return newMsg;
 }
@@ -2367,21 +3161,64 @@ export function subscribeToCommunityMessages(
   communityId: string, 
   onMessage: (msg: CommunityMessage) => void
 ): () => void {
-  const handler = (e: CustomEvent<CommunityMessage>) => {
+  let channel: any = null;
+
+  if (isSupabaseConfigured() && supabase) {
+    channel = supabase.channel(`community_chat_${communityId}`)
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'community_messages',
+        filter: `communityId=eq.${communityId}`
+      }, (payload) => {
+        if (payload.new) {
+          onMessage(payload.new as CommunityMessage);
+        }
+      })
+      .on('broadcast', { event: 'community_chat_message' }, ({ payload }) => {
+        if (payload && payload.communityId === communityId) {
+          onMessage(payload as CommunityMessage);
+        }
+      })
+      .subscribe();
+  }
+
+  const localHandler = (e: CustomEvent<CommunityMessage>) => {
     if (e.detail && e.detail.communityId === communityId) {
       onMessage(e.detail);
     }
   };
-  window.addEventListener('eatm_community_chat_message', handler as EventListener);
+  window.addEventListener('eatm_community_chat_message', localHandler as EventListener);
+
   return () => {
-    window.removeEventListener('eatm_community_chat_message', handler as EventListener);
+    if (channel && supabase) {
+      supabase.removeChannel(channel);
+    }
+    window.removeEventListener('eatm_community_chat_message', localHandler as EventListener);
   };
 }
 
 // ---------------------------------------------
-// COMMUNITY RESOURCES
+// COMMUNITY RESOURCES (Supabase-first)
 // ---------------------------------------------
 export async function fetchCommunityResources(communityId: string): Promise<CommunityResource[]> {
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('community_resources')
+        .select('*')
+        .eq('communityId', communityId)
+        .order('createdAt', { ascending: false });
+
+      if (!error && data && data.length > 0) {
+        setLocalData(`comm_res_${communityId}`, data);
+        return data;
+      }
+    } catch (err) {
+      console.warn('Supabase fetchCommunityResources error:', err);
+    }
+  }
+
   const all = getLocalData<CommunityResource[]>('community_resources', SEED_COMMUNITY_RESOURCES);
   return all.filter(r => r.communityId === communityId).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 }
@@ -2389,16 +3226,33 @@ export async function fetchCommunityResources(communityId: string): Promise<Comm
 export async function uploadCommunityResource(resource: Omit<CommunityResource, 'id' | 'downloads' | 'createdAt'>): Promise<CommunityResource> {
   const newRes: CommunityResource = {
     ...resource,
-    id: 'cres_' + Date.now(),
+    id: 'cres_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
     downloads: 0,
     createdAt: new Date().toISOString()
   };
+
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      await supabase.from('community_resources').insert([newRes]);
+    } catch (err) {
+      console.warn('Supabase uploadCommunityResource error:', err);
+    }
+  }
+
   const all = getLocalData<CommunityResource[]>('community_resources', SEED_COMMUNITY_RESOURCES);
   setLocalData('community_resources', [newRes, ...all]);
   return newRes;
 }
 
 export async function deleteCommunityResource(resourceId: string, userId: string): Promise<boolean> {
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      await supabase.from('community_resources').delete().eq('id', resourceId);
+    } catch (err) {
+      console.warn('Supabase deleteCommunityResource error:', err);
+    }
+  }
+
   const all = getLocalData<CommunityResource[]>('community_resources', SEED_COMMUNITY_RESOURCES);
   const updated = all.filter(r => r.id !== resourceId);
   setLocalData('community_resources', updated);
@@ -2406,9 +3260,26 @@ export async function deleteCommunityResource(resourceId: string, userId: string
 }
 
 // ---------------------------------------------
-// COMMUNITY EVENTS
+// COMMUNITY EVENTS (Supabase-first)
 // ---------------------------------------------
 export async function fetchCommunityEvents(communityId: string): Promise<CommunityEventItem[]> {
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('community_events')
+        .select('*')
+        .eq('communityId', communityId)
+        .order('date', { ascending: true });
+
+      if (!error && data && data.length > 0) {
+        setLocalData(`comm_events_${communityId}`, data);
+        return data;
+      }
+    } catch (err) {
+      console.warn('Supabase fetchCommunityEvents error:', err);
+    }
+  }
+
   const all = getLocalData<CommunityEventItem[]>('community_events', SEED_COMMUNITY_EVENTS);
   return all.filter(e => e.communityId === communityId).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 }
@@ -2416,10 +3287,35 @@ export async function fetchCommunityEvents(communityId: string): Promise<Communi
 export async function createCommunityEvent(event: Omit<CommunityEventItem, 'id' | 'attendees' | 'createdAt'>, creatorId: string): Promise<CommunityEventItem> {
   const newEvent: CommunityEventItem = {
     ...event,
-    id: 'cevent_' + Date.now(),
+    id: 'cevent_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+    creatorId: creatorId,
+    attendeesCount: 1,
     attendees: [{ userId: creatorId, status: 'going' }],
     createdAt: new Date().toISOString()
   };
+
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      await supabase.from('community_events').insert([{
+        id: newEvent.id,
+        communityId: newEvent.communityId,
+        title: newEvent.title,
+        description: newEvent.description,
+        date: newEvent.date,
+        time: newEvent.time,
+        location: newEvent.location,
+        isOnline: newEvent.isOnline || false,
+        meetingLink: newEvent.meetingLink || '',
+        category: newEvent.category || 'Workshop',
+        createdBy: creatorId,
+        attendeesCount: 1,
+        attendees: newEvent.attendees
+      }]);
+    } catch (err) {
+      console.warn('Supabase createCommunityEvent error:', err);
+    }
+  }
+
   const all = getLocalData<CommunityEventItem[]>('community_events', SEED_COMMUNITY_EVENTS);
   setLocalData('community_events', [newEvent, ...all]);
   return newEvent;
@@ -2430,6 +3326,47 @@ export async function rsvpCommunityEvent(
   userId: string, 
   status: 'going' | 'interested' | 'not_going'
 ): Promise<CommunityEventItem | null> {
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      const { data: event } = await supabase.from('community_events').select('*').eq('id', eventId).maybeSingle();
+      if (event) {
+        let attendees: { userId: string; status: 'going' | 'interested' }[] = Array.isArray(event.attendees) ? event.attendees : [];
+        attendees = attendees.filter(a => a.userId !== userId);
+        if (status !== 'not_going') {
+          attendees.push({ userId, status });
+        }
+        const attendeesCount = attendees.length;
+
+        await supabase.from('community_events').update({
+          attendees,
+          attendeesCount
+        }).eq('id', eventId);
+
+        // Also upsert relational RSVP table
+        if (status !== 'not_going') {
+          await supabase.from('community_event_rsvps').upsert([{
+            id: `rsvp_${eventId}_${userId}`,
+            eventId,
+            communityId: event.communityId,
+            userId,
+            status,
+            createdAt: new Date().toISOString()
+          }]);
+        } else {
+          await supabase.from('community_event_rsvps').delete().eq('eventId', eventId).eq('userId', userId);
+        }
+
+        return {
+          ...event,
+          attendees,
+          attendeesCount
+        };
+      }
+    } catch (err) {
+      console.warn('Supabase rsvpCommunityEvent error:', err);
+    }
+  }
+
   const all = getLocalData<CommunityEventItem[]>('community_events', SEED_COMMUNITY_EVENTS);
   const event = all.find(e => e.id === eventId);
   if (!event) return null;
@@ -2438,12 +3375,13 @@ export async function rsvpCommunityEvent(
   if (status !== 'not_going') {
     event.attendees.push({ userId, status });
   }
+  event.attendeesCount = event.attendees.length;
   setLocalData('community_events', [...all]);
   return event;
 }
 
 // ---------------------------------------------
-// COMMUNITY POLLS
+// COMMUNITY POLLS (Supabase-first)
 // ---------------------------------------------
 export async function voteCommunityPoll(
   pollId: string, 
@@ -2452,16 +3390,56 @@ export async function voteCommunityPoll(
   communityId: string,
   postId?: string
 ): Promise<CommunityPost | null> {
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      let postQuery = supabase.from('community_posts').select('*');
+      if (postId) {
+        postQuery = postQuery.eq('id', postId);
+      } else {
+        postQuery = postQuery.eq('communityId', communityId);
+      }
+      const { data: posts } = await postQuery;
+      const targetPost = posts?.find(p => p.id === postId || p.poll?.id === pollId);
+
+      if (targetPost && targetPost.poll) {
+        targetPost.poll.options.forEach((opt: any) => {
+          opt.votes = (opt.votes || []).filter((id: string) => id !== userId);
+        });
+        const targetOpt = targetPost.poll.options.find((opt: any) => opt.id === optionId);
+        if (targetOpt) {
+          targetOpt.votes.push(userId);
+        }
+
+        await supabase.from('community_posts').update({
+          poll: targetPost.poll
+        }).eq('id', targetPost.id);
+
+        // Record relational vote entry
+        await supabase.from('community_poll_votes').upsert([{
+          id: `vote_${pollId}_${userId}`,
+          pollId,
+          postId: targetPost.id,
+          communityId,
+          userId,
+          optionId,
+          createdAt: new Date().toISOString()
+        }]);
+
+        return targetPost;
+      }
+    } catch (err) {
+      console.warn('Supabase voteCommunityPoll error:', err);
+    }
+  }
+
   const posts = getLocalData<CommunityPost[]>('community_posts', SEED_COMMUNITY_POSTS);
   const post = posts.find(p => p.id === postId || p.poll?.id === pollId);
   if (!post || !post.poll) return null;
 
-  // Remove existing user vote across all options in this poll
   post.poll.options.forEach(opt => {
     opt.votes = (opt.votes || []).filter(id => id !== userId);
   });
 
-  // Add vote to selected option
   const targetOpt = post.poll.options.find(opt => opt.id === optionId);
   if (targetOpt) {
     targetOpt.votes.push(userId);
@@ -2472,21 +3450,44 @@ export async function voteCommunityPoll(
 }
 
 // ---------------------------------------------
-// COMMUNITY REPORTS & MODERATION
+// COMMUNITY REPORTS & MODERATION (Supabase-first)
 // ---------------------------------------------
 export async function submitCommunityReport(report: Omit<CommunityReport, 'id' | 'status' | 'createdAt'>): Promise<CommunityReport> {
   const newReport: CommunityReport = {
     ...report,
-    id: 'crep_' + Date.now(),
+    id: 'crep_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
     status: 'pending',
     createdAt: new Date().toISOString()
   };
+
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      await supabase.from('community_reports').insert([newReport]);
+    } catch (err) {
+      console.warn('Supabase submitCommunityReport error:', err);
+    }
+  }
+
   const all = getLocalData<CommunityReport[]>('community_reports', SEED_COMMUNITY_REPORTS);
   setLocalData('community_reports', [newReport, ...all]);
   return newReport;
 }
 
 export async function fetchCommunityReports(communityId: string): Promise<CommunityReport[]> {
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('community_reports')
+        .select('*')
+        .eq('communityId', communityId)
+        .order('createdAt', { ascending: false });
+
+      if (!error && data) return data;
+    } catch (err) {
+      console.warn('Supabase fetchCommunityReports error:', err);
+    }
+  }
+
   const all = getLocalData<CommunityReport[]>('community_reports', SEED_COMMUNITY_REPORTS);
   return all.filter(r => r.communityId === communityId);
 }
@@ -2497,6 +3498,38 @@ export async function resolveCommunityReport(
   moderatorId: string,
   moderatorName: string
 ): Promise<boolean> {
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      const status = action === 'dismiss' ? 'dismissed' : 'resolved';
+      const now = new Date().toISOString();
+
+      const { data: report } = await supabase.from('community_reports').select('*').eq('id', reportId).maybeSingle();
+
+      await supabase.from('community_reports').update({
+        status,
+        reviewedBy: moderatorName,
+        reviewedAt: now,
+        actionTaken: action
+      }).eq('id', reportId);
+
+      if (report) {
+        await supabase.from('community_moderation_actions').insert([{
+          id: 'cact_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+          communityId: report.communityId,
+          moderatorId,
+          moderatorName,
+          actionType: action === 'dismiss' ? 'warn' : (action as any),
+          reason: `Handled report: ${report.reason} (${report.description || 'No notes'})`,
+          createdAt: now
+        }]);
+      }
+
+      return true;
+    } catch (err) {
+      console.warn('Supabase resolveCommunityReport error:', err);
+    }
+  }
+
   const all = getLocalData<CommunityReport[]>('community_reports', SEED_COMMUNITY_REPORTS);
   const report = all.find(r => r.id === reportId);
   if (!report) return false;
@@ -2508,7 +3541,6 @@ export async function resolveCommunityReport(
 
   setLocalData('community_reports', [...all]);
 
-  // Record moderation action
   const actions = getLocalData<CommunityModerationAction[]>('community_actions', SEED_COMMUNITY_ACTIONS);
   actions.push({
     id: 'cact_' + Date.now(),
@@ -2525,8 +3557,98 @@ export async function resolveCommunityReport(
 }
 
 export async function fetchCommunityModerationActions(communityId: string): Promise<CommunityModerationAction[]> {
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('community_moderation_actions')
+        .select('*')
+        .eq('communityId', communityId)
+        .order('createdAt', { ascending: false });
+
+      if (!error && data) return data;
+    } catch (err) {
+      console.warn('Supabase fetchCommunityModerationActions error:', err);
+    }
+  }
+
   const all = getLocalData<CommunityModerationAction[]>('community_actions', SEED_COMMUNITY_ACTIONS);
   return all.filter(a => a.communityId === communityId).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+}
+
+/**
+ * Subscribe to all live realtime updates for a specific community
+ * Automatically triggers callback on new posts, discussions, members, resources, events, reports, settings
+ */
+export function subscribeToCommunityLiveEvents(
+  communityId: string,
+  onUpdate: () => void
+): () => void {
+  let channel: any = null;
+
+  if (isSupabaseConfigured() && supabase) {
+    channel = supabase.channel(`community_live_${communityId}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'community_posts',
+        filter: `communityId=eq.${communityId}`
+      }, () => onUpdate())
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'community_discussions',
+        filter: `communityId=eq.${communityId}`
+      }, () => onUpdate())
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'community_members',
+        filter: `communityId=eq.${communityId}`
+      }, () => onUpdate())
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'community_resources',
+        filter: `communityId=eq.${communityId}`
+      }, () => onUpdate())
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'community_events',
+        filter: `communityId=eq.${communityId}`
+      }, () => onUpdate())
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'communities',
+        filter: `id=eq.${communityId}`
+      }, () => onUpdate())
+      .subscribe();
+  }
+
+  return () => {
+    if (channel && supabase) {
+      supabase.removeChannel(channel);
+    }
+  };
+}
+
+/**
+ * Subscribe to directory level changes across all communities
+ */
+export function subscribeToAllCommunities(onUpdate: () => void): () => void {
+  let channel: any = null;
+  if (isSupabaseConfigured() && supabase) {
+    channel = supabase.channel('communities_directory_live')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'communities' }, () => onUpdate())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'community_members' }, () => onUpdate())
+      .subscribe();
+  }
+  return () => {
+    if (channel && supabase) {
+      supabase.removeChannel(channel);
+    }
+  };
 }
 
 // ---------------------------------------------

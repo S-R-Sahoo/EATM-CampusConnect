@@ -382,9 +382,13 @@ export interface CommunityEventItem {
   date: string;
   time: string;
   location: string;
+  isOnline?: boolean;
+  meetingLink?: string;
+  category?: string;
   imageUrl?: string;
   creatorId: string;
   creatorName?: string;
+  attendeesCount?: number;
   attendees: { userId: string; status: 'interested' | 'going' | 'not_going' }[];
   createdAt: string;
 }
