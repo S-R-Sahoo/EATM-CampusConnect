@@ -1141,11 +1141,11 @@ export const StudentProfile: React.FC = () => {
                   </h3>
                 </div>
 
-                {isOwnProfile && (
+                {isOwnProfile && activeUser.projects && activeUser.projects.length > 0 && (
                   <button
                     type="button"
                     onClick={openAddProjectModal}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl text-[#0b4627] dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 border border-emerald-200/80 dark:border-emerald-800/80 transition shadow-xs"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl text-[#0b4627] dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 border border-emerald-200/80 dark:border-emerald-800/80 transition shadow-xs active:scale-95"
                   >
                     <Plus className="w-3.5 h-3.5" />
                     <span>Add Project</span>
@@ -1223,10 +1223,22 @@ export const StudentProfile: React.FC = () => {
                     </div>
                   ))
                 ) : (
-                  <div className="text-center py-8 border border-dashed border-gray-200 dark:border-[#1e3325] rounded-xl text-gray-400 dark:text-gray-500">
-                    <p className="text-xs font-medium">
+                  <div className="text-center py-7 px-4 border border-dashed border-gray-200 dark:border-[#1e3325] rounded-xl bg-gray-50/40 dark:bg-[#16251c]/30 flex flex-col items-center justify-center gap-2.5">
+                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
                       {isOwnProfile ? 'No featured projects added yet.' : 'No technical projects listed.'}
                     </p>
+                    {isOwnProfile && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={openAddProjectModal}
+                        icon={<Plus className="w-3.5 h-3.5 text-[#0b4627] dark:text-emerald-400" />}
+                        className="text-xs font-bold"
+                      >
+                        Add Project
+                      </Button>
+                    )}
                   </div>
                 )}
               </div>
@@ -1249,11 +1261,11 @@ export const StudentProfile: React.FC = () => {
                   </h3>
                 </div>
 
-                {isOwnProfile && (
+                {isOwnProfile && activeUser.achievements && activeUser.achievements.length > 0 && (
                   <button
                     type="button"
                     onClick={openAddAchievementModal}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/50 hover:bg-amber-100 dark:hover:bg-amber-900/60 border border-amber-200/80 dark:border-amber-800/80 transition shadow-xs"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/50 hover:bg-amber-100 dark:hover:bg-amber-900/60 border border-amber-200/80 dark:border-amber-800/80 transition shadow-xs active:scale-95"
                   >
                     <Plus className="w-3.5 h-3.5" />
                     <span>Add Honor</span>
@@ -1313,10 +1325,22 @@ export const StudentProfile: React.FC = () => {
                     </div>
                   ))
                 ) : (
-                  <div className="text-center py-8 border border-dashed border-gray-200 dark:border-[#1e3325] rounded-xl text-gray-400 dark:text-gray-500">
-                    <p className="text-xs font-medium">
+                  <div className="text-center py-7 px-4 border border-dashed border-gray-200 dark:border-[#1e3325] rounded-xl bg-amber-50/20 dark:bg-[#16251c]/30 flex flex-col items-center justify-center gap-2.5">
+                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
                       {isOwnProfile ? 'No campus honors cataloged yet.' : 'No honors recorded.'}
                     </p>
+                    {isOwnProfile && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={openAddAchievementModal}
+                        icon={<Plus className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />}
+                        className="text-xs font-bold"
+                      >
+                        Add Honor
+                      </Button>
+                    )}
                   </div>
                 )}
               </div>
