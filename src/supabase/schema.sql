@@ -618,18 +618,49 @@ begin
 end;
 $$;
 
--- Helper: Check if community is public or user is an approved member
-create or replace function public.can_access_community(comm_id text, usr_id text)
+-- Helper: Check if user is banned from a community
+create or replace function public.is_community_banned(comm_id text, usr_id text)
 returns boolean language sql stable security definer as $$
   select exists (
-    select 1 from public.communities where id = comm_id and type = 'public'
-    union
-    select 1 from public.community_members where "communityId" = comm_id and "userId" = usr_id and status = 'approved'
-    union
-    select 1 from public.communities where id = comm_id and "ownerId" = usr_id
-    union
-    select 1 where usr_id is not null and public.is_campus_admin(usr_id)
+    select 1 from public.community_members
+    where "communityId" = comm_id and "userId" = usr_id and status = 'banned'
   );
+$$;
+
+-- Helper: Check if community is public or user is an approved member (and not banned)
+create or replace function public.can_access_community(comm_id text, usr_id text)
+returns boolean language plpgsql stable security definer as $$
+begin
+  -- Banned users are strictly prohibited from accessing community content
+  if usr_id is not null and public.is_community_banned(comm_id, usr_id) then
+    return false;
+  end if;
+
+  -- Campus super-admins always have full access
+  if usr_id is not null and public.is_campus_admin(usr_id) then
+    return true;
+  end if;
+
+  -- Public communities are accessible to all non-banned users
+  if exists (select 1 from public.communities where id = comm_id and type = 'public') then
+    return true;
+  end if;
+
+  -- Founding owner has full access
+  if usr_id is not null and exists (select 1 from public.communities where id = comm_id and "ownerId" = usr_id) then
+    return true;
+  end if;
+
+  -- Approved community members have full access
+  if usr_id is not null and exists (
+    select 1 from public.community_members 
+    where "communityId" = comm_id and "userId" = usr_id and status = 'approved'
+  ) then
+    return true;
+  end if;
+
+  return false;
+end;
 $$;
 
 -- ==========================================================
@@ -702,6 +733,65 @@ create trigger trg_sanitize_new_community
   before insert or update on public.communities
   for each row
   execute function public.sanitize_new_community();
+
+-- Trigger to prevent membership privilege escalation & unauthorized role changes
+create or replace function public.protect_community_members()
+returns trigger language plpgsql security definer as $$
+declare
+  caller_id text := auth.uid()::text;
+  is_c_admin boolean := false;
+begin
+  if caller_id is not null then
+    is_c_admin := public.is_campus_admin(caller_id);
+  end if;
+
+  if is_c_admin then
+    return NEW;
+  end if;
+
+  -- 1. On INSERT:
+  if TG_OP = 'INSERT' then
+    -- If a non-admin is inserting their own row (joining), force role to 'member'
+    -- unless they are creating a new community (matching ownerId in communities)
+    if not exists (select 1 from public.communities where id = NEW."communityId" and "ownerId" = caller_id) then
+      if not public.has_community_role_rank(NEW."communityId", caller_id, 'admin') then
+        NEW.role := 'member';
+        -- If private society, enforce status = 'pending'
+        if exists (select 1 from public.communities where id = NEW."communityId" and type = 'private') then
+          NEW.status := 'pending';
+        else
+          NEW.status := 'approved';
+        end if;
+      end if;
+    end if;
+  end if;
+
+  -- 2. On UPDATE:
+  if TG_OP = 'UPDATE' then
+    -- Non-admins cannot change their own role or other's role or status
+    if not public.has_community_role_rank(NEW."communityId", caller_id, 'admin') then
+      NEW.role := OLD.role;
+      NEW.status := OLD.status;
+    end if;
+
+    -- Only current owner can make someone 'owner'
+    if NEW.role = 'owner' and OLD.role != 'owner' then
+      if not exists (select 1 from public.communities where id = NEW."communityId" and "ownerId" = caller_id) then
+        NEW.role := OLD.role;
+      end if;
+    end if;
+  end if;
+
+  NEW."updatedAt" := now();
+  return NEW;
+end;
+$$;
+
+drop trigger if exists trg_protect_community_members on public.community_members;
+create trigger trg_protect_community_members
+  before insert or update on public.community_members
+  for each row
+  execute function public.protect_community_members();
 
 -- ==========================================================
 -- 8. Clean up any open / dangerous RLS policies
@@ -1706,3 +1796,65 @@ begin
     alter publication supabase_realtime add table public.community_moderation_actions;
   end if;
 end $$;
+
+-- ==========================================================
+-- 11. Supabase Storage RLS & Access Policies
+-- ==========================================================
+-- Ensure storage bucket exists
+insert into storage.buckets (id, name, public)
+values ('campusconnect', 'campusconnect', true)
+on conflict (id) do update set public = true;
+
+-- Drop prior storage policies if any
+drop policy if exists "Public and Member Storage Read Policy" on storage.objects;
+drop policy if exists "Authenticated User Upload Policy" on storage.objects;
+drop policy if exists "Owner and Admin Delete Storage Policy" on storage.objects;
+
+-- 11.1 READ (SELECT) Storage Objects Policy
+create policy "Public and Member Storage Read Policy" on storage.objects for select
+using (
+  bucket_id = 'campusconnect' and (
+    -- General public folders
+    (storage.foldername(name))[1] in ('avatars', 'covers', 'posts', 'assignments', 'materials')
+    -- Community public media (logos & covers)
+    or ((storage.foldername(name))[1] = 'communities' and (storage.foldername(name))[2] in ('logos', 'covers'))
+    -- Community posts / chat / resources check access
+    or (
+      (storage.foldername(name))[1] = 'communities'
+      and public.can_access_community((storage.foldername(name))[2], auth.uid()::text)
+    )
+  )
+);
+
+-- 11.2 INSERT (Upload) Storage Objects Policy
+create policy "Authenticated User Upload Policy" on storage.objects for insert
+with check (
+  bucket_id = 'campusconnect'
+  and auth.uid() is not null
+  and (
+    -- User uploads to general folders
+    (storage.foldername(name))[1] in ('avatars', 'covers', 'posts', 'assignments', 'materials')
+    -- User uploading community logos/covers during creation
+    or ((storage.foldername(name))[1] = 'communities' and (storage.foldername(name))[2] in ('logos', 'covers'))
+    -- User uploading to a specific community where they are authorized
+    or (
+      (storage.foldername(name))[1] = 'communities'
+      and public.can_access_community((storage.foldername(name))[2], auth.uid()::text)
+    )
+  )
+);
+
+-- 11.3 DELETE Storage Objects Policy
+create policy "Owner and Admin Delete Storage Policy" on storage.objects for delete
+using (
+  bucket_id = 'campusconnect'
+  and auth.uid() is not null
+  and (
+    owner = auth.uid()
+    or public.is_campus_admin(auth.uid()::text)
+    or (
+      (storage.foldername(name))[1] = 'communities'
+      and public.has_community_role_rank((storage.foldername(name))[2], auth.uid()::text, 'admin')
+    )
+  )
+);
