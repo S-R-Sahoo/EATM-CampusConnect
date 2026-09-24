@@ -2259,7 +2259,7 @@ export async function joinCommunity(
       const targetStatus = isPrivate ? 'pending' : 'approved';
 
       const memberRow = {
-        id: existing?.id || ('cm_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6)),
+        id: existing?.id || ('cm_' + communityId + '_' + userId),
         communityId,
         userId,
         role: 'member',
@@ -2269,16 +2269,31 @@ export async function joinCommunity(
         updatedAt: new Date().toISOString()
       };
 
-      await supabase.from('community_members').upsert([memberRow]);
+      const { error: upsertError } = await supabase.from('community_members').upsert([memberRow]);
+      if (upsertError) {
+        console.error('❌ Supabase joinCommunity member upsert error:', upsertError);
+        throw new Error(upsertError.message || 'Failed to register community membership.');
+      }
+
+      // Fetch accurate state from community_members (Single Source of Truth)
+      const { data: allMembers } = await supabase
+        .from('community_members')
+        .select('userId, role, status')
+        .eq('communityId', communityId);
+
+      const approvedList = (allMembers || []).filter((m: any) => m.status === 'approved');
+      const pendingList = (allMembers || []).filter((m: any) => m.status === 'pending').map((m: any) => m.userId);
+      const approvedIds = approvedList.map((m: any) => m.userId);
+      const newCount = approvedIds.length;
 
       if (isPrivate) {
-        const { data: adminRows } = await supabase.from('community_members')
-          .select('userId')
-          .eq('communityId', communityId)
-          .in('role', ['owner', 'admin'])
-          .eq('status', 'approved');
-        
-        const targets = Array.from(new Set([comm.ownerId, ...(adminRows || []).map((r: any) => r.userId)])).filter(Boolean);
+        await supabase.from('communities').update({
+          pendingRequests: pendingList
+        }).eq('id', communityId);
+
+        // Notify community owner & admins
+        const adminIds = approvedList.filter((m: any) => m.role === 'owner' || m.role === 'admin').map((m: any) => m.userId);
+        const targets = Array.from(new Set([comm.ownerId, ...adminIds])).filter(Boolean);
         for (const adminId of targets) {
           if (adminId !== userId) {
             await createNotification({
@@ -2292,19 +2307,18 @@ export async function joinCommunity(
         }
         return { status: 'requested', count: comm.memberCount || 1 };
       } else {
-        const currentMembers = Array.isArray(comm.members) ? comm.members : [];
-        if (!currentMembers.includes(userId)) currentMembers.push(userId);
-        const newCount = currentMembers.length;
-
         await supabase.from('communities').update({
           memberCount: newCount,
-          members: currentMembers
+          members: approvedIds
         }).eq('id', communityId);
 
         return { status: 'joined', count: newCount };
       }
-    } catch (err) {
-      console.warn('Supabase joinCommunity error, using local fallback:', err);
+    } catch (err: any) {
+      console.warn('Supabase joinCommunity error:', err);
+      if (err.message && !err.message.includes('network')) {
+        throw err;
+      }
     }
   }
 
@@ -2348,6 +2362,7 @@ export async function leaveCommunity(
         .eq('userId', userId)
         .maybeSingle();
 
+      // Guard: Owner cannot leave if there are other approved members without ownership transfer
       if (existing?.role === 'owner' || comm?.ownerId === userId) {
         const { count: memberTotal } = await supabase.from('community_members')
           .select('*', { count: 'exact', head: true })
@@ -2364,21 +2379,31 @@ export async function leaveCommunity(
         .eq('communityId', communityId)
         .eq('userId', userId);
 
-      const currentMembers = Array.isArray(comm?.members) ? comm.members.filter((id: string) => id !== userId) : [];
-      const currentAdmins = Array.isArray(comm?.admins) ? comm.admins.filter((id: string) => id !== userId) : [];
-      const currentMods = Array.isArray(comm?.moderators) ? comm.moderators.filter((id: string) => id !== userId) : [];
-      const newCount = Math.max(0, currentMembers.length);
+      // Recount exact approved members from community_members
+      const { data: allMembers } = await supabase
+        .from('community_members')
+        .select('userId, role, status')
+        .eq('communityId', communityId);
+
+      const approvedList = (allMembers || []).filter((m: any) => m.status === 'approved');
+      const approvedIds = approvedList.map((m: any) => m.userId);
+      const adminIds = approvedList.filter((m: any) => m.role === 'admin' || m.role === 'owner').map((m: any) => m.userId);
+      const modIds = approvedList.filter((m: any) => m.role === 'moderator').map((m: any) => m.userId);
+      const newCount = approvedIds.length;
 
       await supabase.from('communities').update({
         memberCount: newCount,
-        members: currentMembers,
-        admins: currentAdmins,
-        moderators: currentMods
+        members: approvedIds,
+        admins: adminIds,
+        moderators: modIds
       }).eq('id', communityId);
 
       return { success: true, count: newCount };
-    } catch (err) {
+    } catch (err: any) {
       console.warn('Supabase leaveCommunity error:', err);
+      if (err.message && !err.message.includes('network')) {
+        throw err;
+      }
     }
   }
 
@@ -2440,15 +2465,19 @@ export async function handleCommunityJoinRequest(
           .eq('communityId', communityId)
           .eq('userId', targetUserId);
 
-        const currentMembers = Array.isArray(comm?.members) ? comm.members : [];
-        if (!currentMembers.includes(targetUserId)) currentMembers.push(targetUserId);
-        const currentPending = Array.isArray(comm?.pendingRequests) ? comm.pendingRequests.filter((id: string) => id !== targetUserId) : [];
-        const newCount = currentMembers.length;
+        const { data: allMembers } = await supabase
+          .from('community_members')
+          .select('userId, status')
+          .eq('communityId', communityId);
+
+        const approvedIds = (allMembers || []).filter((m: any) => m.status === 'approved').map((m: any) => m.userId);
+        const pendingIds = (allMembers || []).filter((m: any) => m.status === 'pending').map((m: any) => m.userId);
+        const newCount = approvedIds.length;
 
         await supabase.from('communities').update({
           memberCount: newCount,
-          members: currentMembers,
-          pendingRequests: currentPending
+          members: approvedIds,
+          pendingRequests: pendingIds
         }).eq('id', communityId);
 
         await createNotification({
@@ -2464,9 +2493,14 @@ export async function handleCommunityJoinRequest(
           .eq('communityId', communityId)
           .eq('userId', targetUserId);
 
-        const currentPending = Array.isArray(comm?.pendingRequests) ? comm.pendingRequests.filter((id: string) => id !== targetUserId) : [];
+        const { data: allMembers } = await supabase
+          .from('community_members')
+          .select('userId, status')
+          .eq('communityId', communityId);
+
+        const pendingIds = (allMembers || []).filter((m: any) => m.status === 'pending').map((m: any) => m.userId);
         await supabase.from('communities').update({
-          pendingRequests: currentPending
+          pendingRequests: pendingIds
         }).eq('id', communityId);
 
         await createNotification({
@@ -2543,6 +2577,21 @@ export async function updateCommunityMemberRole(
           .eq('userId', targetUserId);
       }
 
+      // Sync admins and moderators from community_members
+      const { data: allMembers } = await supabase
+        .from('community_members')
+        .select('userId, role, status')
+        .eq('communityId', communityId)
+        .eq('status', 'approved');
+
+      const adminIds = (allMembers || []).filter((m: any) => m.role === 'admin' || m.role === 'owner').map((m: any) => m.userId);
+      const modIds = (allMembers || []).filter((m: any) => m.role === 'moderator').map((m: any) => m.userId);
+
+      await supabase.from('communities').update({
+        admins: adminIds,
+        moderators: modIds
+      }).eq('id', communityId);
+
       await supabase.from('community_moderation_actions').insert([{
         id: 'cact_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
         communityId,
@@ -2605,16 +2654,22 @@ export async function removeCommunityMember(
         .eq('communityId', communityId)
         .eq('userId', targetUserId);
 
-      const { data: comm } = await supabase.from('communities').select('*').eq('id', communityId).maybeSingle();
-      const currentMembers = Array.isArray(comm?.members) ? comm.members.filter((id: string) => id !== targetUserId) : [];
-      const currentAdmins = Array.isArray(comm?.admins) ? comm.admins.filter((id: string) => id !== targetUserId) : [];
-      const currentMods = Array.isArray(comm?.moderators) ? comm.moderators.filter((id: string) => id !== targetUserId) : [];
+      const { data: allMembers } = await supabase
+        .from('community_members')
+        .select('userId, role, status')
+        .eq('communityId', communityId);
+
+      const approvedList = (allMembers || []).filter((m: any) => m.status === 'approved');
+      const approvedIds = approvedList.map((m: any) => m.userId);
+      const adminIds = approvedList.filter((m: any) => m.role === 'admin' || m.role === 'owner').map((m: any) => m.userId);
+      const modIds = approvedList.filter((m: any) => m.role === 'moderator').map((m: any) => m.userId);
+      const newCount = approvedIds.length;
 
       await supabase.from('communities').update({
-        memberCount: Math.max(0, currentMembers.length),
-        members: currentMembers,
-        admins: currentAdmins,
-        moderators: currentMods
+        memberCount: newCount,
+        members: approvedIds,
+        admins: adminIds,
+        moderators: modIds
       }).eq('id', communityId);
 
       await supabase.from('community_moderation_actions').insert([{
@@ -2677,19 +2732,24 @@ export async function banCommunityMember(
         updatedAt: new Date().toISOString()
       }]);
 
-      const { data: comm } = await supabase.from('communities').select('*').eq('id', communityId).maybeSingle();
-      const currentMembers = Array.isArray(comm?.members) ? comm.members.filter((id: string) => id !== targetUserId) : [];
-      const currentAdmins = Array.isArray(comm?.admins) ? comm.admins.filter((id: string) => id !== targetUserId) : [];
-      const currentMods = Array.isArray(comm?.moderators) ? comm.moderators.filter((id: string) => id !== targetUserId) : [];
-      const currentBanned = Array.isArray(comm?.bannedUsers) ? comm.bannedUsers : [];
-      if (!currentBanned.includes(targetUserId)) currentBanned.push(targetUserId);
+      const { data: allMembers } = await supabase
+        .from('community_members')
+        .select('userId, role, status')
+        .eq('communityId', communityId);
+
+      const approvedList = (allMembers || []).filter((m: any) => m.status === 'approved');
+      const bannedList = (allMembers || []).filter((m: any) => m.status === 'banned').map((m: any) => m.userId);
+      const approvedIds = approvedList.map((m: any) => m.userId);
+      const adminIds = approvedList.filter((m: any) => m.role === 'admin' || m.role === 'owner').map((m: any) => m.userId);
+      const modIds = approvedList.filter((m: any) => m.role === 'moderator').map((m: any) => m.userId);
+      const newCount = approvedIds.length;
 
       await supabase.from('communities').update({
-        memberCount: Math.max(0, currentMembers.length),
-        members: currentMembers,
-        admins: currentAdmins,
-        moderators: currentMods,
-        bannedUsers: currentBanned
+        memberCount: newCount,
+        members: approvedIds,
+        admins: adminIds,
+        moderators: modIds,
+        bannedUsers: bannedList
       }).eq('id', communityId);
 
       await supabase.from('community_moderation_actions').insert([{
@@ -2740,11 +2800,15 @@ export async function unbanCommunityMember(
         .eq('userId', targetUserId)
         .eq('status', 'banned');
 
-      const { data: comm } = await supabase.from('communities').select('*').eq('id', communityId).maybeSingle();
-      const currentBanned = Array.isArray(comm?.bannedUsers) ? comm.bannedUsers.filter((id: string) => id !== targetUserId) : [];
+      const { data: allMembers } = await supabase
+        .from('community_members')
+        .select('userId, status')
+        .eq('communityId', communityId);
+
+      const bannedList = (allMembers || []).filter((m: any) => m.status === 'banned').map((m: any) => m.userId);
 
       await supabase.from('communities').update({
-        bannedUsers: currentBanned
+        bannedUsers: bannedList
       }).eq('id', communityId);
 
       await supabase.from('community_moderation_actions').insert([{
@@ -2800,7 +2864,20 @@ export async function transferCommunityOwnership(
           updatedAt: new Date().toISOString()
         }]);
 
-      await supabase.from('communities').update({ ownerId: newOwnerId }).eq('id', communityId);
+      const { data: allMembers } = await supabase
+        .from('community_members')
+        .select('userId, role, status')
+        .eq('communityId', communityId)
+        .eq('status', 'approved');
+
+      const approvedIds = (allMembers || []).map((m: any) => m.userId);
+      const adminIds = (allMembers || []).filter((m: any) => m.role === 'admin' || m.role === 'owner').map((m: any) => m.userId);
+
+      await supabase.from('communities').update({
+        ownerId: newOwnerId,
+        admins: adminIds,
+        members: approvedIds
+      }).eq('id', communityId);
 
       await supabase.from('community_moderation_actions').insert([{
         id: 'cact_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
@@ -2906,9 +2983,13 @@ export async function deleteCommunity(
 export async function canUserAccessCommunityContent(communityId: string, userId?: string): Promise<boolean> {
   const comm = await fetchCommunityById(communityId);
   if (!comm) return false;
+  if (!userId) return comm.type === 'public';
+  if (Array.isArray(comm.bannedUsers) && comm.bannedUsers.includes(userId)) return false;
   if (comm.type === 'public') return true;
-  if (!userId) return false;
-  return Array.isArray(comm.members) && comm.members.includes(userId);
+  if (comm.ownerId === userId) return true;
+  if (Array.isArray(comm.admins) && comm.admins.includes(userId)) return true;
+  if (Array.isArray(comm.members) && comm.members.includes(userId)) return true;
+  return false;
 }
 
 /**
@@ -3008,6 +3089,10 @@ export async function fetchCommunityPosts(communityId: string, currentUserId?: s
 }
 
 export async function createCommunityPost(post: Omit<CommunityPost, 'id' | 'likes' | 'likesCount' | 'commentsCount' | 'createdAt'>): Promise<CommunityPost> {
+  if (post.authorId && !(await canUserAccessCommunityContent(post.communityId, post.authorId))) {
+    throw new Error('Access denied: You must be an active, approved member to publish posts.');
+  }
+
   const newPost: CommunityPost = {
     ...post,
     id: 'cpost_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
@@ -3107,6 +3192,10 @@ export async function fetchCommunityComments(postId: string): Promise<CommunityC
 }
 
 export async function createCommunityComment(comment: Omit<CommunityComment, 'id' | 'createdAt'>): Promise<CommunityComment> {
+  if (comment.authorId && !(await canUserAccessCommunityContent(comment.communityId, comment.authorId))) {
+    throw new Error('Access denied: You must be an active, approved member to comment.');
+  }
+
   const newComment: CommunityComment = {
     ...comment,
     id: 'ccmt_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
@@ -3177,6 +3266,10 @@ export async function fetchCommunityDiscussions(communityId: string, currentUser
 }
 
 export async function createCommunityDiscussion(disc: Omit<CommunityDiscussion, 'id' | 'likes' | 'likesCount' | 'commentsCount' | 'createdAt'>): Promise<CommunityDiscussion> {
+  if (disc.authorId && !(await canUserAccessCommunityContent(disc.communityId, disc.authorId))) {
+    throw new Error('Access denied: You must be an active, approved member to start discussions.');
+  }
+
   const newDisc: CommunityDiscussion = {
     ...disc,
     id: 'cdisc_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
@@ -3261,6 +3354,10 @@ export async function fetchCommunityDiscussionComments(discId: string): Promise<
 }
 
 export async function createCommunityDiscussionComment(comment: Omit<CommunityDiscussionComment, 'id' | 'createdAt'>): Promise<CommunityDiscussionComment> {
+  if (comment.authorId && !(await canUserAccessCommunityContent(comment.communityId, comment.authorId))) {
+    throw new Error('Access denied: You must be an active, approved member to reply to discussions.');
+  }
+
   const newCmt: CommunityDiscussionComment = {
     ...comment,
     id: 'cdcmt_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
@@ -3321,6 +3418,10 @@ export async function fetchCommunityMessages(communityId: string, currentUserId?
 }
 
 export async function sendCommunityMessage(msg: Omit<CommunityMessage, 'id' | 'createdAt'>): Promise<CommunityMessage> {
+  if (msg.senderId && !(await canUserAccessCommunityContent(msg.communityId, msg.senderId))) {
+    throw new Error('Access denied: You must be an active, approved member to participate in live chat.');
+  }
+
   const newMsg: CommunityMessage = {
     ...msg,
     id: 'cmsg_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
