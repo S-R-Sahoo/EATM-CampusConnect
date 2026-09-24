@@ -608,6 +608,52 @@ export async function updateUserProfile(userId: string, data: Partial<UserProfil
 // ---------------------------------------------
 // CONNECTIONS
 // ---------------------------------------------
+
+/**
+ * Fetches user profiles by an array of user IDs.
+ * Highly optimized: only queries requested IDs instead of loading all users.
+ */
+export async function fetchUsersByIds(userIds: string[]): Promise<UserProfile[]> {
+  const uniqueIds = Array.from(new Set(userIds.filter(Boolean)));
+  if (uniqueIds.length === 0) return [];
+
+  let list: UserProfile[] = [];
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .in('id', uniqueIds);
+
+      if (!error && data && data.length > 0) {
+        list = data as UserProfile[];
+      }
+    } catch (err) {
+      console.warn('Supabase fetchUsersByIds error:', err);
+    }
+  }
+
+  // Fallback to local cache if Supabase didn't return all
+  if (list.length < uniqueIds.length) {
+    const localUsers = getLocalData<UserProfile[]>('users', SEED_USERS);
+    const existingIds = new Set(list.map(u => u.id));
+    for (const uid of uniqueIds) {
+      if (!existingIds.has(uid)) {
+        const found = localUsers.find(u => u.id === uid || u.uid === uid);
+        if (found) list.push(found);
+      }
+    }
+  }
+
+  return list.map(u => ({
+    ...u,
+    photoURL: isCustomPhoto(u.photoURL) ? u.photoURL : undefined
+  }));
+}
+
+/**
+ * Fetches connections for a specific user from Supabase with local fallback.
+ */
 export async function fetchConnections(userId: string): Promise<Connection[]> {
   if (isSupabaseConfigured() && supabase) {
     try {
@@ -622,9 +668,11 @@ export async function fetchConnections(userId: string): Promise<Connection[]> {
         const nonUserConns = currentLocal.filter(c => c.requesterId !== userId && c.recipientId !== userId);
         setLocalData('connections', [...nonUserConns, ...(data as Connection[])]);
         return data as Connection[];
+      } else if (error) {
+        console.warn('Supabase fetchConnections error:', error.message);
       }
     } catch (err) {
-      console.warn('Supabase fetchConnections error, fallback to local:', err);
+      console.warn('Supabase fetchConnections exception, fallback to local:', err);
     }
   }
 
@@ -632,7 +680,43 @@ export async function fetchConnections(userId: string): Promise<Connection[]> {
   return connections.filter(c => c.requesterId === userId || c.recipientId === userId);
 }
 
+/**
+ * High-performance selective fetch: returns connections and only the associated peer profiles.
+ */
+export async function fetchConnectionsWithProfiles(userId: string): Promise<{
+  connections: Connection[];
+  usersMap: Record<string, UserProfile>;
+}> {
+  const connections = await fetchConnections(userId);
+  const targetIds = Array.from(new Set(
+    connections.map(c => c.requesterId === userId ? c.recipientId : c.requesterId)
+  ));
+
+  const profiles = await fetchUsersByIds(targetIds);
+  const usersMap: Record<string, UserProfile> = {};
+  profiles.forEach(p => {
+    usersMap[p.id] = p;
+    if (p.uid && p.uid !== p.id) {
+      usersMap[p.uid] = p;
+    }
+  });
+
+  return { connections, usersMap };
+}
+
+/**
+ * Sends a connection request.
+ * Supabase-authoritative: strictly enforces duplicate prevention, self-connection blockage,
+ * and throws errors on failure instead of masking with local storage.
+ */
 export async function sendConnectionRequest(requesterId: string, recipientId: string): Promise<Connection> {
+  if (!requesterId || !recipientId) {
+    throw new Error('Invalid requester or recipient ID.');
+  }
+  if (requesterId === recipientId) {
+    throw new Error('You cannot send a connection request to yourself.');
+  }
+
   const now = new Date().toISOString();
   const newConn: Connection = {
     id: 'conn_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
@@ -644,35 +728,78 @@ export async function sendConnectionRequest(requesterId: string, recipientId: st
   };
 
   if (isSupabaseConfigured() && supabase) {
+    // 1. Check if a connection already exists in either direction
+    const { data: existing, error: findError } = await supabase
+      .from('connections')
+      .select('*')
+      .or(`and(requesterId.eq.${requesterId},recipientId.eq.${recipientId}),and(requesterId.eq.${recipientId},recipientId.eq.${requesterId})`)
+      .limit(1);
+
+    if (findError) {
+      console.warn('Error checking existing connections in Supabase:', findError);
+    }
+
+    if (existing && existing.length > 0) {
+      const found = existing[0] as Connection;
+      if (found.status === 'accepted') {
+        throw new Error('You are already connected as campus friends.');
+      }
+      if (found.status === 'pending') {
+        if (found.requesterId === requesterId) {
+          throw new Error('You have already sent a connection request to this student.');
+        } else {
+          throw new Error('This student has already sent you a connection request. Check your received requests tab!');
+        }
+      }
+    }
+
+    // 2. Perform Supabase Insert
+    const { data, error } = await supabase
+      .from('connections')
+      .insert([newConn])
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Supabase sendConnectionRequest error:', error);
+      if (error.code === '23505' || error.message?.toLowerCase().includes('duplicate') || error.message?.toLowerCase().includes('unique')) {
+        throw new Error('A connection between you and this student already exists.');
+      }
+      throw new Error(error.message || 'Failed to send connection request to server.');
+    }
+
+    if (data) {
+      newConn.id = data.id;
+    }
+
+    // 3. Realtime Broadcast to both channels
     try {
-      // Check if a connection already exists in either direction
-      const { data: existing, error: findError } = await supabase
-        .from('connections')
-        .select('*')
-        .or(`and(requesterId.eq.${requesterId},recipientId.eq.${recipientId}),and(requesterId.eq.${recipientId},recipientId.eq.${requesterId})`)
-        .limit(1);
-
-      if (!findError && existing && existing.length > 0) {
-        return existing[0] as Connection;
-      }
-
-      const { data, error } = await supabase
-        .from('connections')
-        .insert([newConn])
-        .select()
-        .single();
-
-      if (!error && data) {
-        newConn.id = data.id;
-      }
-    } catch (err) {
-      console.warn('Supabase sendConnectionRequest error:', err);
+      const ch1 = supabase.channel(`connections-${recipientId}`);
+      ch1.send({ type: 'broadcast', event: 'connection_changed', payload: { type: 'request_sent', connection: newConn } }).catch(() => {});
+      const ch2 = supabase.channel(`connections-${requesterId}`);
+      ch2.send({ type: 'broadcast', event: 'connection_changed', payload: { type: 'request_sent', connection: newConn } }).catch(() => {});
+    } catch {}
+  } else {
+    // Local storage check when Supabase is not configured
+    const localConns = getLocalData<Connection[]>('connections', []);
+    const existing = localConns.find(c => 
+      (c.requesterId === requesterId && c.recipientId === recipientId) ||
+      (c.requesterId === recipientId && c.recipientId === requesterId)
+    );
+    if (existing) {
+      if (existing.status === 'accepted') throw new Error('You are already connected as campus friends.');
+      if (existing.status === 'pending') throw new Error('A connection request is already pending.');
     }
   }
 
   // Update local cache
   const localConns = getLocalData<Connection[]>('connections', []);
   setLocalData('connections', [...localConns.filter(c => c.id !== newConn.id), newConn]);
+
+  // Dispatch window event for instant same-tab & cross-tab sync
+  window.dispatchEvent(new CustomEvent('eatm_connections_changed', {
+    detail: { type: 'request_sent', connection: newConn }
+  }));
 
   // Notify recipient with requester's real profile name & avatar
   try {
@@ -694,29 +821,56 @@ export async function sendConnectionRequest(requesterId: string, recipientId: st
   return newConn;
 }
 
-export async function updateConnectionStatus(connectionId: string, status: 'accepted' | 'rejected'): Promise<void> {
+/**
+ * Updates a connection status (accept or decline).
+ * Enforces recipient authorization and verifies against Supabase.
+ */
+export async function updateConnectionStatus(
+  connectionId: string, 
+  status: 'accepted' | 'rejected',
+  currentUserId?: string
+): Promise<void> {
   const now = new Date().toISOString();
   let conn: Connection | null = null;
 
   if (isSupabaseConfigured() && supabase) {
-    try {
-      const { data: existing } = await supabase
-        .from('connections')
-        .select('*')
-        .eq('id', connectionId)
-        .single();
+    // 1. Fetch existing connection record
+    const { data: existing, error: getErr } = await supabase
+      .from('connections')
+      .select('*')
+      .eq('id', connectionId)
+      .single();
 
-      if (existing) {
-        conn = existing as Connection;
-      }
-
-      await supabase
-        .from('connections')
-        .update({ status, updatedAt: now })
-        .eq('id', connectionId);
-    } catch (err) {
-      console.warn('Supabase updateConnectionStatus error:', err);
+    if (getErr || !existing) {
+      console.error('Supabase updateConnectionStatus fetch error:', getErr);
+      throw new Error(getErr?.message || 'Connection request not found on server.');
     }
+
+    conn = existing as Connection;
+
+    // 2. Enforce authorization: Only recipient can accept or decline
+    if (currentUserId && conn.recipientId !== currentUserId) {
+      throw new Error('Unauthorized: Only the recipient can accept or decline this connection request.');
+    }
+
+    // 3. Update status in Supabase
+    const { error: updErr } = await supabase
+      .from('connections')
+      .update({ status, updatedAt: now })
+      .eq('id', connectionId);
+
+    if (updErr) {
+      console.error('Supabase updateConnectionStatus error:', updErr);
+      throw new Error(updErr.message || 'Failed to update connection status on server.');
+    }
+
+    // 4. Realtime broadcast to both participants
+    try {
+      const ch1 = supabase.channel(`connections-${conn.requesterId}`);
+      ch1.send({ type: 'broadcast', event: 'connection_changed', payload: { type: 'status_updated', connectionId, status } }).catch(() => {});
+      const ch2 = supabase.channel(`connections-${conn.recipientId}`);
+      ch2.send({ type: 'broadcast', event: 'connection_changed', payload: { type: 'status_updated', connectionId, status } }).catch(() => {});
+    } catch {}
   }
 
   // Update local cache
@@ -728,6 +882,11 @@ export async function updateConnectionStatus(connectionId: string, status: 'acce
     setLocalData('connections', [...connections]);
     if (!conn) conn = localConn;
   }
+
+  // Dispatch window event
+  window.dispatchEvent(new CustomEvent('eatm_connections_changed', {
+    detail: { type: 'status_updated', connectionId, status }
+  }));
 
   // If accepted, become official friends:
   // 1. Sync connection counters for both users in users table
@@ -775,19 +934,151 @@ export async function updateConnectionStatus(connectionId: string, status: 'acce
   }
 
   // Auto-mark pending connection_request notification as read so it no longer lingers
-  try {
-    const notifs = getLocalData<NotificationItem[]>('notifications', SEED_NOTIFICATIONS);
-    const reqNotif = notifs.find(n => 
-      n.type === 'connection_request' && 
-      n.recipientId === conn!.recipientId && 
-      n.senderId === conn!.requesterId
-    );
-    if (reqNotif && !reqNotif.read) {
-      await markNotificationAsRead(reqNotif.id);
+  if (conn) {
+    try {
+      const notifs = getLocalData<NotificationItem[]>('notifications', SEED_NOTIFICATIONS);
+      const reqNotif = notifs.find(n => 
+        n.type === 'connection_request' && 
+        n.recipientId === conn!.recipientId && 
+        n.senderId === conn!.requesterId
+      );
+      if (reqNotif && !reqNotif.read) {
+        await markNotificationAsRead(reqNotif.id);
+      }
+    } catch {
+      // ignore
     }
-  } catch {
-    // ignore
   }
+}
+
+/**
+ * Cancels / withdraws a pending connection request sent by the current user.
+ */
+export async function cancelConnectionRequest(connectionId: string, requesterId: string): Promise<void> {
+  let conn: Connection | null = null;
+
+  if (isSupabaseConfigured() && supabase) {
+    const { data: existing, error: getErr } = await supabase
+      .from('connections')
+      .select('*')
+      .eq('id', connectionId)
+      .single();
+
+    if (getErr || !existing) {
+      throw new Error(getErr?.message || 'Connection request not found on server.');
+    }
+
+    conn = existing as Connection;
+    if (conn.requesterId !== requesterId) {
+      throw new Error('Unauthorized: Only the requester can cancel this connection request.');
+    }
+    if (conn.status !== 'pending') {
+      throw new Error('Only pending connection requests can be cancelled.');
+    }
+
+    const { error: delErr } = await supabase
+      .from('connections')
+      .delete()
+      .eq('id', connectionId)
+      .eq('requesterId', requesterId);
+
+    if (delErr) {
+      console.error('Supabase cancelConnectionRequest error:', delErr);
+      throw new Error(delErr.message || 'Failed to cancel connection request.');
+    }
+
+    // Realtime broadcast to both participants
+    try {
+      const ch1 = supabase.channel(`connections-${conn.recipientId}`);
+      ch1.send({ type: 'broadcast', event: 'connection_changed', payload: { type: 'request_cancelled', connectionId } }).catch(() => {});
+      const ch2 = supabase.channel(`connections-${requesterId}`);
+      ch2.send({ type: 'broadcast', event: 'connection_changed', payload: { type: 'request_cancelled', connectionId } }).catch(() => {});
+    } catch {}
+  }
+
+  // Update local storage
+  const connections = getLocalData<Connection[]>('connections', []);
+  setLocalData('connections', connections.filter(c => c.id !== connectionId));
+
+  // Dispatch window event
+  window.dispatchEvent(new CustomEvent('eatm_connections_changed', {
+    detail: { type: 'request_cancelled', connectionId }
+  }));
+}
+
+/**
+ * Removes an existing connection / unfriends a student.
+ */
+export async function removeConnection(connectionId: string, userId: string): Promise<void> {
+  let conn: Connection | null = null;
+
+  if (isSupabaseConfigured() && supabase) {
+    const { data: existing, error: getErr } = await supabase
+      .from('connections')
+      .select('*')
+      .eq('id', connectionId)
+      .single();
+
+    if (getErr || !existing) {
+      throw new Error(getErr?.message || 'Connection not found on server.');
+    }
+
+    conn = existing as Connection;
+    if (conn.requesterId !== userId && conn.recipientId !== userId) {
+      throw new Error('Unauthorized: You can only remove your own connection.');
+    }
+
+    const { error: delErr } = await supabase
+      .from('connections')
+      .delete()
+      .eq('id', connectionId);
+
+    if (delErr) {
+      console.error('Supabase removeConnection error:', delErr);
+      throw new Error(delErr.message || 'Failed to remove connection.');
+    }
+
+    // Decrement stats if connection was accepted
+    if (conn.status === 'accepted') {
+      const otherId = conn.requesterId === userId ? conn.recipientId : conn.requesterId;
+      const [u1, u2] = await Promise.all([fetchUserById(userId), fetchUserById(otherId)]);
+      if (u1 && u1.stats) {
+        await updateUserProfile(u1.id, { stats: { ...u1.stats, connections: Math.max(0, (u1.stats.connections || 1) - 1) } });
+      }
+      if (u2 && u2.stats) {
+        await updateUserProfile(u2.id, { stats: { ...u2.stats, connections: Math.max(0, (u2.stats.connections || 1) - 1) } });
+      }
+    }
+
+    // Realtime broadcast
+    try {
+      const ch1 = supabase.channel(`connections-${conn.requesterId}`);
+      ch1.send({ type: 'broadcast', event: 'connection_changed', payload: { type: 'connection_removed', connectionId } }).catch(() => {});
+      const ch2 = supabase.channel(`connections-${conn.recipientId}`);
+      ch2.send({ type: 'broadcast', event: 'connection_changed', payload: { type: 'connection_removed', connectionId } }).catch(() => {});
+    } catch {}
+  }
+
+  // Update local storage
+  const connections = getLocalData<Connection[]>('connections', []);
+  const removed = connections.find(c => c.id === connectionId);
+  setLocalData('connections', connections.filter(c => c.id !== connectionId));
+
+  if (removed && removed.status === 'accepted' && !isSupabaseConfigured()) {
+    const otherId = removed.requesterId === userId ? removed.recipientId : removed.requesterId;
+    const [u1, u2] = await Promise.all([fetchUserById(userId), fetchUserById(otherId)]);
+    if (u1 && u1.stats) {
+      await updateUserProfile(u1.id, { stats: { ...u1.stats, connections: Math.max(0, (u1.stats.connections || 1) - 1) } });
+    }
+    if (u2 && u2.stats) {
+      await updateUserProfile(u2.id, { stats: { ...u2.stats, connections: Math.max(0, (u2.stats.connections || 1) - 1) } });
+    }
+  }
+
+  // Dispatch window event
+  window.dispatchEvent(new CustomEvent('eatm_connections_changed', {
+    detail: { type: 'connection_removed', connectionId }
+  }));
 }
 
 // ---------------------------------------------
@@ -1760,7 +2051,13 @@ export function subscribeToConnections(
       { event: '*', schema: 'public', table: 'connections' },
       (payload) => {
         const row = (payload.new || payload.old) as any;
-        if (row && (row.requesterId === userId || row.recipientId === userId)) {
+        if (
+          row &&
+          (row.requesterId === userId ||
+            row.requester_id === userId ||
+            row.recipientId === userId ||
+            row.recipient_id === userId)
+        ) {
           onChange();
         }
       }

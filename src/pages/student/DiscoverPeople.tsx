@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { 
-  fetchUsers, fetchConnections, sendConnectionRequest, 
+  fetchUsers, fetchConnections, sendConnectionRequest, cancelConnectionRequest,
   getOrCreateConversation, subscribeToConnections 
 } from '../../supabase/db';
 import { UserProfile, Connection } from '../../types';
@@ -95,7 +95,21 @@ export const DiscoverPeople: React.FC = () => {
       confetti({ particleCount: 40, spread: 50, origin: { y: 0.8 } });
       success(`Connection request sent to ${targetUser.displayName}!`, 'Request Sent');
     } catch (err: any) {
-      toastError('Could not send connection request. Please try again.');
+      toastError(err?.message || 'Could not send connection request. Please try again.');
+    } finally {
+      setConnectingId(null);
+    }
+  };
+
+  const handleCancelRequest = async (connId: string) => {
+    if (!user) return;
+    setConnectingId(connId);
+    try {
+      await cancelConnectionRequest(connId, user.id);
+      setConnections(prev => prev.filter(c => c.id !== connId));
+      success('Connection request withdrawn.', 'Request Cancelled');
+    } catch (err: any) {
+      toastError(err?.message || 'Could not cancel connection request.');
     } finally {
       setConnectingId(null);
     }
@@ -275,8 +289,8 @@ export const DiscoverPeople: React.FC = () => {
           </div>
         ) : (
           filteredUsers.map(student => {
-            const { status } = getConnectionInfo(student.id);
-            const isConnecting = connectingId === student.id;
+            const { status, conn } = getConnectionInfo(student.id);
+            const isConnecting = connectingId === (conn?.id || student.id);
 
             return (
               <div
@@ -389,9 +403,23 @@ export const DiscoverPeople: React.FC = () => {
                       <ArrowRight className="w-3.5 h-3.5 stroke-[2.5]" />
                     </Link>
                   ) : status === 'pending_sent' ? (
-                    <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold text-amber-800 dark:text-amber-300 bg-amber-500/10 dark:bg-amber-500/15 border border-amber-500/40 dark:border-amber-500/30 select-none">
-                      <Clock className="w-3.5 h-3.5 stroke-[2.2]" />
-                      <span>Pending</span>
+                    <div className="flex items-center gap-2">
+                      <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold text-amber-800 dark:text-amber-300 bg-amber-500/10 dark:bg-amber-500/15 border border-amber-500/40 dark:border-amber-500/30 select-none">
+                        <Clock className="w-3.5 h-3.5 stroke-[2.2]" />
+                        <span>Pending</span>
+                      </div>
+                      {conn && (
+                        <button
+                          type="button"
+                          disabled={isConnecting}
+                          onClick={() => handleCancelRequest(conn.id)}
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-semibold text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 border border-gray-200 dark:border-[#1e3325] hover:border-red-200 transition active:scale-95 cursor-pointer disabled:opacity-50"
+                          title="Cancel request"
+                        >
+                          <X className="w-3 h-3" />
+                          <span>Cancel</span>
+                        </button>
+                      )}
                     </div>
                   ) : (
                     <button

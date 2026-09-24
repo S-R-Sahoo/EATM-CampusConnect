@@ -9,7 +9,7 @@ import { Select } from '../../components/ui/Select';
 import { uploadFile } from '../../supabase/storage';
 import { 
   fetchPosts, fetchConnections, fetchUserById, 
-  sendConnectionRequest, updateConnectionStatus, getOrCreateConversation 
+  sendConnectionRequest, updateConnectionStatus, cancelConnectionRequest, getOrCreateConversation 
 } from '../../supabase/db';
 import { Post, UserProfile } from '../../types';
 import { PostCard } from '../../components/posts/PostCard';
@@ -245,38 +245,52 @@ export const StudentProfile: React.FC = () => {
       setConnectionInfo({ status: 'pending_sent', connectionId: newConn.id });
       confetti({ particleCount: 40, spread: 50, origin: { y: 0.8 } });
       success(`Connection request sent to ${activeUser.displayName}!`, 'Request Sent');
-    } catch (err) {
-      toastError('Could not send connection request.');
+    } catch (err: any) {
+      toastError(err?.message || 'Could not send connection request.');
     } finally {
       setConnecting(false);
     }
   };
 
   const handleAcceptConnection = async () => {
-    if (!connectionInfo.connectionId) return;
+    if (!user || !connectionInfo.connectionId) return;
     setConnecting(true);
     try {
-      await updateConnectionStatus(connectionInfo.connectionId, 'accepted');
+      await updateConnectionStatus(connectionInfo.connectionId, 'accepted', user.id);
       setConnectionInfo(prev => ({ ...prev, status: 'connected' }));
       confetti({ particleCount: 50, spread: 60, origin: { y: 0.7 } });
       success(`You and ${activeUser?.displayName} are now campus friends 🎉`, 'Friend Connected');
       setLiveConnectionsCount(prev => (prev ?? 0) + 1);
-    } catch (err) {
-      toastError('Could not accept connection request.');
+    } catch (err: any) {
+      toastError(err?.message || 'Could not accept connection request.');
     } finally {
       setConnecting(false);
     }
   };
 
   const handleRejectConnection = async () => {
-    if (!connectionInfo.connectionId) return;
+    if (!user || !connectionInfo.connectionId) return;
     setConnecting(true);
     try {
-      await updateConnectionStatus(connectionInfo.connectionId, 'rejected');
+      await updateConnectionStatus(connectionInfo.connectionId, 'rejected', user.id);
       setConnectionInfo({ status: 'none' });
       success('Connection request declined.', 'Request Ignored');
-    } catch (err) {
-      toastError('Could not decline connection request.');
+    } catch (err: any) {
+      toastError(err?.message || 'Could not decline connection request.');
+    } finally {
+      setConnecting(false);
+    }
+  };
+
+  const handleCancelConnection = async () => {
+    if (!user || !connectionInfo.connectionId) return;
+    setConnecting(true);
+    try {
+      await cancelConnectionRequest(connectionInfo.connectionId, user.id);
+      setConnectionInfo({ status: 'none' });
+      success('Connection request withdrawn.', 'Request Cancelled');
+    } catch (err: any) {
+      toastError(err?.message || 'Could not cancel connection request.');
     } finally {
       setConnecting(false);
     }
@@ -798,6 +812,16 @@ export const StudentProfile: React.FC = () => {
                         <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4 stroke-[2.2]" />
                         <span>Pending</span>
                       </div>
+                      <button
+                        type="button"
+                        disabled={connecting}
+                        onClick={handleCancelConnection}
+                        className="inline-flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-300 bg-white dark:bg-[#16251c] border border-gray-300 dark:border-[#2a4533] hover:bg-gray-50 dark:hover:bg-[#1f3527] hover:text-red-600 dark:hover:text-red-400 hover:border-red-300 shadow-2xs active:scale-95 transition-all duration-150 cursor-pointer disabled:opacity-50"
+                        title="Cancel Request"
+                      >
+                        <X className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                        <span>Cancel</span>
+                      </button>
                       <button
                         type="button"
                         onClick={handleStartDirectChat}

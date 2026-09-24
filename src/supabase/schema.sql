@@ -778,6 +778,19 @@ alter table public.connections add column if not exists status text default 'pen
 alter table public.connections add column if not exists "createdAt" timestamptz default now();
 alter table public.connections add column if not exists "updatedAt" timestamptz default now();
 
+-- Canonical unique index to prevent duplicate connections in either direction (A->B or B->A)
+create unique index if not exists idx_connections_canonical_pair 
+on public.connections (least("requesterId", "recipientId"), greatest("requesterId", "recipientId"));
+
+-- Prevent self-connection requests
+alter table public.connections drop constraint if exists connections_no_self_connect;
+alter table public.connections add constraint connections_no_self_connect check ("requesterId" <> "recipientId");
+
+-- Fast lookup indexes
+create index if not exists idx_connections_requester on public.connections ("requesterId");
+create index if not exists idx_connections_recipient on public.connections ("recipientId");
+create index if not exists idx_connections_status on public.connections (status);
+
 -- 4.7 Direct & Group Conversations Table
 create table if not exists public.conversations (
   id text primary key,
@@ -1989,20 +2002,22 @@ using (
 
 create policy "Connections Insert Policy" on public.connections for insert
 with check (
-  auth.uid() is not null and "requesterId" = auth.uid()::text
+  auth.uid() is not null 
+  and "requesterId" = auth.uid()::text
+  and "requesterId" <> "recipientId"
+  and (status is null or status = 'pending')
 );
 
 create policy "Connections Update Policy" on public.connections for update
 using (
   auth.uid() is not null and (
-    "requesterId" = auth.uid()::text or 
+    -- Only the recipient can accept or decline a request
     "recipientId" = auth.uid()::text or 
     public.is_campus_admin(auth.uid()::text)
   )
 )
 with check (
   auth.uid() is not null and (
-    "requesterId" = auth.uid()::text or 
     "recipientId" = auth.uid()::text or 
     public.is_campus_admin(auth.uid()::text)
   )
@@ -2011,8 +2026,11 @@ with check (
 create policy "Connections Delete Policy" on public.connections for delete
 using (
   auth.uid() is not null and (
-    "requesterId" = auth.uid()::text or 
-    "recipientId" = auth.uid()::text or 
+    -- Requester can cancel pending request
+    ("requesterId" = auth.uid()::text and status = 'pending') or 
+    -- Either party can remove an accepted connection
+    (status = 'accepted' and ("requesterId" = auth.uid()::text or "recipientId" = auth.uid()::text)) or
+    -- Campus admin
     public.is_campus_admin(auth.uid()::text)
   )
 );
