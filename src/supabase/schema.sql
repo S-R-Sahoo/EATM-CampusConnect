@@ -156,6 +156,33 @@ create table if not exists public.communities (
   "updatedAt" timestamptz default now()
 );
 
+-- Ensure all community columns exist if table pre-existed
+alter table public.communities add column if not exists name text;
+alter table public.communities add column if not exists description text;
+alter table public.communities add column if not exists category text;
+alter table public.communities add column if not exists type text default 'public';
+alter table public.communities add column if not exists logo text;
+alter table public.communities add column if not exists "logoUrl" text;
+alter table public.communities add column if not exists cover text;
+alter table public.communities add column if not exists "coverUrl" text;
+alter table public.communities add column if not exists "ownerId" text;
+alter table public.communities add column if not exists "isOfficial" boolean default false;
+alter table public.communities add column if not exists "verificationStatus" text default 'student';
+alter table public.communities add column if not exists lead text;
+alter table public.communities add column if not exists "leadRole" text;
+alter table public.communities add column if not exists "memberCount" int default 1;
+alter table public.communities add column if not exists members text[] default '{}';
+alter table public.communities add column if not exists admins text[] default '{}';
+alter table public.communities add column if not exists moderators text[] default '{}';
+alter table public.communities add column if not exists "pendingRequests" text[] default '{}';
+alter table public.communities add column if not exists "bannedUsers" text[] default '{}';
+alter table public.communities add column if not exists rules text[] default '{}';
+alter table public.communities add column if not exists tags text[] default '{}';
+alter table public.communities add column if not exists "meetingTime" text;
+alter table public.communities add column if not exists room text;
+alter table public.communities add column if not exists "createdAt" timestamptz default now();
+alter table public.communities add column if not exists "updatedAt" timestamptz default now();
+
 -- 3.2 Community Memberships Table (Single Source of Truth)
 create table if not exists public.community_members (
   id text primary key,
@@ -168,6 +195,14 @@ create table if not exists public.community_members (
   "updatedAt" timestamptz default now(),
   unique("communityId", "userId")
 );
+
+alter table public.community_members add column if not exists "communityId" text;
+alter table public.community_members add column if not exists "userId" text;
+alter table public.community_members add column if not exists role text default 'member';
+alter table public.community_members add column if not exists status text default 'approved';
+alter table public.community_members add column if not exists "requestedAt" timestamptz;
+alter table public.community_members add column if not exists "joinedAt" timestamptz default now();
+alter table public.community_members add column if not exists "updatedAt" timestamptz default now();
 
 -- 3.3 Community Posts Table
 create table if not exists public.community_posts (
@@ -192,6 +227,25 @@ create table if not exists public.community_posts (
   "updatedAt" timestamptz default now()
 );
 
+alter table public.community_posts add column if not exists "communityId" text;
+alter table public.community_posts add column if not exists "authorId" text;
+alter table public.community_posts add column if not exists "authorName" text;
+alter table public.community_posts add column if not exists "authorAvatar" text;
+alter table public.community_posts add column if not exists "authorRole" text;
+alter table public.community_posts add column if not exists "authorDept" text;
+alter table public.community_posts add column if not exists content text;
+alter table public.community_posts add column if not exists "postType" text default 'text';
+alter table public.community_posts add column if not exists "mediaUrl" text;
+alter table public.community_posts add column if not exists "mediaUrls" text[] default '{}';
+alter table public.community_posts add column if not exists "isPinned" boolean default false;
+alter table public.community_posts add column if not exists likes text[] default '{}';
+alter table public.community_posts add column if not exists "likesCount" int default 0;
+alter table public.community_posts add column if not exists "commentsCount" int default 0;
+alter table public.community_posts add column if not exists poll jsonb;
+alter table public.community_posts add column if not exists project jsonb;
+alter table public.community_posts add column if not exists "createdAt" timestamptz default now();
+alter table public.community_posts add column if not exists "updatedAt" timestamptz default now();
+
 -- 3.4 Community Comments Table
 create table if not exists public.community_comments (
   id text primary key,
@@ -206,6 +260,17 @@ create table if not exists public.community_comments (
   likes text[] default '{}',
   "createdAt" timestamptz default now()
 );
+
+alter table public.community_comments add column if not exists "postId" text;
+alter table public.community_comments add column if not exists "communityId" text;
+alter table public.community_comments add column if not exists "authorId" text;
+alter table public.community_comments add column if not exists "authorName" text;
+alter table public.community_comments add column if not exists "authorAvatar" text;
+alter table public.community_comments add column if not exists "authorDept" text;
+alter table public.community_comments add column if not exists content text;
+alter table public.community_comments add column if not exists "parentCommentId" text;
+alter table public.community_comments add column if not exists likes text[] default '{}';
+alter table public.community_comments add column if not exists "createdAt" timestamptz default now();
 
 -- 3.5 Community Discussions Table
 create table if not exists public.community_discussions (
@@ -227,6 +292,22 @@ create table if not exists public.community_discussions (
   "updatedAt" timestamptz default now()
 );
 
+alter table public.community_discussions add column if not exists "communityId" text;
+alter table public.community_discussions add column if not exists "authorId" text;
+alter table public.community_discussions add column if not exists "authorName" text;
+alter table public.community_discussions add column if not exists "authorAvatar" text;
+alter table public.community_discussions add column if not exists "authorRole" text;
+alter table public.community_discussions add column if not exists "authorDept" text;
+alter table public.community_discussions add column if not exists title text;
+alter table public.community_discussions add column if not exists content text;
+alter table public.community_discussions add column if not exists category text default 'General';
+alter table public.community_discussions add column if not exists likes text[] default '{}';
+alter table public.community_discussions add column if not exists "likesCount" int default 0;
+alter table public.community_discussions add column if not exists "commentsCount" int default 0;
+alter table public.community_discussions add column if not exists "isPinned" boolean default false;
+alter table public.community_discussions add column if not exists "createdAt" timestamptz default now();
+alter table public.community_discussions add column if not exists "updatedAt" timestamptz default now();
+
 -- 3.6 Community Discussion Comments Table
 create table if not exists public.community_discussion_comments (
   id text primary key,
@@ -238,6 +319,14 @@ create table if not exists public.community_discussion_comments (
   content text not null,
   "createdAt" timestamptz default now()
 );
+
+alter table public.community_discussion_comments add column if not exists "discussionId" text;
+alter table public.community_discussion_comments add column if not exists "communityId" text;
+alter table public.community_discussion_comments add column if not exists "authorId" text;
+alter table public.community_discussion_comments add column if not exists "authorName" text;
+alter table public.community_discussion_comments add column if not exists "authorAvatar" text;
+alter table public.community_discussion_comments add column if not exists content text;
+alter table public.community_discussion_comments add column if not exists "createdAt" timestamptz default now();
 
 -- 3.7 Community Live Messages Table (Group Chat)
 create table if not exists public.community_messages (
@@ -256,6 +345,19 @@ create table if not exists public.community_messages (
   "createdAt" timestamptz default now()
 );
 
+alter table public.community_messages add column if not exists "communityId" text;
+alter table public.community_messages add column if not exists "senderId" text;
+alter table public.community_messages add column if not exists "senderName" text;
+alter table public.community_messages add column if not exists "senderAvatar" text;
+alter table public.community_messages add column if not exists text text;
+alter table public.community_messages add column if not exists "mediaUrl" text;
+alter table public.community_messages add column if not exists "mediaType" text;
+alter table public.community_messages add column if not exists "fileName" text;
+alter table public.community_messages add column if not exists "fileSize" text;
+alter table public.community_messages add column if not exists "replyTo" jsonb;
+alter table public.community_messages add column if not exists reactions jsonb default '{}';
+alter table public.community_messages add column if not exists "createdAt" timestamptz default now();
+
 -- 3.8 Community Resources Table
 create table if not exists public.community_resources (
   id text primary key,
@@ -272,6 +374,19 @@ create table if not exists public.community_resources (
   downloads int default 0,
   "createdAt" timestamptz default now()
 );
+
+alter table public.community_resources add column if not exists "communityId" text;
+alter table public.community_resources add column if not exists title text;
+alter table public.community_resources add column if not exists description text;
+alter table public.community_resources add column if not exists "fileUrl" text;
+alter table public.community_resources add column if not exists "fileType" text;
+alter table public.community_resources add column if not exists "fileSize" text;
+alter table public.community_resources add column if not exists "uploadedBy" text;
+alter table public.community_resources add column if not exists "uploadedByName" text;
+alter table public.community_resources add column if not exists "uploadedByAvatar" text;
+alter table public.community_resources add column if not exists "isMemberOnly" boolean default true;
+alter table public.community_resources add column if not exists downloads int default 0;
+alter table public.community_resources add column if not exists "createdAt" timestamptz default now();
 
 -- 3.9 Community Events Table
 create table if not exists public.community_events (
@@ -291,6 +406,20 @@ create table if not exists public.community_events (
   "createdAt" timestamptz default now()
 );
 
+alter table public.community_events add column if not exists "communityId" text;
+alter table public.community_events add column if not exists title text;
+alter table public.community_events add column if not exists description text;
+alter table public.community_events add column if not exists date text;
+alter table public.community_events add column if not exists time text;
+alter table public.community_events add column if not exists location text;
+alter table public.community_events add column if not exists "isOnline" boolean default false;
+alter table public.community_events add column if not exists "meetingLink" text;
+alter table public.community_events add column if not exists category text default 'Workshop';
+alter table public.community_events add column if not exists "createdBy" text;
+alter table public.community_events add column if not exists "attendeesCount" int default 0;
+alter table public.community_events add column if not exists attendees jsonb default '[]';
+alter table public.community_events add column if not exists "createdAt" timestamptz default now();
+
 -- 3.10 Community Event RSVPs Table
 create table if not exists public.community_event_rsvps (
   id text primary key,
@@ -301,6 +430,12 @@ create table if not exists public.community_event_rsvps (
   "createdAt" timestamptz default now(),
   unique("eventId", "userId")
 );
+
+alter table public.community_event_rsvps add column if not exists "eventId" text;
+alter table public.community_event_rsvps add column if not exists "communityId" text;
+alter table public.community_event_rsvps add column if not exists "userId" text;
+alter table public.community_event_rsvps add column if not exists status text default 'going';
+alter table public.community_event_rsvps add column if not exists "createdAt" timestamptz default now();
 
 -- 3.11 Community Poll Votes Table
 create table if not exists public.community_poll_votes (
@@ -313,6 +448,13 @@ create table if not exists public.community_poll_votes (
   "createdAt" timestamptz default now(),
   unique("pollId", "userId")
 );
+
+alter table public.community_poll_votes add column if not exists "pollId" text;
+alter table public.community_poll_votes add column if not exists "postId" text;
+alter table public.community_poll_votes add column if not exists "communityId" text;
+alter table public.community_poll_votes add column if not exists "userId" text;
+alter table public.community_poll_votes add column if not exists "optionId" text;
+alter table public.community_poll_votes add column if not exists "createdAt" timestamptz default now();
 
 -- 3.12 Community Reports Table
 create table if not exists public.community_reports (
@@ -332,6 +474,20 @@ create table if not exists public.community_reports (
   "createdAt" timestamptz default now()
 );
 
+alter table public.community_reports add column if not exists "communityId" text;
+alter table public.community_reports add column if not exists "reporterId" text;
+alter table public.community_reports add column if not exists "reporterName" text;
+alter table public.community_reports add column if not exists "targetType" text;
+alter table public.community_reports add column if not exists "targetId" text;
+alter table public.community_reports add column if not exists "targetContentPreview" text;
+alter table public.community_reports add column if not exists reason text;
+alter table public.community_reports add column if not exists description text;
+alter table public.community_reports add column if not exists status text default 'pending';
+alter table public.community_reports add column if not exists "reviewedBy" text;
+alter table public.community_reports add column if not exists "reviewedAt" timestamptz;
+alter table public.community_reports add column if not exists "actionTaken" text;
+alter table public.community_reports add column if not exists "createdAt" timestamptz default now();
+
 -- 3.13 Community Moderation Actions & Audit Log Table
 create table if not exists public.community_moderation_actions (
   id text primary key,
@@ -343,6 +499,14 @@ create table if not exists public.community_moderation_actions (
   reason text not null,
   "createdAt" timestamptz default now()
 );
+
+alter table public.community_moderation_actions add column if not exists "communityId" text;
+alter table public.community_moderation_actions add column if not exists "moderatorId" text;
+alter table public.community_moderation_actions add column if not exists "moderatorName" text;
+alter table public.community_moderation_actions add column if not exists "targetUserId" text;
+alter table public.community_moderation_actions add column if not exists "actionType" text;
+alter table public.community_moderation_actions add column if not exists reason text;
+alter table public.community_moderation_actions add column if not exists "createdAt" timestamptz default now();
 
 -- ==========================================================
 -- 4. Additional Campus Tables
@@ -366,6 +530,20 @@ create table if not exists public.events (
   "createdAt" timestamptz default now()
 );
 
+alter table public.events add column if not exists title text;
+alter table public.events add column if not exists description text;
+alter table public.events add column if not exists category text;
+alter table public.events add column if not exists date text;
+alter table public.events add column if not exists time text;
+alter table public.events add column if not exists location text;
+alter table public.events add column if not exists banner text;
+alter table public.events add column if not exists organizer text;
+alter table public.events add column if not exists "organizerType" text;
+alter table public.events add column if not exists "registeredUsers" text[] default '{}';
+alter table public.events add column if not exists capacity int;
+alter table public.events add column if not exists tags text[] default '{}';
+alter table public.events add column if not exists "createdAt" timestamptz default now();
+
 -- 4.2 Study Materials Table
 create table if not exists public.study_materials (
   id text primary key,
@@ -383,6 +561,20 @@ create table if not exists public.study_materials (
   verified boolean default false,
   "createdAt" timestamptz default now()
 );
+
+alter table public.study_materials add column if not exists title text;
+alter table public.study_materials add column if not exists subject text;
+alter table public.study_materials add column if not exists department text;
+alter table public.study_materials add column if not exists semester text;
+alter table public.study_materials add column if not exists type text;
+alter table public.study_materials add column if not exists "fileUrl" text;
+alter table public.study_materials add column if not exists "fileSize" text;
+alter table public.study_materials add column if not exists "uploadedBy" text;
+alter table public.study_materials add column if not exists "uploaderRole" text;
+alter table public.study_materials add column if not exists downloads int default 0;
+alter table public.study_materials add column if not exists likes int default 0;
+alter table public.study_materials add column if not exists verified boolean default false;
+alter table public.study_materials add column if not exists "createdAt" timestamptz default now();
 
 -- 4.3 Opportunities Table
 create table if not exists public.opportunities (
@@ -404,6 +596,22 @@ create table if not exists public.opportunities (
   "createdAt" timestamptz default now()
 );
 
+alter table public.opportunities add column if not exists title text;
+alter table public.opportunities add column if not exists company text;
+alter table public.opportunities add column if not exists logo text;
+alter table public.opportunities add column if not exists location text;
+alter table public.opportunities add column if not exists type text;
+alter table public.opportunities add column if not exists department text[] default '{}';
+alter table public.opportunities add column if not exists stipend text;
+alter table public.opportunities add column if not exists duration text;
+alter table public.opportunities add column if not exists deadline text;
+alter table public.opportunities add column if not exists description text;
+alter table public.opportunities add column if not exists requirements text[] default '{}';
+alter table public.opportunities add column if not exists "applyLink" text;
+alter table public.opportunities add column if not exists "postedBy" text;
+alter table public.opportunities add column if not exists "savedBy" text[] default '{}';
+alter table public.opportunities add column if not exists "createdAt" timestamptz default now();
+
 -- 4.4 Announcements Table
 create table if not exists public.announcements (
   id text primary key,
@@ -417,6 +625,16 @@ create table if not exists public.announcements (
   attachments text[] default '{}',
   "createdAt" timestamptz default now()
 );
+
+alter table public.announcements add column if not exists title text;
+alter table public.announcements add column if not exists content text;
+alter table public.announcements add column if not exists category text;
+alter table public.announcements add column if not exists priority text default 'normal';
+alter table public.announcements add column if not exists "targetAudience" text default 'all';
+alter table public.announcements add column if not exists author text;
+alter table public.announcements add column if not exists "authorRole" text;
+alter table public.announcements add column if not exists attachments text[] default '{}';
+alter table public.announcements add column if not exists "createdAt" timestamptz default now();
 
 -- 4.5 Notifications Table
 create table if not exists public.notifications (
@@ -433,6 +651,17 @@ create table if not exists public.notifications (
   "createdAt" timestamptz default now()
 );
 
+alter table public.notifications add column if not exists "recipientId" text;
+alter table public.notifications add column if not exists "senderId" text;
+alter table public.notifications add column if not exists "senderName" text;
+alter table public.notifications add column if not exists "senderAvatar" text;
+alter table public.notifications add column if not exists type text;
+alter table public.notifications add column if not exists title text;
+alter table public.notifications add column if not exists message text;
+alter table public.notifications add column if not exists link text;
+alter table public.notifications add column if not exists read boolean default false;
+alter table public.notifications add column if not exists "createdAt" timestamptz default now();
+
 -- 4.6 Connections Table
 create table if not exists public.connections (
   id text primary key,
@@ -442,6 +671,12 @@ create table if not exists public.connections (
   "createdAt" timestamptz default now(),
   "updatedAt" timestamptz default now()
 );
+
+alter table public.connections add column if not exists "requesterId" text;
+alter table public.connections add column if not exists "recipientId" text;
+alter table public.connections add column if not exists status text default 'pending';
+alter table public.connections add column if not exists "createdAt" timestamptz default now();
+alter table public.connections add column if not exists "updatedAt" timestamptz default now();
 
 -- 4.7 Direct & Group Conversations Table
 create table if not exists public.conversations (
@@ -455,6 +690,15 @@ create table if not exists public.conversations (
   "lastMessage" jsonb,
   "updatedAt" timestamptz default now()
 );
+
+alter table public.conversations add column if not exists participants text[] default '{}';
+alter table public.conversations add column if not exists "isGroup" boolean default false;
+alter table public.conversations add column if not exists "groupName" text;
+alter table public.conversations add column if not exists "groupAvatar" text;
+alter table public.conversations add column if not exists "participantDetails" jsonb default '{}';
+alter table public.conversations add column if not exists "unreadCount" jsonb default '{}';
+alter table public.conversations add column if not exists "lastMessage" jsonb;
+alter table public.conversations add column if not exists "updatedAt" timestamptz default now();
 
 -- 4.8 Direct & Group Messages Table
 create table if not exists public.messages (
@@ -475,6 +719,21 @@ create table if not exists public.messages (
   "createdAt" timestamptz default now()
 );
 
+alter table public.messages add column if not exists "conversationId" text;
+alter table public.messages add column if not exists "senderId" text;
+alter table public.messages add column if not exists "senderName" text;
+alter table public.messages add column if not exists "senderAvatar" text;
+alter table public.messages add column if not exists text text;
+alter table public.messages add column if not exists "mediaUrl" text;
+alter table public.messages add column if not exists "mediaType" text;
+alter table public.messages add column if not exists "fileName" text;
+alter table public.messages add column if not exists "fileSize" text;
+alter table public.messages add column if not exists "audioDuration" numeric;
+alter table public.messages add column if not exists "isDeleted" boolean default false;
+alter table public.messages add column if not exists "deletedFor" text[] default '{}';
+alter table public.messages add column if not exists read boolean default false;
+alter table public.messages add column if not exists "createdAt" timestamptz default now();
+
 -- 4.9 Reports Table
 create table if not exists public.reports (
   id text primary key,
@@ -488,6 +747,16 @@ create table if not exists public.reports (
   notes text,
   "createdAt" timestamptz default now()
 );
+
+alter table public.reports add column if not exists "reportedItemId" text;
+alter table public.reports add column if not exists "reportedItemType" text;
+alter table public.reports add column if not exists reason text;
+alter table public.reports add column if not exists details text;
+alter table public.reports add column if not exists "reportedBy" text;
+alter table public.reports add column if not exists status text default 'pending';
+alter table public.reports add column if not exists "resolvedBy" text;
+alter table public.reports add column if not exists notes text;
+alter table public.reports add column if not exists "createdAt" timestamptz default now();
 
 -- 4.10 Assignments Table
 create table if not exists public.assignments (
@@ -504,6 +773,32 @@ create table if not exists public.assignments (
   "submissionsCount" int default 0,
   "createdAt" timestamptz default now()
 );
+
+alter table public.assignments add column if not exists title text;
+alter table public.assignments add column if not exists subject text;
+alter table public.assignments add column if not exists department text;
+alter table public.assignments add column if not exists semester text;
+alter table public.assignments add column if not exists dueDate text;
+alter table public.assignments add column if not exists points int;
+alter table public.assignments add column if not exists description text;
+alter table public.assignments add column if not exists "facultyId" text;
+alter table public.assignments add column if not exists "facultyName" text;
+alter table public.assignments add column if not exists "submissionsCount" int default 0;
+alter table public.assignments add column if not exists "createdAt" timestamptz default now();
+
+-- Ensure camelCase columns exist and sync with any legacy snake_case columns
+do $$
+begin
+  if exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'communities' and column_name = 'owner_id') then
+    execute 'update public.communities set "ownerId" = coalesce("ownerId", owner_id) where "ownerId" is null';
+  end if;
+  if exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'community_members' and column_name = 'community_id') then
+    execute 'update public.community_members set "communityId" = coalesce("communityId", community_id) where "communityId" is null';
+  end if;
+  if exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'community_members' and column_name = 'user_id') then
+    execute 'update public.community_members set "userId" = coalesce("userId", user_id) where "userId" is null';
+  end if;
+end $$;
 
 -- ==========================================================
 -- 5. Enable Row Level Security (RLS) on ALL tables
