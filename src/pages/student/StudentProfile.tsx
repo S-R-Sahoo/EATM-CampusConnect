@@ -243,7 +243,6 @@ export const StudentProfile: React.FC = () => {
     try {
       const newConn = await sendConnectionRequest(user.id, activeUser.id);
       setConnectionInfo({ status: 'pending_sent', connectionId: newConn.id });
-      confetti({ particleCount: 40, spread: 50, origin: { y: 0.8 } });
       success(`Connection request sent to ${activeUser.displayName}!`, 'Request Sent');
     } catch (err: any) {
       toastError(err?.message || 'Could not send connection request.');
@@ -258,8 +257,7 @@ export const StudentProfile: React.FC = () => {
     try {
       await updateConnectionStatus(connectionInfo.connectionId, 'accepted', user.id);
       setConnectionInfo(prev => ({ ...prev, status: 'connected' }));
-      confetti({ particleCount: 50, spread: 60, origin: { y: 0.7 } });
-      success(`You and ${activeUser?.displayName} are now campus friends 🎉`, 'Friend Connected');
+      success(`You and ${activeUser?.displayName} are now campus friends!`, 'Friend Connected');
       setLiveConnectionsCount(prev => (prev ?? 0) + 1);
     } catch (err: any) {
       toastError(err?.message || 'Could not accept connection request.');

@@ -21,20 +21,17 @@ import {
   Clock, 
   MessageSquare, 
   Loader2, 
-  Sparkles, 
   Search, 
   UserCheck, 
   UserPlus, 
   Send, 
   UserX, 
   AlertCircle, 
-  RefreshCw,
   ExternalLink,
   ShieldCheck,
   GraduationCap
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
-import confetti from 'canvas-confetti';
 import { isUserOnline, subscribeToPresence } from '../../supabase/presence';
 
 export const ConnectionsPage: React.FC = () => {
@@ -94,8 +91,7 @@ export const ConnectionsPage: React.FC = () => {
     setActionLoadingId(connId);
     try {
       await updateConnectionStatus(connId, 'accepted', user.id);
-      confetti({ particleCount: 50, spread: 60, origin: { y: 0.7 } });
-      success('Connection request accepted! You are now campus friends 🎉', 'Friend Connected');
+      success('Connection request accepted! You are now campus friends.', 'Friend Connected');
       await refreshUser();
       await loadData();
     } catch (err: any) {
@@ -212,102 +208,28 @@ export const ConnectionsPage: React.FC = () => {
 
   return (
     <div className="max-w-5xl mx-auto space-y-6 pb-12">
-      {/* 1. Header Banner & Quick Stats */}
-      <div className="bg-white dark:bg-[#111d15] rounded-3xl border border-gray-200/80 dark:border-[#1e3325] p-5 sm:p-7 shadow-card transition-colors">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-5 mb-6">
-          <div>
-            <div className="flex items-center gap-2.5">
-              <div className="w-10 h-10 rounded-2xl bg-[#0b4627]/10 dark:bg-emerald-950/60 text-[#0b4627] dark:text-emerald-400 flex items-center justify-center font-bold">
-                <Users className="w-5 h-5" />
-              </div>
-              <div>
-                <h1 className="text-xl sm:text-2xl font-black text-gray-900 dark:text-gray-100 tracking-tight">
-                  Campus Friends & Network
-                </h1>
-                <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-                  Build meaningful peer connections, collaborate on projects, and stay in touch at EATM
-                </p>
-              </div>
+      {/* 1. Header Banner */}
+      <div className="bg-white dark:bg-[#111d15] rounded-3xl border border-gray-200/80 dark:border-[#1e3325] p-5 sm:p-6 shadow-card transition-colors">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-[#0b4627]/10 dark:bg-emerald-950/60 text-[#0b4627] dark:text-emerald-400 flex items-center justify-center font-bold">
+              <Users className="w-5 h-5" />
+            </div>
+            <div>
+              <h1 className="text-xl sm:text-2xl font-black text-gray-900 dark:text-gray-100 tracking-tight">
+                Campus Connections
+              </h1>
+              <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+                Connect, chat, and collaborate with your peers and branch mates at EATM
+              </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2.5">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={loadData}
-              disabled={loading}
-              icon={<RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />}
-              title="Refresh Connections"
-            >
-              Refresh
+          <Link to="/student/discover">
+            <Button variant="primary" size="sm" icon={<Users className="w-4 h-4" />}>
+              Discover Students
             </Button>
-            <Link to="/student/discover">
-              <Button variant="primary" size="sm" icon={<Sparkles className="w-3.5 h-3.5" />}>
-                Discover Peers
-              </Button>
-            </Link>
-          </div>
-        </div>
-
-        {/* Metric Badges */}
-        <div className="grid grid-cols-3 gap-3 sm:gap-4 pt-4 border-t border-gray-100 dark:border-[#1e3325]">
-          <div 
-            onClick={() => setActiveTab('all')}
-            className={`cursor-pointer rounded-2xl p-3 sm:p-4 border transition-all ${
-              activeTab === 'all'
-                ? 'bg-emerald-50/70 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-800'
-                : 'bg-gray-50/60 dark:bg-[#16251c]/60 border-transparent hover:border-gray-200 dark:hover:border-[#1e3325]'
-            }`}
-          >
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] sm:text-xs font-semibold text-gray-500 dark:text-gray-400 flex items-center gap-1.5">
-                <UserCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                Friends
-              </span>
-              <span className="text-base sm:text-xl font-black text-gray-900 dark:text-gray-100">
-                {acceptedConns.length}
-              </span>
-            </div>
-          </div>
-
-          <div 
-            onClick={() => setActiveTab('received')}
-            className={`cursor-pointer rounded-2xl p-3 sm:p-4 border transition-all ${
-              activeTab === 'received'
-                ? 'bg-emerald-50/70 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-800'
-                : 'bg-gray-50/60 dark:bg-[#16251c]/60 border-transparent hover:border-gray-200 dark:hover:border-[#1e3325]'
-            }`}
-          >
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] sm:text-xs font-semibold text-gray-500 dark:text-gray-400 flex items-center gap-1.5">
-                <UserPlus className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400" />
-                Received
-              </span>
-              <span className={`text-base sm:text-xl font-black ${receivedRequests.length > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-gray-900 dark:text-gray-100'}`}>
-                {receivedRequests.length}
-              </span>
-            </div>
-          </div>
-
-          <div 
-            onClick={() => setActiveTab('sent')}
-            className={`cursor-pointer rounded-2xl p-3 sm:p-4 border transition-all ${
-              activeTab === 'sent'
-                ? 'bg-emerald-50/70 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-800'
-                : 'bg-gray-50/60 dark:bg-[#16251c]/60 border-transparent hover:border-gray-200 dark:hover:border-[#1e3325]'
-            }`}
-          >
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] sm:text-xs font-semibold text-gray-500 dark:text-gray-400 flex items-center gap-1.5">
-                <Send className="w-3.5 h-3.5 text-blue-500 dark:text-blue-400" />
-                Sent
-              </span>
-              <span className="text-base sm:text-xl font-black text-gray-900 dark:text-gray-100">
-                {sentRequests.length}
-              </span>
-            </div>
-          </div>
+          </Link>
         </div>
       </div>
 
@@ -392,7 +314,7 @@ export const ConnectionsPage: React.FC = () => {
               </p>
               {!searchQuery && (
                 <Link to="/student/discover" className="inline-block mt-4">
-                  <Button variant="outline" size="sm" icon={<Sparkles className="w-3.5 h-3.5" />}>
+                  <Button variant="outline" size="sm" icon={<Users className="w-3.5 h-3.5" />}>
                     Find Classmates
                   </Button>
                 </Link>

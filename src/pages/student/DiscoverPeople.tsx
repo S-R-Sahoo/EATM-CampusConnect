@@ -9,10 +9,9 @@ import { UserProfile, Connection } from '../../types';
 import { Avatar } from '../../components/ui/Avatar';
 import { 
   Search, UserPlus, Clock, MessageSquare, ArrowRight, 
-  Loader2, Building2, X, RotateCcw, ChevronDown, UserCheck, Users, SlidersHorizontal 
+  Loader2, Building2, X, RotateCcw, ChevronDown, UserCheck, Users, SlidersHorizontal, ShieldCheck 
 } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
-import confetti from 'canvas-confetti';
 import { isUserOnline, subscribeToPresence } from '../../supabase/presence';
 
 const DEPARTMENTS = [
@@ -92,7 +91,6 @@ export const DiscoverPeople: React.FC = () => {
     try {
       const newConn = await sendConnectionRequest(user.id, targetUser.id);
       setConnections(prev => [...prev.filter(c => c.id !== newConn.id), newConn]);
-      confetti({ particleCount: 40, spread: 50, origin: { y: 0.8 } });
       success(`Connection request sent to ${targetUser.displayName}!`, 'Request Sent');
     } catch (err: any) {
       toastError(err?.message || 'Could not send connection request. Please try again.');
@@ -316,18 +314,8 @@ export const DiscoverPeople: React.FC = () => {
                         {student.displayName}
                       </h3>
                       {student.verified !== false && (
-                        <span 
-                          title="Official Verified Student" 
-                          className="inline-flex items-center shrink-0 cursor-default"
-                        >
-                          <svg 
-                            className="w-4 h-4 sm:w-4.5 sm:h-4.5 text-emerald-600 dark:text-emerald-400 drop-shadow-2xs" 
-                            viewBox="0 0 24 24" 
-                            fill="currentColor"
-                          >
-                            <path d="M22.5 12.5c0-1.58-.875-2.95-2.148-3.6.154-.435.238-.905.238-1.4 0-2.21-1.79-4-4-4-.495 0-.965.084-1.4.238C14.45 2.475 13.08 1.6 11.5 1.6s-2.95.875-3.6 2.148c-.435-.154-.905-.238-1.4-.238-2.21 0-4 1.79-4 4 0 .495.084.965.238 1.4C1.475 9.55.6 10.92.6 12.5s.875 2.95 2.148 3.6c-.154.435-.238.905-.238 1.4 0 2.21 1.79 4 4 4 .495 0 .965-.084 1.4-.238 1.15 1.273 2.52 2.148 4.1 2.148s2.95-.875 3.6-2.148c.435.154.905.238 1.4.238 2.21 0 4-1.79 4-4 0-.495-.084-.965-.238-1.4 1.273-1.15 2.148-2.52 2.148-4.1z" />
-                            <path d="M10.2 16.2l-3.5-3.5 1.4-1.4 2.1 2.1 5.3-5.3 1.4 1.4-6.7 6.7z" fill="#ffffff" />
-                          </svg>
+                        <span title="Verified Student" className="inline-flex items-center shrink-0">
+                          <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                         </span>
                       )}
                     </div>
