@@ -11,7 +11,6 @@ import {
 } from '../../supabase/db';
 import { Connection, UserProfile } from '../../types';
 import { Avatar } from '../../components/ui/Avatar';
-import { Tabs } from '../../components/ui/Tabs';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
 import { 
@@ -200,17 +199,11 @@ export const ConnectionsPage: React.FC = () => {
     );
   });
 
-  const tabs = [
-    { id: 'all', label: 'All Friends', count: acceptedConns.length },
-    { id: 'received', label: 'Requests Received', count: receivedRequests.length },
-    { id: 'sent', label: 'Requests Sent', count: sentRequests.length },
-  ];
-
   return (
     <div className="max-w-5xl mx-auto space-y-6 pb-12">
-      {/* 1. Header Banner */}
-      <div className="bg-white dark:bg-[#111d15] rounded-3xl border border-gray-200/80 dark:border-[#1e3325] p-5 sm:p-6 shadow-card transition-colors">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      {/* 1. Header Banner & Interactive Filter Metrics */}
+      <div className="bg-white dark:bg-[#111d15] rounded-3xl border border-gray-200/80 dark:border-[#1e3325] p-5 sm:p-7 shadow-card transition-colors">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-[#0b4627]/10 dark:bg-emerald-950/60 text-[#0b4627] dark:text-emerald-400 flex items-center justify-center font-bold">
               <Users className="w-5 h-5" />
@@ -231,13 +224,95 @@ export const ConnectionsPage: React.FC = () => {
             </Button>
           </Link>
         </div>
+
+        {/* Interactive Filter Metric Boxes: Friends, Received, Sent */}
+        <div className="grid grid-cols-3 gap-3 sm:gap-4 pt-5 border-t border-gray-100 dark:border-[#1e3325]">
+          <button 
+            type="button"
+            onClick={() => setActiveTab('all')}
+            className={`text-left rounded-2xl p-3.5 sm:p-4 border transition-all cursor-pointer ${
+              activeTab === 'all'
+                ? 'bg-emerald-50 dark:bg-emerald-950/50 border-emerald-500/80 dark:border-emerald-600 shadow-xs'
+                : 'bg-gray-50/70 dark:bg-[#16251c]/60 border-gray-200/70 dark:border-[#1e3325] hover:border-emerald-300 dark:hover:border-emerald-800'
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <span className={`text-[11px] sm:text-xs font-semibold flex items-center gap-1.5 ${
+                activeTab === 'all' ? 'text-emerald-800 dark:text-emerald-300' : 'text-gray-500 dark:text-gray-400'
+              }`}>
+                <UserCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                Friends
+              </span>
+              <span className={`text-base sm:text-xl font-black ${
+                activeTab === 'all' ? 'text-[#0b4627] dark:text-emerald-400' : 'text-gray-900 dark:text-gray-100'
+              }`}>
+                {acceptedConns.length}
+              </span>
+            </div>
+          </button>
+
+          <button 
+            type="button"
+            onClick={() => setActiveTab('received')}
+            className={`text-left rounded-2xl p-3.5 sm:p-4 border transition-all cursor-pointer ${
+              activeTab === 'received'
+                ? 'bg-amber-50/80 dark:bg-amber-950/50 border-amber-500/80 dark:border-amber-600 shadow-xs'
+                : 'bg-gray-50/70 dark:bg-[#16251c]/60 border-gray-200/70 dark:border-[#1e3325] hover:border-amber-300 dark:hover:border-amber-800'
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <span className={`text-[11px] sm:text-xs font-semibold flex items-center gap-1.5 ${
+                activeTab === 'received' ? 'text-amber-800 dark:text-amber-300' : 'text-gray-500 dark:text-gray-400'
+              }`}>
+                <UserPlus className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400" />
+                Received
+              </span>
+              <span className={`text-base sm:text-xl font-black ${
+                receivedRequests.length > 0 
+                  ? 'text-amber-600 dark:text-amber-400' 
+                  : activeTab === 'received' ? 'text-amber-700 dark:text-amber-300' : 'text-gray-900 dark:text-gray-100'
+              }`}>
+                {receivedRequests.length}
+              </span>
+            </div>
+          </button>
+
+          <button 
+            type="button"
+            onClick={() => setActiveTab('sent')}
+            className={`text-left rounded-2xl p-3.5 sm:p-4 border transition-all cursor-pointer ${
+              activeTab === 'sent'
+                ? 'bg-blue-50/80 dark:bg-blue-950/50 border-blue-500/80 dark:border-blue-600 shadow-xs'
+                : 'bg-gray-50/70 dark:bg-[#16251c]/60 border-gray-200/70 dark:border-[#1e3325] hover:border-blue-300 dark:hover:border-blue-800'
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <span className={`text-[11px] sm:text-xs font-semibold flex items-center gap-1.5 ${
+                activeTab === 'sent' ? 'text-blue-800 dark:text-blue-300' : 'text-gray-500 dark:text-gray-400'
+              }`}>
+                <Send className="w-3.5 h-3.5 text-blue-500 dark:text-blue-400" />
+                Sent
+              </span>
+              <span className={`text-base sm:text-xl font-black ${
+                activeTab === 'sent' ? 'text-blue-700 dark:text-blue-400' : 'text-gray-900 dark:text-gray-100'
+              }`}>
+                {sentRequests.length}
+              </span>
+            </div>
+          </button>
+        </div>
       </div>
 
-      {/* 2. Navigation Tabs & Search Controls */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <Tabs tabs={tabs} activeTab={activeTab} onChange={setActiveTab} variant="pills" />
+      {/* 2. Section Header & Live Search */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
+        <div>
+          <h2 className="text-sm font-bold text-gray-800 dark:text-gray-200 flex items-center gap-2">
+            {activeTab === 'all' && <span>Connected Friends ({filteredAccepted.length})</span>}
+            {activeTab === 'received' && <span>Pending Requests Received ({filteredReceived.length})</span>}
+            {activeTab === 'sent' && <span>Pending Requests Sent ({filteredSent.length})</span>}
+          </h2>
+        </div>
 
-        {/* Live Search */}
         <div className="relative w-full sm:w-72">
           <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
@@ -248,8 +323,8 @@ export const ConnectionsPage: React.FC = () => {
               activeTab === 'all'
                 ? 'Search friends...'
                 : activeTab === 'received'
-                ? 'Search requests...'
-                : 'Search sent...'
+                ? 'Search received requests...'
+                : 'Search sent requests...'
             }
             className="w-full pl-9 pr-8 py-2 bg-white dark:bg-[#111d15] border border-gray-200 dark:border-[#1e3325] rounded-2xl text-xs sm:text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0b4627]/30 transition"
           />
