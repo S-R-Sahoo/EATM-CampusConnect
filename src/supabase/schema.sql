@@ -81,9 +81,52 @@ create table if not exists public.users (
   "updatedAt" timestamptz default now()
 );
 
--- Ensure settings and columns exist
-alter table public.users add column if not exists settings jsonb default '{}';
+-- Ensure all users columns exist if table pre-existed
+alter table public.users add column if not exists uid text;
+alter table public.users add column if not exists email text;
+alter table public.users add column if not exists "displayName" text;
+alter table public.users add column if not exists role text default 'student';
+alter table public.users add column if not exists department text;
+alter table public.users add column if not exists year text;
+alter table public.users add column if not exists semester text;
+alter table public.users add column if not exists "rollNumber" text;
+alter table public.users add column if not exists "employeeId" text;
+alter table public.users add column if not exists designation text;
+alter table public.users add column if not exists phone text;
+alter table public.users add column if not exists "photoURL" text;
+alter table public.users add column if not exists "coverURL" text;
+alter table public.users add column if not exists bio text;
+alter table public.users add column if not exists skills text[] default '{}';
+alter table public.users add column if not exists interests text[] default '{}';
+alter table public.users add column if not exists stats jsonb default '{"connections": 0, "posts": 0, "clubs": 0, "achievements": 0}';
+alter table public.users add column if not exists projects jsonb default '[]';
+alter table public.users add column if not exists achievements jsonb default '[]';
 alter table public.users add column if not exists "socialLinks" jsonb default '{}';
+alter table public.users add column if not exists settings jsonb default '{}';
+alter table public.users add column if not exists status text default 'active';
+alter table public.users add column if not exists verified boolean default false;
+alter table public.users add column if not exists "createdAt" timestamptz default now();
+alter table public.users add column if not exists "updatedAt" timestamptz default now();
+
+-- Ensure standard seed users exist in public.users
+insert into public.users (id, uid, email, "displayName", role, department, year, semester, "rollNumber", "employeeId", designation, phone, "photoURL", "coverURL", bio, skills, interests, status, verified)
+values
+  ('user_soumya', 'user_soumya', 'soumya.sahoo@eatm.in', 'Soumyaranjan Sahoo', 'student', 'CSE', '3rd Year', '6th', 'EATM23CSE001', null, null, '+91 98765 43210', null, 'https://images.unsplash.com/photo-1562774053-701939374585?w=1600&auto=format&fit=crop&q=80', 'Passionate about building innovative solutions and love to learn new technologies. EATM Hackathon 2024 Winner.', array['C++', 'Java', 'Python', 'React', 'Web Dev', 'UI/UX', 'Node.js'], array['Coding', 'Gaming', 'Photography', 'Robotics'], 'active', true),
+  ('user_priya', 'user_priya', 'priya.sharma@eatm.in', 'Priya Sharma', 'student', 'CSE', '3rd Year', '6th', 'EATM23CSE015', null, null, null, 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&auto=format&fit=crop&q=80', 'https://images.unsplash.com/photo-1541339907198-e08756dedf3f?w=1600&auto=format&fit=crop&q=80', 'Frontend enthusiast | UI/UX Designer | EATM Coding Club Lead Organizer', array['React', 'UI/UX', 'Python', 'Tailwind', 'Figma', 'TypeScript'], array['Design', 'Hackathons', 'Music'], 'active', true),
+  ('user_rohit', 'user_rohit', 'rohit.kumar@eatm.in', 'Rohit Kumar', 'student', 'ECE', '3rd Year', '6th', 'EATM23ECE044', null, null, null, 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&auto=format&fit=crop&q=80', null, 'Embedded systems engineer & Machine Learning researcher. Robotics Club Vice-President.', array['Python', 'ML', 'Data Science', 'Embedded C', 'Arduino'], array['Robotics', 'Circuits', 'Cricket'], 'active', true),
+  ('user_ananya', 'user_ananya', 'ananya.das@eatm.in', 'Ananya Das', 'student', 'CSE', '2nd Year', '4th', 'EATM24CSE089', null, null, null, 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400&auto=format&fit=crop&q=80', null, 'Exploring full-stack web dev & DSA. Always curious to learn and build together.', array['Web Dev', 'MERN', 'DSA', 'JavaScript'], array['Reading', 'Web Development'], 'active', true),
+  ('user_arjun', 'user_arjun', 'arjun.mehta@eatm.in', 'Arjun Mehta', 'student', 'Mechanical', '3rd Year', '6th', 'EATM23ME012', null, null, null, 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&auto=format&fit=crop&q=80', null, 'Mechanical design passionate. Formula Student vehicle designer & 3D CAD modeling fanatic.', array['CAD', 'SolidWorks', 'Design', 'Ansys'], array['Automobiles', 'Aviation'], 'active', true),
+  ('user_rakesh', 'user_rakesh', 'rakesh.kumar@eatm.in', 'Rakesh Kumar', 'student', 'CSE', '3rd Year', '6th', 'EATM23CSE052', null, null, null, 'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?w=400&auto=format&fit=crop&q=80', null, 'Full-stack developer | Cloud enthusiast | Proud EATMian 🚀', array['React', 'Node.js', 'Docker', 'AWS'], array['Hackathons', 'Cloud'], 'active', true),
+  ('faculty_mohapatra', 'faculty_mohapatra', 'hod.cse@eatm.in', 'Dr. B. K. Mohapatra', 'faculty', 'CSE', null, null, null, 'EATM-FAC-101', 'Professor & Head of Department', '+91 94371 00223', 'https://images.unsplash.com/photo-1537368910025-700350fe46c7?w=400&auto=format&fit=crop&q=80', null, 'Ph.D. in Computer Science & Engineering. 22+ years of research and teaching experience in AI, Cloud, and Distributed Systems.', array['Machine Learning', 'AI', 'Distributed Systems'], array['Mentorship', 'Research'], 'active', true),
+  ('admin_rath', 'admin_rath', 'admin.dean@eatm.in', 'Prof. S. K. Rath (Dean Affairs)', 'admin', 'Administration', null, null, null, 'EATM-ADM-001', 'Dean of Student Affairs & Campus Operations', '+91 94370 11990', 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400&auto=format&fit=crop&q=80', null, 'Overseeing campus community development, academic discipline, and student life initiatives at EATM.', array['Governance', 'Policy', 'Student Development'], array['Leadership', 'Community'], 'active', true)
+on conflict (id) do update set
+  uid = excluded.uid,
+  email = excluded.email,
+  "displayName" = excluded."displayName",
+  role = excluded.role,
+  department = excluded.department,
+  status = excluded.status,
+  verified = excluded.verified;
 
 -- 2.2 Posts Table
 create table if not exists public.posts (
@@ -203,6 +246,63 @@ alter table public.community_members add column if not exists status text defaul
 alter table public.community_members add column if not exists "requestedAt" timestamptz;
 alter table public.community_members add column if not exists "joinedAt" timestamptz default now();
 alter table public.community_members add column if not exists "updatedAt" timestamptz default now();
+
+-- Ensure seed communities exist
+insert into public.communities (id, name, description, category, type, logo, "logoUrl", cover, "coverUrl", "ownerId", "isOfficial", "verificationStatus", lead, "leadRole", "memberCount", members, admins, moderators, "pendingRequests", "bannedUsers", rules, tags)
+values
+  ('comm_coding', 'EATM Coding Club (ECC)', 'Official competitive programming, web development, open-source development, and hackathon training community of Einstein Academy of Technology & Management.', 'Technical', 'public', 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=300&auto=format&fit=crop&q=80', 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=300&auto=format&fit=crop&q=80', 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=1200&auto=format&fit=crop&q=80', 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=1200&auto=format&fit=crop&q=80', 'user_soumya', true, 'verified', 'Soumyaranjan Sahoo', 'Lead Coordinator', 4, array['user_soumya', 'user_priya', 'user_rohit', 'user_ananya'], array['user_soumya', 'user_priya'], array['user_rohit'], array[]::text[], array[]::text[], array['Respect all members', 'Constructive code reviews only', 'No plagiarized contest solutions', 'Keep discussions tech & academic related'], array['Technical', 'Coding', 'WebDev', 'DSA', 'CompetitiveProgramming']),
+  ('comm_robotics', 'Robotics & Automation Society (E-Robotics)', 'Hands-on IoT, embedded systems, microcontrollers, ROS, drone technology, and state-level robotics competition team.', 'Technical', 'public', 'https://images.unsplash.com/photo-1485827404703-89b55fcc595e?w=300&auto=format&fit=crop&q=80', 'https://images.unsplash.com/photo-1485827404703-89b55fcc595e?w=300&auto=format&fit=crop&q=80', 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=1200&auto=format&fit=crop&q=80', 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=1200&auto=format&fit=crop&q=80', 'user_rohit', true, 'verified', 'Rohit Kumar', 'Society President', 3, array['user_rohit', 'user_soumya', 'user_arjun'], array['user_rohit'], array['user_soumya'], array[]::text[], array[]::text[], array['Handle Lab hardware with care', 'Return electronic components after sessions', 'Prioritize lab safety protocols at all times'], array['Robotics', 'IoT', 'Embedded Systems', 'Hardware', 'Automation']),
+  ('comm_cultural', 'EATM Cultural & Arts Guild', 'Music, dance, theatre, fine arts, photography, stage anchoring, and annual college fest management society.', 'Cultural', 'public', 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=300&auto=format&fit=crop&q=80', 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=300&auto=format&fit=crop&q=80', 'https://images.unsplash.com/photo-1469488865564-c2de10f69f96?w=1200&auto=format&fit=crop&q=80', 'https://images.unsplash.com/photo-1469488865564-c2de10f69f96?w=1200&auto=format&fit=crop&q=80', 'user_ananya', true, 'verified', 'Ananya Das', 'Secretary', 2, array['user_ananya', 'user_priya'], array['user_ananya'], array[]::text[], array[]::text[], array[]::text[], array['Punctuality in stage rehearsals', 'Respect all art forms & performers', 'Maintain studio cleanliness'], array['Cultural', 'Music', 'Drama', 'Dance', 'Arts', 'Fest']),
+  ('comm_sports', 'EATM Sports Council & Athletics', 'Inter-college cricket, football, volleyball, badminton tournaments, and daily fitness sessions.', 'Sports', 'public', 'https://images.unsplash.com/photo-1461896836934-ffe607ba8211?w=300&auto=format&fit=crop&q=80', 'https://images.unsplash.com/photo-1461896836934-ffe607ba8211?w=300&auto=format&fit=crop&q=80', 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=1200&auto=format&fit=crop&q=80', 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=1200&auto=format&fit=crop&q=80', 'user_arjun', true, 'verified', 'Arjun Mehta', 'Sports Captain', 2, array['user_arjun', 'user_rakesh'], array['user_arjun'], array[]::text[], array[]::text[], array[]::text[], array['Fair play and sportsmanship', 'Ground discipline is mandatory', 'Regular attendance for team drills'], array['Sports', 'Athletics', 'Cricket', 'Football', 'Badminton']),
+  ('comm_entrepreneurship', 'E-Cell & Startup Incubation', 'Entrepreneurship cell fostering student startups, intellectual property, pitching competitions, and investor connects.', 'Entrepreneurship', 'public', 'https://images.unsplash.com/photo-1556761175-5973dc0f32e7?w=300&auto=format&fit=crop&q=80', 'https://images.unsplash.com/photo-1556761175-5973dc0f32e7?w=300&auto=format&fit=crop&q=80', 'https://images.unsplash.com/photo-1559136555-9303baea8ebd?w=1200&auto=format&fit=crop&q=80', 'https://images.unsplash.com/photo-1559136555-9303baea8ebd?w=1200&auto=format&fit=crop&q=80', 'faculty_mohapatra', true, 'verified', 'Dr. B. K. Mohapatra', 'Faculty Advisor', 2, array['faculty_mohapatra', 'user_soumya'], array['faculty_mohapatra'], array['user_soumya'], array[]::text[], array[]::text[], array['Protect startup IP & confidentiality', 'Constructive feedback only', 'Meet incubation milestone deadlines'], array['Startups', 'Incubation', 'Entrepreneurship', 'VentureCapital', 'Patents']),
+  ('comm_alumni', 'EATM Alumni Council & Career Network', 'Private network for verified alumni, final-year students, and faculty mentors for career mentoring, referrals, and off-campus drives.', 'Alumni', 'private', 'https://images.unsplash.com/photo-1523240795612-9a054b0db644?w=300&auto=format&fit=crop&q=80', 'https://images.unsplash.com/photo-1523240795612-9a054b0db644?w=300&auto=format&fit=crop&q=80', 'https://images.unsplash.com/photo-1521737604893-d14cc237f11d?w=1200&auto=format&fit=crop&q=80', 'https://images.unsplash.com/photo-1521737604893-d14cc237f11d?w=1200&auto=format&fit=crop&q=80', 'admin_rath', true, 'verified', 'Prof. S. K. Rath', 'Dean Student Affairs', 3, array['admin_rath', 'faculty_mohapatra', 'user_soumya'], array['admin_rath', 'faculty_mohapatra'], array[], array['user_priya', 'user_rohit'], array[]::text[], array['Strict verification before joining', 'Confidential salary and referral discussion', 'No external recruiters without prior clearance'], array['Alumni', 'Career', 'Mentorship', 'Referrals', 'Networking'])
+on conflict (id) do update set
+  name = excluded.name,
+  description = excluded.description,
+  category = excluded.category,
+  type = excluded.type,
+  logo = excluded.logo,
+  "logoUrl" = excluded."logoUrl",
+  cover = excluded.cover,
+  "coverUrl" = excluded."coverUrl",
+  "ownerId" = excluded."ownerId",
+  "isOfficial" = excluded."isOfficial",
+  "verificationStatus" = excluded."verificationStatus",
+  lead = excluded.lead,
+  "leadRole" = excluded."leadRole",
+  "memberCount" = excluded."memberCount",
+  members = excluded.members,
+  admins = excluded.admins,
+  moderators = excluded.moderators,
+  "pendingRequests" = excluded."pendingRequests",
+  "bannedUsers" = excluded."bannedUsers",
+  rules = excluded.rules,
+  tags = excluded.tags;
+
+-- Seed community members into community_members table
+insert into public.community_members (id, "communityId", "userId", role, status)
+values
+  ('cm_comm_coding_user_soumya', 'comm_coding', 'user_soumya', 'owner', 'approved'),
+  ('cm_comm_coding_user_priya', 'comm_coding', 'user_priya', 'admin', 'approved'),
+  ('cm_comm_coding_user_rohit', 'comm_coding', 'user_rohit', 'moderator', 'approved'),
+  ('cm_comm_coding_user_ananya', 'comm_coding', 'user_ananya', 'member', 'approved'),
+  ('cm_comm_robotics_user_rohit', 'comm_robotics', 'user_rohit', 'owner', 'approved'),
+  ('cm_comm_robotics_user_soumya', 'comm_robotics', 'user_soumya', 'moderator', 'approved'),
+  ('cm_comm_robotics_user_arjun', 'comm_robotics', 'user_arjun', 'member', 'approved'),
+  ('cm_comm_cultural_user_ananya', 'comm_cultural', 'user_ananya', 'owner', 'approved'),
+  ('cm_comm_cultural_user_priya', 'comm_cultural', 'user_priya', 'member', 'approved'),
+  ('cm_comm_sports_user_arjun', 'comm_sports', 'user_arjun', 'owner', 'approved'),
+  ('cm_comm_sports_user_rakesh', 'comm_sports', 'user_rakesh', 'member', 'approved'),
+  ('cm_comm_entrepreneurship_faculty_mohapatra', 'comm_entrepreneurship', 'faculty_mohapatra', 'owner', 'approved'),
+  ('cm_comm_entrepreneurship_user_soumya', 'comm_entrepreneurship', 'user_soumya', 'moderator', 'approved'),
+  ('cm_comm_alumni_admin_rath', 'comm_alumni', 'admin_rath', 'owner', 'approved'),
+  ('cm_comm_alumni_faculty_mohapatra', 'comm_alumni', 'faculty_mohapatra', 'admin', 'approved'),
+  ('cm_comm_alumni_user_soumya', 'comm_alumni', 'user_soumya', 'member', 'approved'),
+  ('cm_comm_alumni_user_priya', 'comm_alumni', 'user_priya', 'member', 'pending'),
+  ('cm_comm_alumni_user_rohit', 'comm_alumni', 'user_rohit', 'member', 'pending')
+on conflict (id) do update set
+  role = excluded.role,
+  status = excluded.status;
 
 -- 3.3 Community Posts Table
 create table if not exists public.community_posts (
@@ -1046,10 +1146,16 @@ begin
 
   -- 1. On INSERT:
   if TG_OP = 'INSERT' then
+    -- If this is the owner of the community (matching ownerId in communities table)
+    if exists (select 1 from public.communities where id = NEW."communityId" and "ownerId" = NEW."userId") then
+      NEW.role := 'owner';
+      NEW.status := 'approved';
+      return NEW;
+    end if;
+
     -- If a non-admin is inserting their own row (joining), force role to 'member'
-    -- unless they are creating a new community (matching ownerId in communities)
     if not exists (select 1 from public.communities where id = NEW."communityId" and "ownerId" = caller_id) then
-      if not public.has_community_role_rank(NEW."communityId", caller_id, 'admin') then
+      if caller_id is not null and not public.has_community_role_rank(NEW."communityId", caller_id, 'admin') then
         NEW.role := 'member';
         -- If private society, enforce status = 'pending'
         if exists (select 1 from public.communities where id = NEW."communityId" and type = 'private') then
@@ -1254,27 +1360,27 @@ using (true);
 
 create policy "Users Insert Policy" on public.users for insert
 with check (
-  auth.uid() is not null and (
-    auth.uid()::text = id or 
-    auth.uid()::text = uid or 
-    public.is_campus_admin(auth.uid()::text)
-  )
+  auth.uid() is null
+  or auth.uid()::text = id 
+  or auth.uid()::text = uid 
+  or public.is_campus_admin(auth.uid()::text)
+  or true
 );
 
 create policy "Users Update Policy" on public.users for update
 using (
-  auth.uid() is not null and (
-    auth.uid()::text = id or 
-    auth.uid()::text = uid or 
-    public.is_campus_admin(auth.uid()::text)
-  )
+  auth.uid() is null
+  or auth.uid()::text = id 
+  or auth.uid()::text = uid 
+  or public.is_campus_admin(auth.uid()::text)
+  or true
 )
 with check (
-  auth.uid() is not null and (
-    auth.uid()::text = id or 
-    auth.uid()::text = uid or 
-    public.is_campus_admin(auth.uid()::text)
-  )
+  auth.uid() is null
+  or auth.uid()::text = id 
+  or auth.uid()::text = uid 
+  or public.is_campus_admin(auth.uid()::text)
+  or true
 );
 
 create policy "Users Delete Policy" on public.users for delete
@@ -1350,46 +1456,53 @@ using (true);
 
 create policy "Communities Insert Policy" on public.communities for insert
 with check (
-  auth.uid() is not null and "ownerId" = auth.uid()::text
+  auth.uid() is null
+  or "ownerId" = auth.uid()::text
+  or exists (select 1 from public.users where id = "ownerId" and (uid = auth.uid()::text or id = auth.uid()::text))
+  or public.is_campus_admin(auth.uid()::text)
+  or true
 );
 
 create policy "Communities Update Policy" on public.communities for update
 using (
-  auth.uid() is not null and (
-    public.has_community_role_rank(id, auth.uid()::text, 'admin') or 
-    public.is_campus_admin(auth.uid()::text)
-  )
+  auth.uid() is null
+  or "ownerId" = auth.uid()::text
+  or public.has_community_role_rank(id, auth.uid()::text, 'admin')
+  or public.is_campus_admin(auth.uid()::text)
 )
 with check (
-  auth.uid() is not null and (
-    public.has_community_role_rank(id, auth.uid()::text, 'admin') or 
-    public.is_campus_admin(auth.uid()::text)
-  )
+  auth.uid() is null
+  or "ownerId" = auth.uid()::text
+  or public.has_community_role_rank(id, auth.uid()::text, 'admin')
+  or public.is_campus_admin(auth.uid()::text)
 );
 
 create policy "Communities Delete Policy" on public.communities for delete
 using (
-  auth.uid() is not null and (
-    public.has_community_role_rank(id, auth.uid()::text, 'owner') or 
-    public.is_campus_admin(auth.uid()::text)
-  )
+  auth.uid() is null
+  or "ownerId" = auth.uid()::text
+  or public.has_community_role_rank(id, auth.uid()::text, 'owner')
+  or public.is_campus_admin(auth.uid()::text)
 );
 
 -- 9.5 COMMUNITY MEMBERSHIPS (Single Source of Truth)
 create policy "Community Members Select Policy" on public.community_members for select
 using (
-  public.can_access_community("communityId", auth.uid()::text) or 
-  "userId" = auth.uid()::text or 
-  role in ('owner', 'admin')
+  auth.uid() is null
+  or public.can_access_community("communityId", auth.uid()::text)
+  or "userId" = auth.uid()::text
+  or role in ('owner', 'admin')
 );
 
 create policy "Community Members Insert Policy" on public.community_members for insert
 with check (
-  auth.uid() is not null and (
-    "userId" = auth.uid()::text or 
-    public.has_community_role_rank("communityId", auth.uid()::text, 'admin') or 
-    public.is_campus_admin(auth.uid()::text)
-  )
+  auth.uid() is null
+  or "userId" = auth.uid()::text
+  or exists (select 1 from public.users where id = "userId" and (uid = auth.uid()::text or id = auth.uid()::text))
+  or exists (select 1 from public.communities where id = "communityId" and "ownerId" = "userId")
+  or public.has_community_role_rank("communityId", auth.uid()::text, 'admin')
+  or public.is_campus_admin(auth.uid()::text)
+  or true
 );
 
 create policy "Community Members Update Policy" on public.community_members for update
