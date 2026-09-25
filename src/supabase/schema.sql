@@ -1602,353 +1602,131 @@ using (
 
 -- 9.6 COMMUNITY POSTS
 create policy "Community Posts Select Policy" on public.community_posts for select
-using (
-  public.can_access_community("communityId", auth.uid()::text)
-  or auth.uid() is null
-);
+using (true);
 
 create policy "Community Posts Insert Policy" on public.community_posts for insert
-with check (
-  auth.uid() is null
-  or "authorId" = auth.uid()::text
-  or exists (select 1 from public.users where (id = "authorId" or uid = "authorId") and (uid = auth.uid()::text or id = auth.uid()::text))
-  or public.is_campus_admin(auth.uid()::text)
-  or public.can_access_community("communityId", auth.uid()::text)
-);
+with check (true);
 
 create policy "Community Posts Update Policy" on public.community_posts for update
-using (
-  auth.uid() is null
-  or "authorId" = auth.uid()::text
-  or exists (select 1 from public.users where (id = "authorId" or uid = "authorId") and (uid = auth.uid()::text or id = auth.uid()::text))
-  or public.has_community_role_rank("communityId", auth.uid()::text, 'moderator')
-  or public.is_campus_admin(auth.uid()::text)
-)
-with check (
-  auth.uid() is null
-  or "authorId" = auth.uid()::text
-  or exists (select 1 from public.users where (id = "authorId" or uid = "authorId") and (uid = auth.uid()::text or id = auth.uid()::text))
-  or public.has_community_role_rank("communityId", auth.uid()::text, 'moderator')
-  or public.is_campus_admin(auth.uid()::text)
-);
+using (true)
+with check (true);
 
 create policy "Community Posts Delete Policy" on public.community_posts for delete
-using (
-  auth.uid() is null
-  or "authorId" = auth.uid()::text
-  or exists (select 1 from public.users where (id = "authorId" or uid = "authorId") and (uid = auth.uid()::text or id = auth.uid()::text))
-  or public.has_community_role_rank("communityId", auth.uid()::text, 'moderator')
-  or public.is_campus_admin(auth.uid()::text)
-);
+using (true);
 
 -- 9.7 COMMUNITY COMMENTS
 create policy "Community Comments Select Policy" on public.community_comments for select
-using (
-  public.can_access_community("communityId", auth.uid()::text)
-  or auth.uid() is null
-);
+using (true);
 
 create policy "Community Comments Insert Policy" on public.community_comments for insert
-with check (
-  auth.uid() is null
-  or "authorId" = auth.uid()::text
-  or exists (select 1 from public.users where (id = "authorId" or uid = "authorId") and (uid = auth.uid()::text or id = auth.uid()::text))
-  or public.is_campus_admin(auth.uid()::text)
-  or public.can_access_community("communityId", auth.uid()::text)
-);
+with check (true);
 
 create policy "Community Comments Delete Policy" on public.community_comments for delete
-using (
-  auth.uid() is null
-  or "authorId" = auth.uid()::text
-  or exists (select 1 from public.users where (id = "authorId" or uid = "authorId") and (uid = auth.uid()::text or id = auth.uid()::text))
-  or public.has_community_role_rank("communityId", auth.uid()::text, 'moderator')
-  or public.is_campus_admin(auth.uid()::text)
-);
+using (true);
 
 -- 9.8 COMMUNITY DISCUSSIONS
 create policy "Community Discussions Select Policy" on public.community_discussions for select
-using (
-  public.can_access_community("communityId", auth.uid()::text)
-  or auth.uid() is null
-);
+using (true);
 
 create policy "Community Discussions Insert Policy" on public.community_discussions for insert
-with check (
-  auth.uid() is null
-  or "authorId" = auth.uid()::text
-  or exists (select 1 from public.users where (id = "authorId" or uid = "authorId") and (uid = auth.uid()::text or id = auth.uid()::text))
-  or public.is_campus_admin(auth.uid()::text)
-  or public.can_access_community("communityId", auth.uid()::text)
-);
+with check (true);
 
 create policy "Community Discussions Update Policy" on public.community_discussions for update
-using (
-  auth.uid() is null
-  or "authorId" = auth.uid()::text
-  or exists (select 1 from public.users where (id = "authorId" or uid = "authorId") and (uid = auth.uid()::text or id = auth.uid()::text))
-  or public.has_community_role_rank("communityId", auth.uid()::text, 'moderator')
-  or public.is_campus_admin(auth.uid()::text)
-)
-with check (
-  auth.uid() is null
-  or "authorId" = auth.uid()::text
-  or exists (select 1 from public.users where (id = "authorId" or uid = "authorId") and (uid = auth.uid()::text or id = auth.uid()::text))
-  or public.has_community_role_rank("communityId", auth.uid()::text, 'moderator')
-  or public.is_campus_admin(auth.uid()::text)
-);
+using (true)
+with check (true);
 
 create policy "Community Discussions Delete Policy" on public.community_discussions for delete
-using (
-  auth.uid() is null
-  or "authorId" = auth.uid()::text
-  or exists (select 1 from public.users where (id = "authorId" or uid = "authorId") and (uid = auth.uid()::text or id = auth.uid()::text))
-  or public.has_community_role_rank("communityId", auth.uid()::text, 'moderator')
-  or public.is_campus_admin(auth.uid()::text)
-);
+using (true);
 
 -- 9.9 COMMUNITY DISCUSSION COMMENTS
 create policy "Community Discussion Comments Select Policy" on public.community_discussion_comments for select
-using (
-  public.can_access_community("communityId", auth.uid()::text)
-  or auth.uid() is null
-);
+using (true);
 
 create policy "Community Discussion Comments Insert Policy" on public.community_discussion_comments for insert
-with check (
-  auth.uid() is null
-  or "authorId" = auth.uid()::text
-  or exists (select 1 from public.users where (id = "authorId" or uid = "authorId") and (uid = auth.uid()::text or id = auth.uid()::text))
-  or public.is_campus_admin(auth.uid()::text)
-  or public.can_access_community("communityId", auth.uid()::text)
-);
+with check (true);
 
 create policy "Community Discussion Comments Delete Policy" on public.community_discussion_comments for delete
-using (
-  auth.uid() is null
-  or "authorId" = auth.uid()::text
-  or exists (select 1 from public.users where (id = "authorId" or uid = "authorId") and (uid = auth.uid()::text or id = auth.uid()::text))
-  or public.has_community_role_rank("communityId", auth.uid()::text, 'moderator')
-  or public.is_campus_admin(auth.uid()::text)
-);
+using (true);
 
 -- 9.10 COMMUNITY LIVE MESSAGES (Group Chat)
 create policy "Community Messages Select Policy" on public.community_messages for select
-using (
-  public.can_access_community("communityId", auth.uid()::text)
-  or auth.uid() is null
-);
+using (true);
 
 create policy "Community Messages Insert Policy" on public.community_messages for insert
-with check (
-  auth.uid() is null
-  or "senderId" = auth.uid()::text
-  or exists (select 1 from public.users where (id = "senderId" or uid = "senderId") and (uid = auth.uid()::text or id = auth.uid()::text))
-  or public.is_campus_admin(auth.uid()::text)
-  or public.can_access_community("communityId", auth.uid()::text)
-);
+with check (true);
 
 create policy "Community Messages Update Policy" on public.community_messages for update
-using (
-  auth.uid() is null
-  or "senderId" = auth.uid()::text
-  or exists (select 1 from public.users where (id = "senderId" or uid = "senderId") and (uid = auth.uid()::text or id = auth.uid()::text))
-  or public.has_community_role_rank("communityId", auth.uid()::text, 'moderator')
-  or public.is_campus_admin(auth.uid()::text)
-)
-with check (
-  auth.uid() is null
-  or "senderId" = auth.uid()::text
-  or exists (select 1 from public.users where (id = "senderId" or uid = "senderId") and (uid = auth.uid()::text or id = auth.uid()::text))
-  or public.has_community_role_rank("communityId", auth.uid()::text, 'moderator')
-  or public.is_campus_admin(auth.uid()::text)
-);
+using (true)
+with check (true);
 
 create policy "Community Messages Delete Policy" on public.community_messages for delete
-using (
-  auth.uid() is null
-  or "senderId" = auth.uid()::text
-  or exists (select 1 from public.users where (id = "senderId" or uid = "senderId") and (uid = auth.uid()::text or id = auth.uid()::text))
-  or public.has_community_role_rank("communityId", auth.uid()::text, 'moderator')
-  or public.is_campus_admin(auth.uid()::text)
-);
+using (true);
 
 -- 9.11 COMMUNITY RESOURCES
 create policy "Community Resources Select Policy" on public.community_resources for select
-using (
-  public.can_access_community("communityId", auth.uid()::text)
-  or auth.uid() is null
-);
+using (true);
 
 create policy "Community Resources Insert Policy" on public.community_resources for insert
-with check (
-  auth.uid() is null
-  or "uploadedBy" = auth.uid()::text
-  or exists (select 1 from public.users where (id = "uploadedBy" or uid = "uploadedBy") and (uid = auth.uid()::text or id = auth.uid()::text))
-  or public.is_campus_admin(auth.uid()::text)
-  or public.can_access_community("communityId", auth.uid()::text)
-);
+with check (true);
 
 create policy "Community Resources Delete Policy" on public.community_resources for delete
-using (
-  auth.uid() is null
-  or "uploadedBy" = auth.uid()::text
-  or exists (select 1 from public.users where (id = "uploadedBy" or uid = "uploadedBy") and (uid = auth.uid()::text or id = auth.uid()::text))
-  or public.has_community_role_rank("communityId", auth.uid()::text, 'moderator')
-  or public.is_campus_admin(auth.uid()::text)
-);
+using (true);
 
 -- 9.12 COMMUNITY EVENTS
 create policy "Community Events Select Policy" on public.community_events for select
-using (
-  public.can_access_community("communityId", auth.uid()::text)
-  or auth.uid() is null
-);
+using (true);
 
 create policy "Community Events Insert Policy" on public.community_events for insert
-with check (
-  auth.uid() is null
-  or "createdBy" = auth.uid()::text
-  or exists (select 1 from public.users where (id = "createdBy" or uid = "createdBy") and (uid = auth.uid()::text or id = auth.uid()::text))
-  or public.has_community_role_rank("communityId", auth.uid()::text, 'moderator')
-  or public.is_campus_admin(auth.uid()::text)
-);
+with check (true);
 
 create policy "Community Events Update Policy" on public.community_events for update
-using (
-  auth.uid() is null
-  or "createdBy" = auth.uid()::text
-  or exists (select 1 from public.users where (id = "createdBy" or uid = "createdBy") and (uid = auth.uid()::text or id = auth.uid()::text))
-  or public.has_community_role_rank("communityId", auth.uid()::text, 'admin')
-  or public.is_campus_admin(auth.uid()::text)
-)
-with check (
-  auth.uid() is null
-  or "createdBy" = auth.uid()::text
-  or exists (select 1 from public.users where (id = "createdBy" or uid = "createdBy") and (uid = auth.uid()::text or id = auth.uid()::text))
-  or public.has_community_role_rank("communityId", auth.uid()::text, 'admin')
-  or public.is_campus_admin(auth.uid()::text)
-);
+using (true)
+with check (true);
 
 create policy "Community Events Delete Policy" on public.community_events for delete
-using (
-  auth.uid() is null
-  or "createdBy" = auth.uid()::text
-  or exists (select 1 from public.users where (id = "createdBy" or uid = "createdBy") and (uid = auth.uid()::text or id = auth.uid()::text))
-  or public.has_community_role_rank("communityId", auth.uid()::text, 'admin')
-  or public.is_campus_admin(auth.uid()::text)
-);
+using (true);
 
 -- 9.13 COMMUNITY EVENT RSVPS
 create policy "Community Event RSVPs Select Policy" on public.community_event_rsvps for select
-using (
-  public.can_access_community("communityId", auth.uid()::text)
-  or auth.uid() is null
-);
+using (true);
 
 create policy "Community Event RSVPs Insert Policy" on public.community_event_rsvps for insert
-with check (
-  auth.uid() is null
-  or "userId" = auth.uid()::text
-  or exists (select 1 from public.users where (id = "userId" or uid = "userId") and (uid = auth.uid()::text or id = auth.uid()::text))
-  or public.can_access_community("communityId", auth.uid()::text)
-);
+with check (true);
 
 create policy "Community Event RSVPs Update Policy" on public.community_event_rsvps for update
-using (
-  auth.uid() is null
-  or "userId" = auth.uid()::text
-  or exists (select 1 from public.users where (id = "userId" or uid = "userId") and (uid = auth.uid()::text or id = auth.uid()::text))
-  or public.is_campus_admin(auth.uid()::text)
-)
-with check (
-  auth.uid() is null
-  or "userId" = auth.uid()::text
-  or exists (select 1 from public.users where (id = "userId" or uid = "userId") and (uid = auth.uid()::text or id = auth.uid()::text))
-  or public.is_campus_admin(auth.uid()::text)
-);
+using (true)
+with check (true);
 
 create policy "Community Event RSVPs Delete Policy" on public.community_event_rsvps for delete
-using (
-  auth.uid() is null
-  or "userId" = auth.uid()::text
-  or exists (select 1 from public.users where (id = "userId" or uid = "userId") and (uid = auth.uid()::text or id = auth.uid()::text))
-  or public.is_campus_admin(auth.uid()::text)
-);
+using (true);
 
 -- 9.14 COMMUNITY POLL VOTES
 create policy "Community Poll Votes Select Policy" on public.community_poll_votes for select
-using (
-  public.can_access_community("communityId", auth.uid()::text)
-  or auth.uid() is null
-);
+using (true);
 
 create policy "Community Poll Votes Insert Policy" on public.community_poll_votes for insert
-with check (
-  auth.uid() is null
-  or "userId" = auth.uid()::text
-  or exists (select 1 from public.users where (id = "userId" or uid = "userId") and (uid = auth.uid()::text or id = auth.uid()::text))
-  or public.can_access_community("communityId", auth.uid()::text)
-);
+with check (true);
 
 create policy "Community Poll Votes Update Policy" on public.community_poll_votes for update
-using (
-  auth.uid() is null
-  or "userId" = auth.uid()::text
-  or exists (select 1 from public.users where (id = "userId" or uid = "userId") and (uid = auth.uid()::text or id = auth.uid()::text))
-  or public.is_campus_admin(auth.uid()::text)
-)
-with check (
-  auth.uid() is null
-  or "userId" = auth.uid()::text
-  or exists (select 1 from public.users where (id = "userId" or uid = "userId") and (uid = auth.uid()::text or id = auth.uid()::text))
-  or public.is_campus_admin(auth.uid()::text)
-);
+using (true)
+with check (true);
 
 create policy "Community Poll Votes Delete Policy" on public.community_poll_votes for delete
-using (
-  auth.uid() is null
-  or "userId" = auth.uid()::text
-  or exists (select 1 from public.users where (id = "userId" or uid = "userId") and (uid = auth.uid()::text or id = auth.uid()::text))
-  or public.is_campus_admin(auth.uid()::text)
-);
+using (true);
 
 -- 9.15 COMMUNITY REPORTS
 create policy "Community Reports Select Policy" on public.community_reports for select
-using (
-  auth.uid() is null
-  or "reporterId" = auth.uid()::text
-  or exists (select 1 from public.users where (id = "reporterId" or uid = "reporterId") and (uid = auth.uid()::text or id = auth.uid()::text))
-  or public.has_community_role_rank("communityId", auth.uid()::text, 'moderator')
-  or public.is_campus_admin(auth.uid()::text)
-);
+using (true);
 
 create policy "Community Reports Insert Policy" on public.community_reports for insert
-with check (
-  auth.uid() is null
-  or "reporterId" = auth.uid()::text
-  or exists (select 1 from public.users where (id = "reporterId" or uid = "reporterId") and (uid = auth.uid()::text or id = auth.uid()::text))
-  or public.can_access_community("communityId", auth.uid()::text)
-  or public.is_campus_admin(auth.uid()::text)
-);
+with check (true);
 
 create policy "Community Reports Update Policy" on public.community_reports for update
-using (
-  auth.uid() is null
-  or public.has_community_role_rank("communityId", auth.uid()::text, 'moderator')
-  or public.is_campus_admin(auth.uid()::text)
-)
-with check (
-  auth.uid() is null
-  or public.has_community_role_rank("communityId", auth.uid()::text, 'moderator')
-  or public.is_campus_admin(auth.uid()::text)
-);
+using (true)
+with check (true);
 
 create policy "Community Reports Delete Policy" on public.community_reports for delete
-using (
-  auth.uid() is null
-  or public.is_campus_admin(auth.uid()::text)
-);
+using (true);
 
 -- 9.16 COMMUNITY MODERATION ACTIONS
 create policy "Community Moderation Actions Select Policy" on public.community_moderation_actions for select

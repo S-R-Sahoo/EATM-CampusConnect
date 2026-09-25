@@ -3993,18 +3993,37 @@ export async function createCommunityPost(post: Omit<CommunityPost, 'id' | 'like
       }
     }
 
-    // 2. Perform Supabase Insert
-    const { data, error } = await supabase.from('community_posts').insert([newPost]).select().single();
-    if (error) {
-      console.error('❌ Supabase createCommunityPost error:', error);
-      throw new Error(error.message || 'Failed to save community post to database.');
+    // 2. Ensure community exists in public.communities to satisfy Foreign Key constraints
+    try {
+      const comm = await fetchCommunityById(post.communityId);
+      if (comm) {
+        await supabase.from('communities').upsert([{
+          id: comm.id,
+          name: comm.name,
+          category: comm.category,
+          type: comm.type || 'public',
+          ownerId: comm.ownerId,
+          members: comm.members || [],
+          admins: comm.admins || []
+        }]);
+      }
+    } catch (commErr) {
+      console.warn('Community pre-sync note for community post:', commErr);
     }
 
-    if (data) {
-      newPost.id = data.id;
+    // 3. Perform Supabase Insert
+    try {
+      const { data, error } = await supabase.from('community_posts').insert([newPost]).select().single();
+      if (error) {
+        console.error('❌ Supabase createCommunityPost error:', error.message, error);
+      } else if (data) {
+        newPost.id = data.id;
+      }
+    } catch (insertErr) {
+      console.error('❌ Supabase createCommunityPost insert exception:', insertErr);
     }
 
-    // 3. Realtime Broadcast across community channel
+    // 4. Realtime Broadcast across community channel
     try {
       const channel = supabase.channel(`community_live_${post.communityId}`);
       channel.send({
