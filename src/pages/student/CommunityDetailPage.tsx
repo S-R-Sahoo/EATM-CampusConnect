@@ -80,6 +80,8 @@ export const CommunityDetailPage: React.FC = () => {
   const [activeCommentPostId, setActiveCommentPostId] = useState<string | null>(null);
   const [commentsMap, setCommentsMap] = useState<{ [postId: string]: CommunityComment[] }>({});
   const [commentInputMap, setCommentInputMap] = useState<{ [postId: string]: string }>({});
+  const [loadingComments, setLoadingComments] = useState<{ [postId: string]: boolean }>({});
+  const [isSubmittingComment, setIsSubmittingComment] = useState<{ [postId: string]: boolean }>({});
 
   // Discussion state
   const [discussionModalOpen, setDiscussionModalOpen] = useState(false);
@@ -201,7 +203,7 @@ export const CommunityDetailPage: React.FC = () => {
     loadCommunityData();
   }, [id, user?.id]);
 
-  // Live updates across devices for posts, discussions, members, events
+  // Live updates across devices for posts, discussions, members, events, comments
   useEffect(() => {
     if (!id) return;
     const unsubLive = subscribeToCommunityLiveEvents(id, () => {
@@ -212,11 +214,21 @@ export const CommunityDetailPage: React.FC = () => {
       fetchCommunityEvents(id, user?.id).then(setEvents);
       fetchCommunityReports(id).then(setReports);
       fetchCommunityModerationActions(id).then(setActions);
+      if (activeCommentPostId) {
+        fetchCommunityComments(activeCommentPostId).then(cmts => {
+          setCommentsMap(prev => ({ ...prev, [activeCommentPostId]: cmts }));
+        });
+      }
+      if (openDiscId) {
+        fetchCommunityDiscussionComments(openDiscId).then(cmts => {
+          setDiscCommentsMap(prev => ({ ...prev, [openDiscId]: cmts }));
+        });
+      }
     });
     return () => {
       unsubLive();
     };
-  }, [id, user?.id]);
+  }, [id, user?.id, activeCommentPostId, openDiscId]);
 
   // Realtime chat subscription
   useEffect(() => {
@@ -436,9 +448,14 @@ export const CommunityDetailPage: React.FC = () => {
       return;
     }
     setActiveCommentPostId(postId);
-    if (!commentsMap[postId]) {
+    setLoadingComments(prev => ({ ...prev, [postId]: true }));
+    try {
       const cmts = await fetchCommunityComments(postId);
       setCommentsMap(prev => ({ ...prev, [postId]: cmts }));
+    } catch (err) {
+      console.warn('Error loading community post comments:', err);
+    } finally {
+      setLoadingComments(prev => ({ ...prev, [postId]: false }));
     }
   };
 
@@ -446,24 +463,32 @@ export const CommunityDetailPage: React.FC = () => {
     const text = commentInputMap[postId]?.trim();
     if (!user || !community || !text) return;
 
-    const newComment = await createCommunityComment({
-      postId,
-      communityId: community.id,
-      authorId: user.id,
-      authorName: user.displayName,
-      authorAvatar: user.photoURL,
-      authorDept: user.department,
-      content: text
-    });
+    setIsSubmittingComment(prev => ({ ...prev, [postId]: true }));
+    try {
+      const newComment = await createCommunityComment({
+        postId,
+        communityId: community.id,
+        authorId: user.id,
+        authorName: user.displayName,
+        authorAvatar: user.photoURL,
+        authorDept: user.department,
+        content: text
+      });
 
-    setCommentsMap(prev => ({
-      ...prev,
-      [postId]: [...(prev[postId] || []), newComment]
-    }));
-    setCommentInputMap(prev => ({ ...prev, [postId]: '' }));
-    setPosts(prev =>
-      prev.map(p => p.id === postId ? { ...p, commentsCount: (p.commentsCount || 0) + 1 } : p)
-    );
+      setCommentsMap(prev => ({
+        ...prev,
+        [postId]: [...(prev[postId] || []), newComment]
+      }));
+      setCommentInputMap(prev => ({ ...prev, [postId]: '' }));
+      setPosts(prev =>
+        prev.map(p => p.id === postId ? { ...p, commentsCount: (p.commentsCount || 0) + 1 } : p)
+      );
+      success('Comment posted successfully!', 'Comment Added');
+    } catch (err: any) {
+      error(err.message || 'Failed to post comment.');
+    } finally {
+      setIsSubmittingComment(prev => ({ ...prev, [postId]: false }));
+    }
   };
 
   // Discussion Handlers
@@ -1518,37 +1543,57 @@ export const CommunityDetailPage: React.FC = () => {
                           {/* Threaded Comments Section */}
                           {activeCommentPostId === post.id && (
                             <div className="mt-4 pt-3 border-t border-gray-100 dark:border-[#1e3325] space-y-3">
-                              <div className="space-y-2.5 max-h-60 overflow-y-auto pr-1">
-                                {(commentsMap[post.id] || []).map(cmt => (
-                                  <div key={cmt.id} className="flex items-start gap-2.5 bg-gray-50/80 dark:bg-[#16251c] p-2.5 rounded-xl text-xs">
-                                    <Avatar src={cmt.authorAvatar} name={cmt.authorName} size="xs" />
-                                    <div className="flex-1 min-w-0">
-                                      <div className="flex items-center justify-between">
-                                        <span className="font-bold text-gray-900 dark:text-gray-100">{cmt.authorName}</span>
-                                        <span className="text-[10px] text-gray-400">
-                                          {new Date(cmt.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                        </span>
+                              {loadingComments[post.id] ? (
+                                <div className="py-3 text-center text-xs text-gray-400 dark:text-gray-500">
+                                  Loading comments...
+                                </div>
+                              ) : (commentsMap[post.id] || []).length === 0 ? (
+                                <div className="py-3 text-center text-xs text-gray-400 dark:text-gray-500 italic">
+                                  No comments yet. Be the first to start the conversation!
+                                </div>
+                              ) : (
+                                <div className="space-y-2.5 max-h-60 overflow-y-auto pr-1">
+                                  {(commentsMap[post.id] || []).map(cmt => (
+                                    <div key={cmt.id} className="flex items-start gap-2.5 bg-gray-50/80 dark:bg-[#16251c] p-2.5 rounded-xl text-xs">
+                                      <Avatar src={cmt.authorAvatar} name={cmt.authorName} size="xs" />
+                                      <div className="flex-1 min-w-0">
+                                        <div className="flex items-center justify-between">
+                                          <span className="font-bold text-gray-900 dark:text-gray-100">{cmt.authorName}</span>
+                                          <span className="text-[10px] text-gray-400">
+                                            {new Date(cmt.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                          </span>
+                                        </div>
+                                        <p className="text-gray-700 dark:text-gray-300 mt-0.5 whitespace-pre-wrap">{cmt.content}</p>
                                       </div>
-                                      <p className="text-gray-700 dark:text-gray-300 mt-0.5">{cmt.content}</p>
                                     </div>
-                                  </div>
-                                ))}
-                              </div>
+                                  ))}
+                                </div>
+                              )}
 
                               {/* Comment Input */}
-                              {isMember && (
+                              {isMember ? (
                                 <div className="flex items-center gap-2 pt-1">
                                   <input
                                     type="text"
                                     value={commentInputMap[post.id] || ''}
                                     onChange={(e) => setCommentInputMap({ ...commentInputMap, [post.id]: e.target.value })}
-                                    onKeyDown={(e) => e.key === 'Enter' && handleAddComment(post.id)}
+                                    onKeyDown={(e) => e.key === 'Enter' && !isSubmittingComment[post.id] && handleAddComment(post.id)}
                                     placeholder="Write a comment..."
-                                    className="flex-1 px-3 py-1.5 text-xs bg-gray-50 dark:bg-[#16251c] border border-gray-200 dark:border-[#1e3325] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#0b4627]"
+                                    disabled={isSubmittingComment[post.id]}
+                                    className="flex-1 px-3 py-1.5 text-xs bg-gray-50 dark:bg-[#16251c] border border-gray-200 dark:border-[#1e3325] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#0b4627] disabled:opacity-60"
                                   />
-                                  <Button size="sm" onClick={() => handleAddComment(post.id)} className="px-3">
+                                  <Button 
+                                    size="sm" 
+                                    onClick={() => handleAddComment(post.id)} 
+                                    disabled={isSubmittingComment[post.id] || !commentInputMap[post.id]?.trim()}
+                                    className="px-3"
+                                  >
                                     <Send className="w-3.5 h-3.5" />
                                   </Button>
+                                </div>
+                              ) : (
+                                <div className="p-2.5 rounded-xl bg-gray-50 dark:bg-[#16251c] text-center text-xs text-gray-500 dark:text-gray-400">
+                                  Join this community to participate in comments.
                                 </div>
                               )}
                             </div>

@@ -4148,15 +4148,26 @@ export async function fetchCommunityComments(postId: string): Promise<CommunityC
       if (!error && data) {
         comments = data as CommunityComment[];
         isFromSupabase = true;
+        const all = getLocalData<CommunityComment[]>('community_comments', SEED_COMMUNITY_COMMENTS);
+        const others = all.filter(c => c.postId !== postId);
+        setLocalData('community_comments', [...others, ...comments]);
+      } else if (error) {
+        console.warn('Supabase fetchCommunityComments error, using fallback:', error);
       }
     } catch (err) {
-      console.warn('Supabase fetchCommunityComments error:', err);
+      console.warn('Supabase fetchCommunityComments exception, using fallback:', err);
     }
   }
 
-  if (!isFromSupabase) {
+  if (!isFromSupabase || comments.length === 0) {
     const all = getLocalData<CommunityComment[]>('community_comments', SEED_COMMUNITY_COMMENTS);
-    comments = all.filter(c => c.postId === postId);
+    const localMatches = all.filter(c => c.postId === postId);
+    if (localMatches.length > 0) {
+      const map = new Map<string, CommunityComment>();
+      comments.forEach(c => map.set(c.id, c));
+      localMatches.forEach(c => map.set(c.id, c));
+      comments = Array.from(map.values());
+    }
   }
 
   // Enrich author avatars from user directory
@@ -4190,44 +4201,93 @@ export async function createCommunityComment(comment: Omit<CommunityComment, 'id
   };
 
   if (isSupabaseConfigured() && supabase) {
-    try {
-      if (comment.authorId) {
-        try {
-          const allUsers = await fetchUsers();
-          const authorUser = allUsers.find(u => u.id === comment.authorId || u.uid === comment.authorId);
-          await supabase.from('users').upsert([{
-            id: comment.authorId,
-            uid: authorUser?.uid || comment.authorId,
-            email: authorUser?.email || `${comment.authorId}@campus.eatm.ac.in`,
-            displayName: comment.authorName || authorUser?.displayName || 'Campus Member',
-            role: 'student',
-            department: 'CSE',
-            status: 'active',
-            verified: true
-          }]);
-        } catch {}
+    // 1. Pre-sync Author Profile
+    if (comment.authorId) {
+      try {
+        const allUsers = await fetchUsers();
+        const authorUser = allUsers.find(u => u.id === comment.authorId || u.uid === comment.authorId);
+        await supabase.from('users').upsert([{
+          id: comment.authorId,
+          uid: authorUser?.uid || comment.authorId,
+          email: authorUser?.email || `${comment.authorId}@campus.eatm.ac.in`,
+          displayName: comment.authorName || authorUser?.displayName || 'Campus Member',
+          role: 'student',
+          department: comment.authorDept || authorUser?.department || 'CSE',
+          status: 'active',
+          verified: true
+        }]);
+      } catch (uErr) {
+        console.warn('User upsert note for comment:', uErr);
       }
+    }
 
-      await supabase.from('community_comments').insert([newComment]);
-      // Increment comment count on post
+    // 2. Pre-sync Community
+    try {
+      const comm = await fetchCommunityById(comment.communityId);
+      if (comm) {
+        await supabase.from('communities').upsert([{
+          id: comm.id,
+          name: comm.name,
+          category: comm.category,
+          type: comm.type || 'public',
+          ownerId: comm.ownerId,
+          members: comm.members || [],
+          admins: comm.admins || []
+        }]);
+      }
+    } catch (cErr) {
+      console.warn('Community upsert note for comment:', cErr);
+    }
+
+    // 3. Pre-sync Community Post
+    try {
+      const posts = getLocalData<CommunityPost[]>('community_posts', SEED_COMMUNITY_POSTS);
+      const postObj = posts.find(p => p.id === comment.postId);
+      if (postObj) {
+        await supabase.from('community_posts').upsert([{
+          id: postObj.id,
+          communityId: postObj.communityId,
+          authorId: postObj.authorId,
+          authorName: postObj.authorName,
+          content: postObj.content,
+          createdAt: postObj.createdAt || new Date().toISOString()
+        }]);
+      }
+    } catch (pErr) {
+      console.warn('Post upsert note for comment:', pErr);
+    }
+
+    // 4. Insert comment into Supabase
+    try {
+      const { data, error } = await supabase.from('community_comments').insert([newComment]).select().single();
+      if (error) {
+        console.error('❌ Supabase createCommunityComment error:', error.message, error);
+      } else if (data) {
+        newComment.id = data.id;
+      }
+    } catch (insertErr) {
+      console.error('❌ Supabase createCommunityComment insert exception:', insertErr);
+    }
+
+    // 5. Update commentsCount on post
+    try {
       const { data: post } = await supabase.from('community_posts').select('commentsCount').eq('id', comment.postId).maybeSingle();
       const currentCount = post?.commentsCount || 0;
       await supabase.from('community_posts').update({ commentsCount: currentCount + 1 }).eq('id', comment.postId);
+    } catch {}
 
-      // Broadcast comment on channel
-      try {
-        const channel = supabase.channel(`community_live_${comment.communityId}`);
-        channel.send({
-          type: 'broadcast',
-          event: 'new_community_comment',
-          payload: newComment
-        }).catch(() => {});
-      } catch {}
-    } catch (err) {
-      console.warn('Supabase createCommunityComment error:', err);
-    }
+    // 6. Broadcast comment on channel
+    try {
+      const channel = supabase.channel(`community_live_${comment.communityId}`);
+      channel.send({
+        type: 'broadcast',
+        event: 'new_community_comment',
+        payload: newComment
+      }).catch(() => {});
+    } catch {}
   }
 
+  // Update local cache
   const all = getLocalData<CommunityComment[]>('community_comments', SEED_COMMUNITY_COMMENTS);
   setLocalData('community_comments', [...all, newComment]);
 
@@ -4237,6 +4297,11 @@ export async function createCommunityComment(comment: Omit<CommunityComment, 'id
     post.commentsCount = (post.commentsCount || 0) + 1;
     setLocalData('community_posts', [...posts]);
   }
+
+  // Dispatch window event for live local sync
+  window.dispatchEvent(new CustomEvent('eatm_community_comments_changed', {
+    detail: { communityId: comment.communityId, postId: comment.postId, comment: newComment }
+  }));
 
   return newComment;
 }
@@ -4420,15 +4485,26 @@ export async function fetchCommunityDiscussionComments(discId: string): Promise<
       if (!error && data) {
         comments = data as CommunityDiscussionComment[];
         isFromSupabase = true;
+        const all = getLocalData<CommunityDiscussionComment[]>('community_disc_comments', SEED_COMMUNITY_DISCUSSION_COMMENTS);
+        const others = all.filter(c => c.discussionId !== discId);
+        setLocalData('community_disc_comments', [...others, ...comments]);
+      } else if (error) {
+        console.warn('Supabase fetchCommunityDiscussionComments error, using fallback:', error);
       }
     } catch (err) {
       console.warn('Supabase fetchCommunityDiscussionComments error:', err);
     }
   }
 
-  if (!isFromSupabase) {
+  if (!isFromSupabase || comments.length === 0) {
     const all = getLocalData<CommunityDiscussionComment[]>('community_disc_comments', SEED_COMMUNITY_DISCUSSION_COMMENTS);
-    comments = all.filter(c => c.discussionId === discId);
+    const localMatches = all.filter(c => c.discussionId === discId);
+    if (localMatches.length > 0) {
+      const map = new Map<string, CommunityDiscussionComment>();
+      comments.forEach(c => map.set(c.id, c));
+      localMatches.forEach(c => map.set(c.id, c));
+      comments = Array.from(map.values());
+    }
   }
 
   const allUsers = await fetchUsers();
@@ -4461,31 +4537,92 @@ export async function createCommunityDiscussionComment(comment: Omit<CommunityDi
   };
 
   if (isSupabaseConfigured() && supabase) {
-    try {
-      if (comment.authorId) {
-        try {
-          const allUsers = await fetchUsers();
-          const authorUser = allUsers.find(u => u.id === comment.authorId || u.uid === comment.authorId);
-          await supabase.from('users').upsert([{
-            id: comment.authorId,
-            uid: authorUser?.uid || comment.authorId,
-            email: authorUser?.email || `${comment.authorId}@campus.eatm.ac.in`,
-            displayName: comment.authorName || authorUser?.displayName || 'Campus Member',
-            role: 'student',
-            department: 'CSE',
-            status: 'active',
-            verified: true
-          }]);
-        } catch {}
+    // 1. Pre-sync User
+    if (comment.authorId) {
+      try {
+        const allUsers = await fetchUsers();
+        const authorUser = allUsers.find(u => u.id === comment.authorId || u.uid === comment.authorId);
+        await supabase.from('users').upsert([{
+          id: comment.authorId,
+          uid: authorUser?.uid || comment.authorId,
+          email: authorUser?.email || `${comment.authorId}@campus.eatm.ac.in`,
+          displayName: comment.authorName || authorUser?.displayName || 'Campus Member',
+          role: 'student',
+          department: 'CSE',
+          status: 'active',
+          verified: true
+        }]);
+      } catch (uErr) {
+        console.warn('User upsert note for disc comment:', uErr);
       }
+    }
 
-      await supabase.from('community_discussion_comments').insert([newCmt]);
+    // 2. Pre-sync Community
+    try {
+      const comm = await fetchCommunityById(comment.communityId);
+      if (comm) {
+        await supabase.from('communities').upsert([{
+          id: comm.id,
+          name: comm.name,
+          category: comm.category,
+          type: comm.type || 'public',
+          ownerId: comm.ownerId,
+          members: comm.members || [],
+          admins: comm.admins || []
+        }]);
+      }
+    } catch (cErr) {
+      console.warn('Community upsert note for disc comment:', cErr);
+    }
+
+    // 3. Pre-sync Discussion
+    try {
+      const discs = getLocalData<CommunityDiscussion[]>('community_discussions', SEED_COMMUNITY_DISCUSSIONS);
+      const discObj = discs.find(d => d.id === comment.discussionId);
+      if (discObj) {
+        await supabase.from('community_discussions').upsert([{
+          id: discObj.id,
+          communityId: discObj.communityId,
+          authorId: discObj.authorId,
+          authorName: discObj.authorName,
+          title: discObj.title,
+          content: discObj.content,
+          category: discObj.category,
+          createdAt: discObj.createdAt || new Date().toISOString()
+        }]);
+      }
+    } catch (dErr) {
+      console.warn('Discussion upsert note for comment:', dErr);
+    }
+
+    // 4. Insert into Supabase
+    try {
+      const { data, error } = await supabase.from('community_discussion_comments').insert([newCmt]).select().single();
+      if (error) {
+        console.error('❌ Supabase createCommunityDiscussionComment error:', error.message, error);
+      } else if (data) {
+        newCmt.id = data.id;
+      }
+    } catch (insertErr) {
+      console.error('❌ Supabase createCommunityDiscussionComment insert exception:', insertErr);
+    }
+
+    // 5. Update commentsCount
+    try {
       const { data: disc } = await supabase.from('community_discussions').select('commentsCount').eq('id', comment.discussionId).maybeSingle();
       const currentCount = disc?.commentsCount || 0;
       await supabase.from('community_discussions').update({ commentsCount: currentCount + 1 }).eq('id', comment.discussionId);
-    } catch (err) {
-      console.warn('Supabase createCommunityDiscussionComment error:', err);
-    }
+    } catch {}
+
+    // 6. Broadcast event
+    try {
+      const channel = supabase.channel(`community_live_${comment.communityId}`);
+      channel.send({
+        type: 'broadcast',
+        event: 'new_discussion_comment',
+        payload: newCmt
+      }).catch(() => {});
+    } catch {}
   }
 
   const all = getLocalData<CommunityDiscussionComment[]>('community_disc_comments', SEED_COMMUNITY_DISCUSSION_COMMENTS);
@@ -4497,6 +4634,10 @@ export async function createCommunityDiscussionComment(comment: Omit<CommunityDi
     disc.commentsCount = (disc.commentsCount || 0) + 1;
     setLocalData('community_discussions', [...discs]);
   }
+
+  window.dispatchEvent(new CustomEvent('eatm_community_disc_comments_changed', {
+    detail: { communityId: comment.communityId, discussionId: comment.discussionId, comment: newCmt }
+  }));
 
   return newCmt;
 }
@@ -5082,11 +5223,19 @@ export function subscribeToCommunityLiveEvents(
     }
   };
 
+  const localCommentListener = (e: CustomEvent<{ communityId: string }>) => {
+    if (e.detail?.communityId === communityId) {
+      onUpdate();
+    }
+  };
+
   const localCommListener = () => {
     onUpdate();
   };
 
   window.addEventListener('eatm_community_posts_changed', localPostListener as EventListener);
+  window.addEventListener('eatm_community_comments_changed', localCommentListener as EventListener);
+  window.addEventListener('eatm_community_disc_comments_changed', localCommentListener as EventListener);
   window.addEventListener('eatm_communities_changed', localCommListener as EventListener);
 
   if (isSupabaseConfigured() && supabase) {
@@ -5096,6 +5245,7 @@ export function subscribeToCommunityLiveEvents(
       .on('broadcast', { event: 'post_deleted' }, () => onUpdate())
       .on('broadcast', { event: 'new_community_comment' }, () => onUpdate())
       .on('broadcast', { event: 'new_community_discussion' }, () => onUpdate())
+      .on('broadcast', { event: 'new_discussion_comment' }, () => onUpdate())
       .on('broadcast', { event: 'discussion_like_update' }, () => onUpdate())
       .on('broadcast', { event: 'new_community_resource' }, () => onUpdate())
       .on('broadcast', { event: 'new_community_event' }, () => onUpdate())
@@ -5109,7 +5259,19 @@ export function subscribeToCommunityLiveEvents(
       .on('postgres_changes', {
         event: '*',
         schema: 'public',
+        table: 'community_comments',
+        filter: `communityId=eq.${communityId}`
+      }, () => onUpdate())
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
         table: 'community_discussions',
+        filter: `communityId=eq.${communityId}`
+      }, () => onUpdate())
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'community_discussion_comments',
         filter: `communityId=eq.${communityId}`
       }, () => onUpdate())
       .on('postgres_changes', {
@@ -5147,6 +5309,8 @@ export function subscribeToCommunityLiveEvents(
 
   return () => {
     window.removeEventListener('eatm_community_posts_changed', localPostListener as EventListener);
+    window.removeEventListener('eatm_community_comments_changed', localCommentListener as EventListener);
+    window.removeEventListener('eatm_community_disc_comments_changed', localCommentListener as EventListener);
     window.removeEventListener('eatm_communities_changed', localCommListener as EventListener);
     if (channel && supabase) {
       supabase.removeChannel(channel);
