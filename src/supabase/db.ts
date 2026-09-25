@@ -2697,16 +2697,41 @@ export async function fetchCommunities(): Promise<Community[]> {
           const approved = clubMembers.filter((m: any) => m.status === 'approved');
           const pending = clubMembers.filter((m: any) => m.status === 'pending').map((m: any) => m.userId);
           const banned = clubMembers.filter((m: any) => m.status === 'banned').map((m: any) => m.userId);
-          const admins = approved.filter((m: any) => m.role === 'admin' || m.role === 'owner').map((m: any) => m.userId);
-          const moderators = approved.filter((m: any) => m.role === 'moderator').map((m: any) => m.userId);
-          const membersList = approved.map((m: any) => m.userId);
+          const approvedMemberIds = approved.map((m: any) => m.userId);
+          const approvedAdminIds = approved.filter((m: any) => m.role === 'admin' || m.role === 'owner').map((m: any) => m.userId);
+          const approvedModIds = approved.filter((m: any) => m.role === 'moderator').map((m: any) => m.userId);
 
-          const hasMemberRows = membersData.length > 0;
-          const finalMembers = (hasMemberRows || membersList.length > 0) ? membersList : (Array.isArray(c.members) && c.members.length > 0 ? c.members : (c.ownerId ? [c.ownerId] : []));
-          const finalAdmins = (hasMemberRows || admins.length > 0) ? admins : (Array.isArray(c.admins) && c.admins.length > 0 ? c.admins : (c.ownerId ? [c.ownerId] : []));
-          const finalMods = hasMemberRows ? moderators : (Array.isArray(c.moderators) ? c.moderators : []);
-          const finalPending = hasMemberRows ? pending : (Array.isArray(c.pendingRequests) ? c.pendingRequests : []);
-          const finalBanned = hasMemberRows ? banned : (Array.isArray(c.bannedUsers) ? c.bannedUsers : []);
+          // Build unified, non-duplicated member lists from both community_members and communities array columns
+          const memberIdSet = new Set<string>();
+          if (c.ownerId) memberIdSet.add(c.ownerId);
+          if (Array.isArray(c.members)) c.members.forEach((m: string) => m && memberIdSet.add(m));
+          approvedMemberIds.forEach((uid: string) => uid && memberIdSet.add(uid));
+          banned.forEach((bId: string) => memberIdSet.delete(bId));
+          const finalMembers = Array.from(memberIdSet);
+
+          const adminIdSet = new Set<string>();
+          if (c.ownerId) adminIdSet.add(c.ownerId);
+          if (Array.isArray(c.admins)) c.admins.forEach((a: string) => a && adminIdSet.add(a));
+          approvedAdminIds.forEach((uid: string) => uid && adminIdSet.add(uid));
+          banned.forEach((bId: string) => adminIdSet.delete(bId));
+          const finalAdmins = Array.from(adminIdSet);
+
+          const modIdSet = new Set<string>();
+          if (Array.isArray(c.moderators)) c.moderators.forEach((m: string) => m && modIdSet.add(m));
+          approvedModIds.forEach((uid: string) => uid && modIdSet.add(uid));
+          banned.forEach((bId: string) => modIdSet.delete(bId));
+          const finalMods = Array.from(modIdSet);
+
+          const pendingIdSet = new Set<string>();
+          if (Array.isArray(c.pendingRequests)) c.pendingRequests.forEach((p: string) => p && pendingIdSet.add(p));
+          pending.forEach((uid: string) => uid && pendingIdSet.add(uid));
+          finalMembers.forEach((mId: string) => pendingIdSet.delete(mId));
+          const finalPending = Array.from(pendingIdSet);
+
+          const bannedIdSet = new Set<string>();
+          if (Array.isArray(c.bannedUsers)) c.bannedUsers.forEach((b: string) => b && bannedIdSet.add(b));
+          banned.forEach((uid: string) => uid && bannedIdSet.add(uid));
+          const finalBanned = Array.from(bannedIdSet);
 
           return {
             ...c,
@@ -2774,16 +2799,40 @@ export async function fetchCommunityById(id: string): Promise<Community | null> 
         const approved = clubMembers.filter((m: any) => m.status === 'approved');
         const pending = clubMembers.filter((m: any) => m.status === 'pending').map((m: any) => m.userId);
         const banned = clubMembers.filter((m: any) => m.status === 'banned').map((m: any) => m.userId);
-        const admins = approved.filter((m: any) => m.role === 'admin' || m.role === 'owner').map((m: any) => m.userId);
-        const moderators = approved.filter((m: any) => m.role === 'moderator').map((m: any) => m.userId);
-        const membersList = approved.map((m: any) => m.userId);
+        const approvedMemberIds = approved.map((m: any) => m.userId);
+        const approvedAdminIds = approved.filter((m: any) => m.role === 'admin' || m.role === 'owner').map((m: any) => m.userId);
+        const approvedModIds = approved.filter((m: any) => m.role === 'moderator').map((m: any) => m.userId);
 
-        const hasMemberRows = memRes.data !== null && memRes.data !== undefined;
-        const finalMembers = (hasMemberRows || membersList.length > 0) ? membersList : (Array.isArray(c.members) && c.members.length > 0 ? c.members : (c.ownerId ? [c.ownerId] : []));
-        const finalAdmins = (hasMemberRows || admins.length > 0) ? admins : (Array.isArray(c.admins) && c.admins.length > 0 ? c.admins : (c.ownerId ? [c.ownerId] : []));
-        const finalMods = hasMemberRows ? moderators : (Array.isArray(c.moderators) ? c.moderators : []);
-        const finalPending = hasMemberRows ? pending : (Array.isArray(c.pendingRequests) ? c.pendingRequests : []);
-        const finalBanned = hasMemberRows ? banned : (Array.isArray(c.bannedUsers) ? c.bannedUsers : []);
+        const memberIdSet = new Set<string>();
+        if (c.ownerId) memberIdSet.add(c.ownerId);
+        if (Array.isArray(c.members)) c.members.forEach((m: string) => m && memberIdSet.add(m));
+        approvedMemberIds.forEach((uid: string) => uid && memberIdSet.add(uid));
+        banned.forEach((bId: string) => memberIdSet.delete(bId));
+        const finalMembers = Array.from(memberIdSet);
+
+        const adminIdSet = new Set<string>();
+        if (c.ownerId) adminIdSet.add(c.ownerId);
+        if (Array.isArray(c.admins)) c.admins.forEach((a: string) => a && adminIdSet.add(a));
+        approvedAdminIds.forEach((uid: string) => uid && adminIdSet.add(uid));
+        banned.forEach((bId: string) => adminIdSet.delete(bId));
+        const finalAdmins = Array.from(adminIdSet);
+
+        const modIdSet = new Set<string>();
+        if (Array.isArray(c.moderators)) c.moderators.forEach((m: string) => m && modIdSet.add(m));
+        approvedModIds.forEach((uid: string) => uid && modIdSet.add(uid));
+        banned.forEach((bId: string) => modIdSet.delete(bId));
+        const finalMods = Array.from(modIdSet);
+
+        const pendingIdSet = new Set<string>();
+        if (Array.isArray(c.pendingRequests)) c.pendingRequests.forEach((p: string) => p && pendingIdSet.add(p));
+        pending.forEach((uid: string) => uid && pendingIdSet.add(uid));
+        finalMembers.forEach((mId: string) => pendingIdSet.delete(mId));
+        const finalPending = Array.from(pendingIdSet);
+
+        const bannedIdSet = new Set<string>();
+        if (Array.isArray(c.bannedUsers)) c.bannedUsers.forEach((b: string) => b && bannedIdSet.add(b));
+        banned.forEach((uid: string) => uid && bannedIdSet.add(uid));
+        const finalBanned = Array.from(bannedIdSet);
 
         const community: Community = {
           ...c,
@@ -3845,6 +3894,9 @@ export async function fetchCommunityPosts(communityId: string, currentUserId?: s
     return [];
   }
 
+  let posts: CommunityPost[] = [];
+  let isFromSupabase = false;
+
   if (isSupabaseConfigured() && supabase) {
     try {
       const { data, error } = await supabase
@@ -3853,22 +3905,47 @@ export async function fetchCommunityPosts(communityId: string, currentUserId?: s
         .eq('communityId', communityId)
         .order('createdAt', { ascending: false });
 
-      if (!error && data && data.length > 0) {
-        const sorted = data.sort((a, b) => {
-          if (a.isPinned && !b.isPinned) return -1;
-          if (!a.isPinned && b.isPinned) return 1;
-          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-        });
-        setLocalData(`comm_posts_${communityId}`, sorted);
-        return sorted;
+      if (!error && data) {
+        posts = data as CommunityPost[];
+        isFromSupabase = true;
+        setLocalData(`comm_posts_${communityId}`, posts);
+      } else if (error) {
+        console.warn('Supabase fetchCommunityPosts error, using fallback:', error);
       }
     } catch (err) {
-      console.warn('Supabase fetchCommunityPosts error:', err);
+      console.warn('Supabase fetchCommunityPosts exception, using fallback:', err);
     }
   }
 
-  const all = getLocalData<CommunityPost[]>('community_posts', SEED_COMMUNITY_POSTS);
-  return all.filter(p => p.communityId === communityId).sort((a, b) => {
+  if (!isFromSupabase) {
+    const all = getLocalData<CommunityPost[]>('community_posts', SEED_COMMUNITY_POSTS);
+    posts = all.filter(p => p.communityId === communityId);
+  }
+
+  // Enrich post author details (avatar, name, department) with live user directory
+  const allUsers = await fetchUsers();
+  const userMap = new Map(allUsers.map(u => [u.id, u]));
+
+  const enriched = posts.map(p => {
+    const author = p.authorId ? userMap.get(p.authorId) : null;
+    const authorPhoto = author?.photoURL;
+    const resolvedAvatar = isCustomPhoto(authorPhoto)
+      ? authorPhoto
+      : (isCustomPhoto(p.authorAvatar) ? p.authorAvatar : undefined);
+
+    const { mediaUrl, mediaUrls } = normalizePostMedia(p);
+
+    return {
+      ...p,
+      mediaUrl,
+      mediaUrls,
+      authorAvatar: resolvedAvatar,
+      authorName: author?.displayName || p.authorName || 'Campus Member',
+      authorDept: author?.department ? `${author.department} ${author.year || ''}` : p.authorDept
+    };
+  });
+
+  return enriched.sort((a, b) => {
     if (a.isPinned && !b.isPinned) return -1;
     if (!a.isPinned && b.isPinned) return 1;
     return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
@@ -3880,29 +3957,80 @@ export async function createCommunityPost(post: Omit<CommunityPost, 'id' | 'like
     throw new Error('Access denied: You must be an active, approved member to publish posts.');
   }
 
+  const { mediaUrl: firstMediaUrl, mediaUrls: rawMediaUrls } = normalizePostMedia(post);
+  const joinedMediaUrl = rawMediaUrls.length > 0 ? rawMediaUrls.join('|||') : (firstMediaUrl || undefined);
+
   const newPost: CommunityPost = {
     ...post,
     id: 'cpost_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+    mediaUrl: joinedMediaUrl || firstMediaUrl,
+    mediaUrls: rawMediaUrls,
     likes: [],
     likesCount: 0,
     commentsCount: 0,
-    createdAt: new Date().toISOString()
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
   };
 
   if (isSupabaseConfigured() && supabase) {
-    try {
-      await supabase.from('community_posts').insert([newPost]);
-    } catch (err) {
-      console.warn('Supabase createCommunityPost error:', err);
+    // 1. Ensure author exists in public.users to satisfy Foreign Key constraints
+    if (post.authorId) {
+      try {
+        const allUsers = await fetchUsers();
+        const authorUser = allUsers.find(u => u.id === post.authorId || u.uid === post.authorId);
+        await supabase.from('users').upsert([{
+          id: post.authorId,
+          uid: authorUser?.uid || post.authorId,
+          email: authorUser?.email || `${post.authorId}@campus.eatm.ac.in`,
+          displayName: post.authorName || authorUser?.displayName || 'Campus Member',
+          role: post.authorRole || authorUser?.role || 'student',
+          department: authorUser?.department || 'CSE',
+          status: 'active',
+          verified: true
+        }]);
+      } catch (userErr) {
+        console.warn('Author profile pre-sync note for community post:', userErr);
+      }
     }
+
+    // 2. Perform Supabase Insert
+    const { data, error } = await supabase.from('community_posts').insert([newPost]).select().single();
+    if (error) {
+      console.error('❌ Supabase createCommunityPost error:', error);
+      throw new Error(error.message || 'Failed to save community post to database.');
+    }
+
+    if (data) {
+      newPost.id = data.id;
+    }
+
+    // 3. Realtime Broadcast across community channel
+    try {
+      const channel = supabase.channel(`community_live_${post.communityId}`);
+      channel.send({
+        type: 'broadcast',
+        event: 'new_community_post',
+        payload: newPost
+      }).catch(() => {});
+    } catch {}
   }
 
+  // Update local cache
   const all = getLocalData<CommunityPost[]>('community_posts', SEED_COMMUNITY_POSTS);
-  setLocalData('community_posts', [newPost, ...all]);
+  setLocalData('community_posts', [newPost, ...all.filter(p => p.id !== newPost.id)]);
+
+  // Dispatch local window event for multi-tab and same-browser components
+  window.dispatchEvent(new CustomEvent('eatm_community_posts_changed', {
+    detail: { communityId: post.communityId, post: newPost }
+  }));
+
   return newPost;
 }
 
 export async function toggleCommunityPostLike(postId: string, userId: string): Promise<{ liked: boolean; count: number }> {
+  let liked = false;
+  let count = 0;
+
   if (isSupabaseConfigured() && supabase) {
     try {
       const { data: post } = await supabase.from('community_posts').select('*').eq('id', postId).maybeSingle();
@@ -3914,14 +4042,26 @@ export async function toggleCommunityPostLike(postId: string, userId: string): P
         } else {
           likes.push(userId);
         }
-        const likesCount = likes.length;
+        liked = !isLiked;
+        count = likes.length;
 
         await supabase.from('community_posts').update({
           likes,
-          likesCount
+          likesCount: count,
+          updatedAt: new Date().toISOString()
         }).eq('id', postId);
 
-        return { liked: !isLiked, count: likesCount };
+        // Broadcast like update
+        try {
+          const channel = supabase.channel(`community_live_${post.communityId}`);
+          channel.send({
+            type: 'broadcast',
+            event: 'post_like_update',
+            payload: { postId, likes, likesCount: count }
+          }).catch(() => {});
+        } catch {}
+
+        return { liked, count };
       }
     } catch (err) {
       console.warn('Supabase toggleCommunityPostLike error:', err);
@@ -3947,7 +4087,22 @@ export async function toggleCommunityPostLike(postId: string, userId: string): P
 export async function deleteCommunityPost(postId: string, userId: string): Promise<boolean> {
   if (isSupabaseConfigured() && supabase) {
     try {
-      await supabase.from('community_posts').delete().eq('id', postId);
+      const { data: post } = await supabase.from('community_posts').select('communityId').eq('id', postId).maybeSingle();
+      const commId = post?.communityId;
+
+      const { error } = await supabase.from('community_posts').delete().eq('id', postId);
+      if (error) {
+        console.error('Supabase deleteCommunityPost error:', error);
+      } else if (commId) {
+        try {
+          const channel = supabase.channel(`community_live_${commId}`);
+          channel.send({
+            type: 'broadcast',
+            event: 'post_deleted',
+            payload: { postId }
+          }).catch(() => {});
+        } catch {}
+      }
     } catch (err) {
       console.warn('Supabase deleteCommunityPost error:', err);
     }
@@ -3960,6 +4115,9 @@ export async function deleteCommunityPost(postId: string, userId: string): Promi
 }
 
 export async function fetchCommunityComments(postId: string): Promise<CommunityComment[]> {
+  let comments: CommunityComment[] = [];
+  let isFromSupabase = false;
+
   if (isSupabaseConfigured() && supabase) {
     try {
       const { data, error } = await supabase
@@ -3968,14 +4126,37 @@ export async function fetchCommunityComments(postId: string): Promise<CommunityC
         .eq('postId', postId)
         .order('createdAt', { ascending: true });
 
-      if (!error && data) return data;
+      if (!error && data) {
+        comments = data as CommunityComment[];
+        isFromSupabase = true;
+      }
     } catch (err) {
       console.warn('Supabase fetchCommunityComments error:', err);
     }
   }
 
-  const all = getLocalData<CommunityComment[]>('community_comments', SEED_COMMUNITY_COMMENTS);
-  return all.filter(c => c.postId === postId).sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  if (!isFromSupabase) {
+    const all = getLocalData<CommunityComment[]>('community_comments', SEED_COMMUNITY_COMMENTS);
+    comments = all.filter(c => c.postId === postId);
+  }
+
+  // Enrich author avatars from user directory
+  const allUsers = await fetchUsers();
+  const userMap = new Map(allUsers.map(u => [u.id, u]));
+
+  return comments.map(c => {
+    const author = c.authorId ? userMap.get(c.authorId) : null;
+    const authorPhoto = author?.photoURL;
+    const resolvedAvatar = isCustomPhoto(authorPhoto)
+      ? authorPhoto
+      : (isCustomPhoto(c.authorAvatar) ? c.authorAvatar : undefined);
+
+    return {
+      ...c,
+      authorAvatar: resolvedAvatar,
+      authorName: author?.displayName || c.authorName || 'Campus Member'
+    };
+  }).sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 }
 
 export async function createCommunityComment(comment: Omit<CommunityComment, 'id' | 'createdAt'>): Promise<CommunityComment> {
@@ -3991,11 +4172,38 @@ export async function createCommunityComment(comment: Omit<CommunityComment, 'id
 
   if (isSupabaseConfigured() && supabase) {
     try {
+      if (comment.authorId) {
+        try {
+          const allUsers = await fetchUsers();
+          const authorUser = allUsers.find(u => u.id === comment.authorId || u.uid === comment.authorId);
+          await supabase.from('users').upsert([{
+            id: comment.authorId,
+            uid: authorUser?.uid || comment.authorId,
+            email: authorUser?.email || `${comment.authorId}@campus.eatm.ac.in`,
+            displayName: comment.authorName || authorUser?.displayName || 'Campus Member',
+            role: 'student',
+            department: 'CSE',
+            status: 'active',
+            verified: true
+          }]);
+        } catch {}
+      }
+
       await supabase.from('community_comments').insert([newComment]);
       // Increment comment count on post
       const { data: post } = await supabase.from('community_posts').select('commentsCount').eq('id', comment.postId).maybeSingle();
       const currentCount = post?.commentsCount || 0;
       await supabase.from('community_posts').update({ commentsCount: currentCount + 1 }).eq('id', comment.postId);
+
+      // Broadcast comment on channel
+      try {
+        const channel = supabase.channel(`community_live_${comment.communityId}`);
+        channel.send({
+          type: 'broadcast',
+          event: 'new_community_comment',
+          payload: newComment
+        }).catch(() => {});
+      } catch {}
     } catch (err) {
       console.warn('Supabase createCommunityComment error:', err);
     }
@@ -4022,6 +4230,9 @@ export async function fetchCommunityDiscussions(communityId: string, currentUser
     return [];
   }
 
+  let discussions: CommunityDiscussion[] = [];
+  let isFromSupabase = false;
+
   if (isSupabaseConfigured() && supabase) {
     try {
       const { data, error } = await supabase
@@ -4030,22 +4241,41 @@ export async function fetchCommunityDiscussions(communityId: string, currentUser
         .eq('communityId', communityId)
         .order('createdAt', { ascending: false });
 
-      if (!error && data && data.length > 0) {
-        const sorted = data.sort((a, b) => {
-          if (a.isPinned && !b.isPinned) return -1;
-          if (!a.isPinned && b.isPinned) return 1;
-          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-        });
-        setLocalData(`comm_discs_${communityId}`, sorted);
-        return sorted;
+      if (!error && data) {
+        discussions = data as CommunityDiscussion[];
+        isFromSupabase = true;
+        setLocalData(`comm_discs_${communityId}`, discussions);
       }
     } catch (err) {
       console.warn('Supabase fetchCommunityDiscussions error:', err);
     }
   }
 
-  const all = getLocalData<CommunityDiscussion[]>('community_discussions', SEED_COMMUNITY_DISCUSSIONS);
-  return all.filter(d => d.communityId === communityId).sort((a, b) => {
+  if (!isFromSupabase) {
+    const all = getLocalData<CommunityDiscussion[]>('community_discussions', SEED_COMMUNITY_DISCUSSIONS);
+    discussions = all.filter(d => d.communityId === communityId);
+  }
+
+  // Enrich discussion authors from user directory
+  const allUsers = await fetchUsers();
+  const userMap = new Map(allUsers.map(u => [u.id, u]));
+
+  const enriched = discussions.map(d => {
+    const author = d.authorId ? userMap.get(d.authorId) : null;
+    const authorPhoto = author?.photoURL;
+    const resolvedAvatar = isCustomPhoto(authorPhoto)
+      ? authorPhoto
+      : (isCustomPhoto(d.authorAvatar) ? d.authorAvatar : undefined);
+
+    return {
+      ...d,
+      authorAvatar: resolvedAvatar,
+      authorName: author?.displayName || d.authorName || 'Campus Member',
+      authorDept: author?.department ? `${author.department} ${author.year || ''}` : d.authorDept
+    };
+  });
+
+  return enriched.sort((a, b) => {
     if (a.isPinned && !b.isPinned) return -1;
     if (!a.isPinned && b.isPinned) return 1;
     return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
@@ -4068,7 +4298,33 @@ export async function createCommunityDiscussion(disc: Omit<CommunityDiscussion, 
 
   if (isSupabaseConfigured() && supabase) {
     try {
+      if (disc.authorId) {
+        try {
+          const allUsers = await fetchUsers();
+          const authorUser = allUsers.find(u => u.id === disc.authorId || u.uid === disc.authorId);
+          await supabase.from('users').upsert([{
+            id: disc.authorId,
+            uid: authorUser?.uid || disc.authorId,
+            email: authorUser?.email || `${disc.authorId}@campus.eatm.ac.in`,
+            displayName: disc.authorName || authorUser?.displayName || 'Campus Member',
+            role: disc.authorRole || 'student',
+            department: authorUser?.department || 'CSE',
+            status: 'active',
+            verified: true
+          }]);
+        } catch {}
+      }
+
       await supabase.from('community_discussions').insert([newDisc]);
+
+      try {
+        const channel = supabase.channel(`community_live_${disc.communityId}`);
+        channel.send({
+          type: 'broadcast',
+          event: 'new_community_discussion',
+          payload: newDisc
+        }).catch(() => {});
+      } catch {}
     } catch (err) {
       console.warn('Supabase createCommunityDiscussion error:', err);
     }
@@ -4098,6 +4354,15 @@ export async function toggleCommunityDiscussionLike(discId: string, userId: stri
           likesCount
         }).eq('id', discId);
 
+        try {
+          const channel = supabase.channel(`community_live_${disc.communityId}`);
+          channel.send({
+            type: 'broadcast',
+            event: 'discussion_like_update',
+            payload: { discId, likes, likesCount }
+          }).catch(() => {});
+        } catch {}
+
         return { liked: !isLiked, count: likesCount };
       }
     } catch (err) {
@@ -4122,6 +4387,9 @@ export async function toggleCommunityDiscussionLike(discId: string, userId: stri
 }
 
 export async function fetchCommunityDiscussionComments(discId: string): Promise<CommunityDiscussionComment[]> {
+  let comments: CommunityDiscussionComment[] = [];
+  let isFromSupabase = false;
+
   if (isSupabaseConfigured() && supabase) {
     try {
       const { data, error } = await supabase
@@ -4130,14 +4398,36 @@ export async function fetchCommunityDiscussionComments(discId: string): Promise<
         .eq('discussionId', discId)
         .order('createdAt', { ascending: true });
 
-      if (!error && data) return data;
+      if (!error && data) {
+        comments = data as CommunityDiscussionComment[];
+        isFromSupabase = true;
+      }
     } catch (err) {
       console.warn('Supabase fetchCommunityDiscussionComments error:', err);
     }
   }
 
-  const all = getLocalData<CommunityDiscussionComment[]>('community_disc_comments', SEED_COMMUNITY_DISCUSSION_COMMENTS);
-  return all.filter(c => c.discussionId === discId).sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  if (!isFromSupabase) {
+    const all = getLocalData<CommunityDiscussionComment[]>('community_disc_comments', SEED_COMMUNITY_DISCUSSION_COMMENTS);
+    comments = all.filter(c => c.discussionId === discId);
+  }
+
+  const allUsers = await fetchUsers();
+  const userMap = new Map(allUsers.map(u => [u.id, u]));
+
+  return comments.map(c => {
+    const author = c.authorId ? userMap.get(c.authorId) : null;
+    const authorPhoto = author?.photoURL;
+    const resolvedAvatar = isCustomPhoto(authorPhoto)
+      ? authorPhoto
+      : (isCustomPhoto(c.authorAvatar) ? c.authorAvatar : undefined);
+
+    return {
+      ...c,
+      authorAvatar: resolvedAvatar,
+      authorName: author?.displayName || c.authorName || 'Campus Member'
+    };
+  }).sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 }
 
 export async function createCommunityDiscussionComment(comment: Omit<CommunityDiscussionComment, 'id' | 'createdAt'>): Promise<CommunityDiscussionComment> {
@@ -4153,6 +4443,23 @@ export async function createCommunityDiscussionComment(comment: Omit<CommunityDi
 
   if (isSupabaseConfigured() && supabase) {
     try {
+      if (comment.authorId) {
+        try {
+          const allUsers = await fetchUsers();
+          const authorUser = allUsers.find(u => u.id === comment.authorId || u.uid === comment.authorId);
+          await supabase.from('users').upsert([{
+            id: comment.authorId,
+            uid: authorUser?.uid || comment.authorId,
+            email: authorUser?.email || `${comment.authorId}@campus.eatm.ac.in`,
+            displayName: comment.authorName || authorUser?.displayName || 'Campus Member',
+            role: 'student',
+            department: 'CSE',
+            status: 'active',
+            verified: true
+          }]);
+        } catch {}
+      }
+
       await supabase.from('community_discussion_comments').insert([newCmt]);
       const { data: disc } = await supabase.from('community_discussions').select('commentsCount').eq('id', comment.discussionId).maybeSingle();
       const currentCount = disc?.commentsCount || 0;
@@ -4191,9 +4498,9 @@ export async function fetchCommunityMessages(communityId: string, currentUserId?
         .eq('communityId', communityId)
         .order('createdAt', { ascending: true });
 
-      if (!error && data && data.length > 0) {
+      if (!error && data) {
         setLocalData(`comm_msgs_${communityId}`, data);
-        return data;
+        return data as CommunityMessage[];
       }
     } catch (err) {
       console.warn('Supabase fetchCommunityMessages error:', err);
@@ -4217,6 +4524,23 @@ export async function sendCommunityMessage(msg: Omit<CommunityMessage, 'id' | 'c
 
   if (isSupabaseConfigured() && supabase) {
     try {
+      if (msg.senderId) {
+        try {
+          const allUsers = await fetchUsers();
+          const senderUser = allUsers.find(u => u.id === msg.senderId || u.uid === msg.senderId);
+          await supabase.from('users').upsert([{
+            id: msg.senderId,
+            uid: senderUser?.uid || msg.senderId,
+            email: senderUser?.email || `${msg.senderId}@campus.eatm.ac.in`,
+            displayName: msg.senderName || senderUser?.displayName || 'Campus Member',
+            role: 'student',
+            department: 'CSE',
+            status: 'active',
+            verified: true
+          }]);
+        } catch {}
+      }
+
       await supabase.from('community_messages').insert([newMsg]);
       
       // Broadcast over live Supabase Realtime WebSocket channel for cross-browser sync
@@ -4225,7 +4549,7 @@ export async function sendCommunityMessage(msg: Omit<CommunityMessage, 'id' | 'c
         type: 'broadcast',
         event: 'community_chat_message',
         payload: newMsg
-      });
+      }).catch(() => {});
     } catch (err) {
       console.warn('Supabase sendCommunityMessage error:', err);
     }
@@ -4293,9 +4617,9 @@ export async function fetchCommunityResources(communityId: string, currentUserId
         .eq('communityId', communityId)
         .order('createdAt', { ascending: false });
 
-      if (!error && data && data.length > 0) {
+      if (!error && data) {
         setLocalData(`comm_res_${communityId}`, data);
-        return data;
+        return data as CommunityResource[];
       }
     } catch (err) {
       console.warn('Supabase fetchCommunityResources error:', err);
@@ -4316,7 +4640,33 @@ export async function uploadCommunityResource(resource: Omit<CommunityResource, 
 
   if (isSupabaseConfigured() && supabase) {
     try {
+      if (resource.uploadedBy) {
+        try {
+          const allUsers = await fetchUsers();
+          const uploader = allUsers.find(u => u.id === resource.uploadedBy || u.uid === resource.uploadedBy);
+          await supabase.from('users').upsert([{
+            id: resource.uploadedBy,
+            uid: uploader?.uid || resource.uploadedBy,
+            email: uploader?.email || `${resource.uploadedBy}@campus.eatm.ac.in`,
+            displayName: resource.uploadedByName || uploader?.displayName || 'Campus Member',
+            role: 'student',
+            department: 'CSE',
+            status: 'active',
+            verified: true
+          }]);
+        } catch {}
+      }
+
       await supabase.from('community_resources').insert([newRes]);
+
+      try {
+        const channel = supabase.channel(`community_live_${resource.communityId}`);
+        channel.send({
+          type: 'broadcast',
+          event: 'new_community_resource',
+          payload: newRes
+        }).catch(() => {});
+      } catch {}
     } catch (err) {
       console.warn('Supabase uploadCommunityResource error:', err);
     }
@@ -4358,9 +4708,9 @@ export async function fetchCommunityEvents(communityId: string, currentUserId?: 
         .eq('communityId', communityId)
         .order('date', { ascending: true });
 
-      if (!error && data && data.length > 0) {
+      if (!error && data) {
         setLocalData(`comm_events_${communityId}`, data);
-        return data;
+        return data as CommunityEventItem[];
       }
     } catch (err) {
       console.warn('Supabase fetchCommunityEvents error:', err);
@@ -4383,6 +4733,23 @@ export async function createCommunityEvent(event: Omit<CommunityEventItem, 'id' 
 
   if (isSupabaseConfigured() && supabase) {
     try {
+      if (creatorId) {
+        try {
+          const allUsers = await fetchUsers();
+          const creator = allUsers.find(u => u.id === creatorId || u.uid === creatorId);
+          await supabase.from('users').upsert([{
+            id: creatorId,
+            uid: creator?.uid || creatorId,
+            email: creator?.email || `${creatorId}@campus.eatm.ac.in`,
+            displayName: event.creatorName || creator?.displayName || 'Campus Member',
+            role: 'student',
+            department: 'CSE',
+            status: 'active',
+            verified: true
+          }]);
+        } catch {}
+      }
+
       await supabase.from('community_events').insert([{
         id: newEvent.id,
         communityId: newEvent.communityId,
@@ -4398,6 +4765,15 @@ export async function createCommunityEvent(event: Omit<CommunityEventItem, 'id' 
         attendeesCount: 1,
         attendees: newEvent.attendees
       }]);
+
+      try {
+        const channel = supabase.channel(`community_live_${newEvent.communityId}`);
+        channel.send({
+          type: 'broadcast',
+          event: 'new_community_event',
+          payload: newEvent
+        }).catch(() => {});
+      } catch {}
     } catch (err) {
       console.warn('Supabase createCommunityEvent error:', err);
     }
@@ -4512,6 +4888,15 @@ export async function voteCommunityPoll(
           createdAt: new Date().toISOString()
         }]);
 
+        try {
+          const channel = supabase.channel(`community_live_${communityId}`);
+          channel.send({
+            type: 'broadcast',
+            event: 'poll_voted',
+            payload: { postId: targetPost.id, poll: targetPost.poll }
+          }).catch(() => {});
+        } catch {}
+
         return targetPost;
       }
     } catch (err) {
@@ -4569,7 +4954,7 @@ export async function fetchCommunityReports(communityId: string): Promise<Commun
         .eq('communityId', communityId)
         .order('createdAt', { ascending: false });
 
-      if (!error && data) return data;
+      if (!error && data) return data as CommunityReport[];
     } catch (err) {
       console.warn('Supabase fetchCommunityReports error:', err);
     }
@@ -4652,7 +5037,7 @@ export async function fetchCommunityModerationActions(communityId: string): Prom
         .eq('communityId', communityId)
         .order('createdAt', { ascending: false });
 
-      if (!error && data) return data;
+      if (!error && data) return data as CommunityModerationAction[];
     } catch (err) {
       console.warn('Supabase fetchCommunityModerationActions error:', err);
     }
@@ -4672,8 +5057,30 @@ export function subscribeToCommunityLiveEvents(
 ): () => void {
   let channel: any = null;
 
+  const localPostListener = (e: CustomEvent<{ communityId: string; post: CommunityPost }>) => {
+    if (e.detail?.communityId === communityId) {
+      onUpdate();
+    }
+  };
+
+  const localCommListener = () => {
+    onUpdate();
+  };
+
+  window.addEventListener('eatm_community_posts_changed', localPostListener as EventListener);
+  window.addEventListener('eatm_communities_changed', localCommListener as EventListener);
+
   if (isSupabaseConfigured() && supabase) {
     channel = supabase.channel(`community_live_${communityId}`)
+      .on('broadcast', { event: 'new_community_post' }, () => onUpdate())
+      .on('broadcast', { event: 'post_like_update' }, () => onUpdate())
+      .on('broadcast', { event: 'post_deleted' }, () => onUpdate())
+      .on('broadcast', { event: 'new_community_comment' }, () => onUpdate())
+      .on('broadcast', { event: 'new_community_discussion' }, () => onUpdate())
+      .on('broadcast', { event: 'discussion_like_update' }, () => onUpdate())
+      .on('broadcast', { event: 'new_community_resource' }, () => onUpdate())
+      .on('broadcast', { event: 'new_community_event' }, () => onUpdate())
+      .on('broadcast', { event: 'poll_voted' }, () => onUpdate())
       .on('postgres_changes', {
         event: '*',
         schema: 'public',
@@ -4710,10 +5117,18 @@ export function subscribeToCommunityLiveEvents(
         table: 'communities',
         filter: `id=eq.${communityId}`
       }, () => onUpdate())
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'community_reports',
+        filter: `communityId=eq.${communityId}`
+      }, () => onUpdate())
       .subscribe();
   }
 
   return () => {
+    window.removeEventListener('eatm_community_posts_changed', localPostListener as EventListener);
+    window.removeEventListener('eatm_communities_changed', localCommListener as EventListener);
     if (channel && supabase) {
       supabase.removeChannel(channel);
     }
